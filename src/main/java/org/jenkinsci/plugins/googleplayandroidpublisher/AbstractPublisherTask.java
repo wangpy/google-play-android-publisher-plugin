@@ -48,6 +48,7 @@ public abstract class AbstractPublisherTask<V> implements Callable<V, UploadExce
         }
     }
 
+    /** Creates a new edit, assigning the {@link #editId}. Any previous edit ID will be lost. */
     protected final void createEdit(String applicationId) throws IOException {
         editId = editService.insert(applicationId, null).execute().getId();
     }

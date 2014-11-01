@@ -305,7 +305,7 @@ public class ApkPublisher extends GooglePlayPublisher {
                             getRolloutPercentageValue(env), getExpandedRecentChangesList(env)));
         } catch (UploadException e) {
             logger.println(String.format("Upload failed: %s", getPublisherErrorMessage(e)));
-            logger.println("- No changes were applied to the Google Play account");
+            logger.println("- No changes have been applied to the Google Play account");
         }
         return false;
     }
