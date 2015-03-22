@@ -2,6 +2,7 @@ package org.jenkinsci.plugins.googleplayandroidpublisher;
 
 import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.services.androidpublisher.AndroidPublisher;
+import com.google.common.base.Throwables;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import hudson.EnvVars;
 import hudson.FilePath;
@@ -70,6 +71,20 @@ public class Util {
     /** @return The given value with variables expanded and trimmed; {@code null} if that results in an empty string. */
     static String expand(EnvVars env, String value) {
         return fixEmptyAndTrim(env.expand(value));
+    }
+
+    /** @return A user-friendly(ish) Google Play API error message, if one could be found in the given exception. */
+    static String getPublisherErrorMessage(UploadException e) {
+        if (e instanceof PublisherApiException) {
+            // TODO: Here we could map error reasons like "apkUpgradeVersionConflict" to better (and localised) text
+            String message = ((PublisherApiException) e).getDetailsMessage();
+            if (message != null && message.trim().length() > 0) {
+                return message;
+            }
+        }
+
+        // Otherwise print the whole stacktrace, as it's something unrelated to this plugin
+        return Throwables.getStackTraceAsString(e);
     }
 
     /**

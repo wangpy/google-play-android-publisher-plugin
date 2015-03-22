@@ -49,6 +49,7 @@ import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.REGEX_VARIAB
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.SUPPORTED_LANGUAGES;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.expand;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getApplicationId;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getPublisherErrorMessage;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getVersionCode;
 
 /** Uploads Android application files to the Google Play Developer Console. */
@@ -298,7 +299,7 @@ public class ApkPublisher extends GooglePlayPublisher {
 
         // Upload the file(s) from the workspace
         try {
-            GoogleRobotCredentials credentials = getServiceAccountCredentials();
+            GoogleRobotCredentials credentials = getCredentialsHandler().getServiceAccountCredentials();
             return build.getWorkspace()
                     .act(new ApkUploadTask(listener, credentials, applicationId, apkFiles, expansionFiles,
                             usePreviousExpansionFilesIfMissing, fromConfigValue(getCanonicalTrackName(env)),
@@ -417,7 +418,7 @@ public class ApkPublisher extends GooglePlayPublisher {
             final double lowest = ROLLOUT_PERCENTAGES[0];
             final double highest = DEFAULT_PERCENTAGE;
             double pct = tryParseNumber(value.replace("%", ""), highest).doubleValue();
-            if (Double.compare(pct, 0.5) < 0 || Double.compare(pct, DEFAULT_PERCENTAGE) > 0) {
+            if (Double.compare(pct, lowest) < 0 || Double.compare(pct, DEFAULT_PERCENTAGE) > 0) {
                 return FormValidation.error("Percentage value must be between %s and %s%%",
                         PERCENTAGE_FORMATTER.format(lowest), PERCENTAGE_FORMATTER.format(highest));
             }

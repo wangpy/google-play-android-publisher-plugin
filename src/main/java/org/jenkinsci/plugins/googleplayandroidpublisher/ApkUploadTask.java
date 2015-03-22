@@ -7,7 +7,6 @@ import com.google.api.services.androidpublisher.model.Apk;
 import com.google.api.services.androidpublisher.model.ApkListing;
 import com.google.api.services.androidpublisher.model.ExpansionFile;
 import com.google.api.services.androidpublisher.model.ExpansionFilesUploadResponse;
-import com.google.api.services.androidpublisher.model.Track;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import hudson.FilePath;
 import hudson.model.BuildListener;
@@ -21,33 +20,22 @@ import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.SortedSet;
 import java.util.TreeSet;
 
-import static hudson.Util.join;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.ApkPublisher.ExpansionFileSet;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.ApkPublisher.PERCENTAGE_FORMATTER;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.ApkPublisher.RecentChanges;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.ApkPublisher.TYPE_MAIN;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.ApkPublisher.TYPE_PATCH;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.ALPHA;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.BETA;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.PRODUCTION;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.ROLLOUT;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getApkMetadata;
 
-class ApkUploadTask extends AbstractPublisherTask<Boolean> {
+class ApkUploadTask extends TrackPublisherTask<Boolean> {
 
-    private final String applicationId;
     private final List<FilePath> apkFiles;
     private final Map<Integer, ExpansionFileSet> expansionFiles;
     private final boolean usePreviousExpansionFilesIfMissing;
-    private final ReleaseTrack track;
-    private final double rolloutFraction;
     private final RecentChanges[] recentChangeList;
     private final List<Integer> existingVersionCodes;
     private int latestMainExpansionFileVersionCode;
@@ -57,15 +45,26 @@ class ApkUploadTask extends AbstractPublisherTask<Boolean> {
             List<FilePath> apkFiles, Map<Integer, ExpansionFileSet> expansionFiles,
             boolean usePreviousExpansionFilesIfMissing, ReleaseTrack track, double rolloutPercentage,
             ApkPublisher.RecentChanges[] recentChangeList) {
-        super(listener, credentials);
-        this.applicationId = applicationId;
+        super(listener, credentials, applicationId, track, rolloutPercentage);
         this.apkFiles = apkFiles;
         this.expansionFiles = expansionFiles;
         this.usePreviousExpansionFilesIfMissing = usePreviousExpansionFilesIfMissing;
-        this.track = track;
-        this.rolloutFraction = rolloutPercentage / 100d;
         this.recentChangeList = recentChangeList;
         this.existingVersionCodes = new ArrayList<Integer>();
+    }
+
+    @Override
+    protected int getNewestVersionCodeAllowed(Collection<Integer> versionCodes) {
+        // Sort the version codes, so we know which is the lowest
+        final TreeSet<Integer> sortedVersionCodes = new TreeSet<Integer>(versionCodes);
+
+        // Remove all APKs older than those we have just uploaded
+        return sortedVersionCodes.first();
+    }
+
+    @Override
+    protected boolean shouldReducingRolloutPercentageCauseFailure() {
+        return false;
     }
 
     protected Boolean execute() throws IOException, InterruptedException, UploadException {
@@ -80,7 +79,7 @@ class ApkUploadTask extends AbstractPublisherTask<Boolean> {
 
         // Upload each of the APKs
         logger.println(String.format("Uploading APK(s) with application ID: %s", applicationId));
-        final SortedSet<Integer> uploadedVersionCodes = new TreeSet<Integer>();
+        final ArrayList<Integer> uploadedVersionCodes = new ArrayList<Integer>();
         for (FilePath apkFile : apkFiles) {
             final ApkMeta metadata = getApkMetadata(new File(apkFile.getRemote()));
             final String apkSha1Hash = getSha1Hash(apkFile.getRemote());
@@ -121,60 +120,8 @@ class ApkUploadTask extends AbstractPublisherTask<Boolean> {
             }
         }
 
-        // Prepare to assign the APK(s) to the desired track
-        final Track trackToAssign = new Track();
-        trackToAssign.setTrack(track.getApiValue());
-        trackToAssign.setVersionCodes(new ArrayList<Integer>(uploadedVersionCodes));
-        if (track == PRODUCTION) {
-            // Remove older APKs from the beta track
-            unassignOlderApks(BETA, uploadedVersionCodes.first());
-
-            // If there's an existing rollout, we need to clear it out so a new production/rollout APK can be added
-            final Track rolloutTrack = fetchTrack(ROLLOUT);
-            if (rolloutTrack != null) {
-                logger.println(String.format("Removing existing staged rollout APK(s): %s",
-                        join(rolloutTrack.getVersionCodes(), ", ")));
-                rolloutTrack.setVersionCodes(null);
-                editService.tracks().update(applicationId, editId, rolloutTrack.getTrack(), rolloutTrack).execute();
-            }
-
-            // Check whether we want a new staged rollout
-            if (rolloutFraction < 1) {
-                // Override the track name
-                trackToAssign.setTrack(ROLLOUT.getApiValue());
-                trackToAssign.setUserFraction(rolloutFraction);
-
-                // Check whether we also need to override the desired rollout percentage
-                Double currentFraction = rolloutTrack == null ? rolloutFraction : rolloutTrack.getUserFraction();
-                if (currentFraction != null && currentFraction > rolloutFraction) {
-                    logger.println(String.format("Staged rollout percentage will remain at %s%% rather than the " +
-                                    "configured %s%% because there were APK(s) already in a staged rollout, and " +
-                                    "Google Play makes it impossible to reduce the rollout percentage in this case",
-                            PERCENTAGE_FORMATTER.format(currentFraction * 100),
-                            PERCENTAGE_FORMATTER.format(rolloutFraction * 100)));
-                    trackToAssign.setUserFraction(currentFraction);
-                }
-            }
-        } else if (rolloutFraction < 1) {
-            logger.println("Ignoring staged rollout percentage as it only applies to production releases");
-        }
-
-        // Remove older APKs from the alpha track
-        unassignOlderApks(ALPHA, uploadedVersionCodes.first());
-
-        // Assign the new APK(s) to the desired track
-        if (trackToAssign.getTrack().equals(ROLLOUT.getApiValue())) {
-            logger.println(
-                    String.format("Assigning uploaded APK(s) to be rolled out to %s%% of production users...",
-                            PERCENTAGE_FORMATTER.format(trackToAssign.getUserFraction() * 100)));
-        } else {
-            logger.println(String.format("Assigning uploaded APK(s) to %s release track...", track));
-        }
-        Track updatedTrack = editService.tracks()
-                .update(applicationId, editId, trackToAssign.getTrack(), trackToAssign)
-                .execute();
-        logger.println(String.format("The %s release track will now contain the APK(s): %s\n", track,
-                join(updatedTrack.getVersionCodes(), ", ")));
+        // Assign all uploaded APKs to the configured track
+        assignApksToTrack(uploadedVersionCodes, track, rolloutFraction);
 
         // Apply recent changes text to the APK(s), if provided
         if (recentChangeList != null) {
@@ -330,39 +277,6 @@ class ApkUploadTask extends AbstractPublisherTask<Boolean> {
     /** @return The SHA-1 hash of the given file, as a lower-case hex string. */
     private static String getSha1Hash(String path) throws IOException {
         return DigestUtils.shaHex(new FileInputStream(path)).toLowerCase(Locale.ENGLISH);
-    }
-
-    /** @return The desired track fetched from the API, or {@code null} if the track has no APKs assigned. */
-    private Track fetchTrack(ReleaseTrack track) throws IOException {
-        final List<Track> existingTracks = editService.tracks().list(applicationId, editId).execute().getTracks();
-        for (Track t : existingTracks) {
-            if (t.getTrack().equals(track.getApiValue())) {
-                return t;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Removes old version codes from the given track on the server, if it exists.
-     *
-     * @param track The track whose assigned versions should be changed.
-     * @param maxVersionCode The maximum allowed version code; all lower than this will be removed from the track.
-     */
-    private void unassignOlderApks(ReleaseTrack track, int maxVersionCode) throws IOException {
-        final Track trackToAssign = fetchTrack(track);
-        if (trackToAssign == null || trackToAssign.getVersionCodes() == null) {
-            return;
-        }
-
-        List<Integer> versionCodes = new ArrayList<Integer>(trackToAssign.getVersionCodes());
-        for (Iterator<Integer> it = versionCodes.iterator(); it.hasNext(); ) {
-            if (it.next() < maxVersionCode) {
-                it.remove();
-            }
-        }
-        trackToAssign.setVersionCodes(versionCodes);
-        editService.tracks().update(applicationId, editId, trackToAssign.getTrack(), trackToAssign).execute();
     }
 
 }
