@@ -13,7 +13,7 @@
 
   <name>Google Play Android Publisher Plugin</name>
   <url>https://wiki.jenkins-ci.org/display/JENKINS/Google+Play+Android+Publisher+Plugin</url>
-  <description>Enables Jenkins to upload Android apps (APK files) and related info to Google Play.</description>
+  <description>Enables Jenkins to upload Android apps (APK files) to Google Play and to manage related info.</description>
   <developers>
     <developer>
       <id>orrc</id>
