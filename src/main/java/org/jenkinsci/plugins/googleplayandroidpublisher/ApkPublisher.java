@@ -301,7 +301,7 @@ public class ApkPublisher extends GooglePlayPublisher {
         try {
             GoogleRobotCredentials credentials = getCredentialsHandler().getServiceAccountCredentials();
             return build.getWorkspace()
-                    .act(new ApkUploadTask(listener, credentials, applicationId, apkFiles, expansionFiles,
+                    .act(new ApkUploadTask(listener, credentials, applicationId, ws, apkFiles, expansionFiles,
                             usePreviousExpansionFilesIfMissing, fromConfigValue(getCanonicalTrackName(env)),
                             getRolloutPercentageValue(env), getExpandedRecentChangesList(env)));
         } catch (UploadException e) {

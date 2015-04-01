@@ -33,6 +33,7 @@ import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getApkMetada
 
 class ApkUploadTask extends TrackPublisherTask<Boolean> {
 
+    private final FilePath workspace;
     private final List<FilePath> apkFiles;
     private final Map<Integer, ExpansionFileSet> expansionFiles;
     private final boolean usePreviousExpansionFilesIfMissing;
@@ -42,10 +43,11 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
     private int latestPatchExpansionFileVersionCode;
 
     ApkUploadTask(BuildListener listener, GoogleRobotCredentials credentials, String applicationId,
-            List<FilePath> apkFiles, Map<Integer, ExpansionFileSet> expansionFiles,
+            FilePath workspace, List<FilePath> apkFiles, Map<Integer, ExpansionFileSet> expansionFiles,
             boolean usePreviousExpansionFilesIfMissing, ReleaseTrack track, double rolloutPercentage,
             ApkPublisher.RecentChanges[] recentChangeList) {
         super(listener, credentials, applicationId, track, rolloutPercentage);
+        this.workspace = workspace;
         this.apkFiles = apkFiles;
         this.expansionFiles = expansionFiles;
         this.usePreviousExpansionFilesIfMissing = usePreviousExpansionFilesIfMissing;
@@ -78,14 +80,14 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
         }
 
         // Upload each of the APKs
-        logger.println(String.format("Uploading APK(s) with application ID: %s", applicationId));
+        logger.println(String.format("Uploading %d APK(s) with application ID: %s", apkFiles.size(), applicationId));
         final ArrayList<Integer> uploadedVersionCodes = new ArrayList<Integer>();
         for (FilePath apkFile : apkFiles) {
             final ApkMeta metadata = getApkMetadata(new File(apkFile.getRemote()));
             final String apkSha1Hash = getSha1Hash(apkFile.getRemote());
 
             // Log some useful information about the file that will be uploaded
-            logger.println(String.format("      APK file: %s", apkFile.getName()));
+            logger.println(String.format("      APK file: %s", getRelativeFileName(apkFile)));
             logger.println(String.format("    SHA-1 hash: %s", apkSha1Hash));
             logger.println(String.format("   versionCode: %d", metadata.getVersionCode()));
             logger.println(String.format(" minSdkVersion: %s", metadata.getMinSdkVersion()));
@@ -272,6 +274,19 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
 
         // The upload succeeded if the current list of version codes intersects with the list we tried to upload
         return uploadedVersionCodes.removeAll(currentVersionCodes);
+    }
+
+    /** @return The path to the given file, relative to the build workspace. */
+    private String getRelativeFileName(FilePath file) {
+        final String ws = workspace.getRemote();
+        String path = file.getRemote();
+        if (path.startsWith(ws) && path.length() > ws.length()) {
+            path = path.substring(ws.length());
+        }
+        if (path.charAt(0) == File.separatorChar && path.length() > 1) {
+            path = path.substring(1);
+        }
+        return path;
     }
 
     /** @return The SHA-1 hash of the given file, as a lower-case hex string. */

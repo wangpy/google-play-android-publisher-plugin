@@ -224,7 +224,9 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
         for (String path : relativePaths) {
             FilePath apk = ws.child(path);
             applicationIds.add(Util.getApplicationId(apk));
-            versionCodes.add(getVersionCode(apk));
+            final int versionCode = getVersionCode(apk);
+            versionCodes.add(versionCode);
+            logger.println(String.format("Found APK file with version code %d: %s", versionCode, path));
         }
 
         // If there are multiple APKs, ensure that all have the same application ID
