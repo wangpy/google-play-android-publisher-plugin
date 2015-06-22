@@ -96,7 +96,7 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
             // Check whether this APK already exists on the server (i.e. uploading it would fail)
             for (Apk apk : existingApks) {
                 if (apk.getBinary().getSha1().toLowerCase(Locale.ENGLISH).equals(apkSha1Hash)) {
-                    logger.println("This APK already exists on the server; it cannot be uploaded again");
+                    logger.println("This APK already exists in the Google Play account; it cannot be uploaded again");
                     return false;
                 }
             }

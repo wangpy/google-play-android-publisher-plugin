@@ -75,6 +75,9 @@ public class Util {
 
     /** @return A user-friendly(ish) Google Play API error message, if one could be found in the given exception. */
     static String getPublisherErrorMessage(UploadException e) {
+        if (e instanceof CredentialsException) {
+            return e.getMessage();
+        }
         if (e instanceof PublisherApiException) {
             // TODO: Here we could map error reasons like "apkUpgradeVersionConflict" to better (and localised) text
             String message = ((PublisherApiException) e).getDetailsMessage();

@@ -13,7 +13,7 @@ public abstract class GooglePlayBuilder extends Builder {
     @DataBoundSetter
     private String googleCredentialsId;
 
-    protected CredentialsHandler getCredentialsHandler() {
+    protected CredentialsHandler getCredentialsHandler() throws CredentialsException {
         if (credentialsHandler == null) {
             credentialsHandler = new CredentialsHandler(googleCredentialsId);
         }
