@@ -13,6 +13,10 @@ public abstract class GooglePlayPublisher extends Recorder {
     @DataBoundSetter
     private String googleCredentialsId;
 
+    public String getGoogleCredentialsId() {
+        return googleCredentialsId;
+    }
+
     protected CredentialsHandler getCredentialsHandler() throws CredentialsException {
         if (credentialsHandler == null) {
             credentialsHandler = new CredentialsHandler(googleCredentialsId);
