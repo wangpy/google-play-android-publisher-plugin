@@ -53,4 +53,9 @@ public abstract class AbstractPublisherTask<V> implements Callable<V, UploadExce
         editId = editService.insert(applicationId, null).execute().getId();
     }
 
+    /** @return The name of the credential being used. */
+    protected String getCredentialName() {
+        return credentials.getId();
+    }
+
 }
