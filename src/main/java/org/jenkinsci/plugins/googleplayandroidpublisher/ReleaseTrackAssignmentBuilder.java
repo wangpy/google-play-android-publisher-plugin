@@ -274,7 +274,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
             return "Move Android APKs to a different release track";
         }
 
-        public FormValidation doCheckApkFiles(@QueryParameter String value) {
+        public FormValidation doCheckApkFilesPattern(@QueryParameter String value) {
             if (fixEmptyAndTrim(value) == null) {
                 return FormValidation.error("An APK file path or pattern is required");
             }

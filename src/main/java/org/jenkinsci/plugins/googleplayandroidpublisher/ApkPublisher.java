@@ -412,7 +412,7 @@ public class ApkPublisher extends GooglePlayPublisher {
             return "Upload Android APK to Google Play";
         }
 
-        public FormValidation doCheckApkFiles(@QueryParameter String value) {
+        public FormValidation doCheckApkFilesPattern(@QueryParameter String value) {
             if (fixEmptyAndTrim(value) == null) {
                 return FormValidation.error("An APK file path or pattern is required");
             }
