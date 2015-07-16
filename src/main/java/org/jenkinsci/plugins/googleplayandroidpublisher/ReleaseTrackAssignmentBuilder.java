@@ -12,6 +12,7 @@ import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.ComboBoxModel;
 import hudson.util.FormValidation;
+import hudson.util.ListBoxModel;
 import net.dongliu.apk.parser.exception.ParserException;
 import net.sf.json.JSONObject;
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -32,6 +33,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.zip.ZipException;
 
+import static com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials.getCredentialsListBox;
 import static hudson.Util.fixEmptyAndTrim;
 import static hudson.Util.tryParseNumber;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.PRODUCTION;
@@ -272,6 +274,33 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
 
         public String getDisplayName() {
             return "Move Android APKs to a different release track";
+        }
+
+        public ListBoxModel doFillGoogleCredentialsIdItems() {
+            ListBoxModel credentials = getCredentialsListBox(GooglePlayPublisher.class);
+            if (credentials.isEmpty()) {
+                credentials.add("(No Google Play account credentials have been added to Jenkins)", null);
+            }
+            return credentials;
+        }
+
+        public FormValidation doCheckGoogleCredentialsId(@QueryParameter String value) {
+            // Complain if no credentials exist
+            ListBoxModel credentials = getCredentialsListBox(GooglePlayPublisher.class);
+            if (credentials.isEmpty()) {
+                // TODO: Can we link to the credentials page from this message?
+                return FormValidation.error("You must add at least one Google Service Account via the Credentials page");
+            }
+
+            // Otherwise, attempt to load the given credential to see whether it has been set up correctly
+            try {
+                new CredentialsHandler(value).getServiceAccountCredentials();
+            } catch (UploadException e) {
+                return FormValidation.error(e.getMessage());
+            }
+
+            // Everything is fine
+            return FormValidation.ok();
         }
 
         public FormValidation doCheckApkFilesPattern(@QueryParameter String value) {

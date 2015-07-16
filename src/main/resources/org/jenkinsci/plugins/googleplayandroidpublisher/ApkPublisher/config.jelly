@@ -1,7 +1,8 @@
-<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form" xmlns:a="/lib/auth">
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
 
-  <!-- TODO: Subclass to remove the "scopes" stuff nobody wants to know about? -->
-  <a:credentials title="${%Google Play account}" field="googleCredentialsId" />
+  <f:entry title="${%Google Play account}" field="googleCredentialsId">
+    <f:select />
+  </f:entry>
 
   <f:entry title="${%APK files}" field="apkFilesPattern" description="${%Comma-separated list of filenames or patterns}">
     <f:textbox />

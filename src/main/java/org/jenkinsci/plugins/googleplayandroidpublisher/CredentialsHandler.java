@@ -29,19 +29,19 @@ public class CredentialsHandler {
             GoogleOAuth2ScopeRequirement req = new AndroidPublisherScopeRequirement();
             GoogleRobotCredentials credentials = GoogleRobotCredentials.getById(googleCredentialsId);
             if (credentials == null) {
-                throw new CredentialsException(String.format("The configured Google Service Account credential '%s' "
+                throw new CredentialsException(String.format("The Google Service Account credential '%s' "
                         + "could not be found.\n\tIf you renamed the credential since configuring this job, you must "
                         + "re-configure this job, choosing the new credential name", googleCredentialsId));
             }
             return credentials.forRemote(req);
         } catch (GoogleRobotPrivateKeyCredentials.AccountIdNotSetException e) {
-            throw new CredentialsException(String.format("The configured Google Service Account credential '%s' "
+            throw new CredentialsException(String.format("The Google Service Account credential '%s' "
                     + "has not been configured correctly.\n\tUpdate the credential, ensuring that the required data "
-                    + "have been entered and try again", googleCredentialsId));
+                    + "have been entered, then try again", googleCredentialsId));
         } catch (GoogleRobotPrivateKeyCredentials.PrivateKeyNotSetException e) {
-            throw new CredentialsException(String.format("The configured Google Service Account credential '%s' "
+            throw new CredentialsException(String.format("The Google Service Account credential '%s' "
                     + "has not been configured correctly.\n\tUpdate the credential, ensuring that the required data "
-                    + "have been entered and try again", googleCredentialsId));
+                    + "have been entered, then try again", googleCredentialsId));
         } catch (NullPointerException e) {
             // This should really be handled by the Google OAuth plugin
             throw new UploadException("Failed to get Google service account info.\n" +

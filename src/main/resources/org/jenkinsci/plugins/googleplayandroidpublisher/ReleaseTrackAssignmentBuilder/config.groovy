@@ -1,9 +1,10 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrackAssignmentBuilder
 
 def f = namespace(lib.FormTagLib)
-def a = namespace('/lib/auth')
 
-a.credentials(field: 'googleCredentialsId', title: _('Google Play account'))
+f.entry(field: 'googleCredentialsId', title: _('Google Play account')) {
+    f.select()
+}
 
 def fromVersionCode = instance?.fromVersionCode == null || instance.fromVersionCode
 f.radioBlock(name: 'fromVersionCode', title: _('Enter version codes to be assigned'), value: true, checked: fromVersionCode, inline: true) {
