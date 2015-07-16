@@ -12,6 +12,7 @@ import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.ComboBoxModel;
 import hudson.util.FormValidation;
+import net.dongliu.apk.parser.exception.ParserException;
 import net.sf.json.JSONObject;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
@@ -29,6 +30,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.zip.ZipException;
 
 import static hudson.Util.fixEmptyAndTrim;
 import static hudson.Util.tryParseNumber;
@@ -223,9 +225,18 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
         final List<Integer> versionCodes = new ArrayList<Integer>();
         for (String path : relativePaths) {
             FilePath apk = ws.child(path);
-            applicationIds.add(Util.getApplicationId(apk));
-            final int versionCode = getVersionCode(apk);
-            versionCodes.add(versionCode);
+            final int versionCode;
+            try {
+                applicationIds.add(Util.getApplicationId(apk));
+                versionCode = getVersionCode(apk);
+                versionCodes.add(versionCode);
+            } catch (ZipException e) {
+                throw new IOException(String.format("File does not appear to be a valid APK: %s", apk.getRemote()), e);
+            } catch (ParserException e) {
+                logger.println(String.format("File does not appear to be a valid APK: %s\n- %s",
+                        apk.getRemote(), e.getMessage()));
+                throw e;
+            }
             logger.println(String.format("Found APK file with version code %d: %s", versionCode, path));
         }
 

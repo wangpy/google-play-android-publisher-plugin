@@ -15,6 +15,7 @@ import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Publisher;
 import hudson.util.ComboBoxModel;
 import hudson.util.FormValidation;
+import net.dongliu.apk.parser.exception.ParserException;
 import net.sf.json.JSONObject;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
@@ -37,6 +38,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.zip.ZipException;
 
 import static hudson.Util.fixEmptyAndTrim;
 import static hudson.Util.join;
@@ -221,8 +223,23 @@ public class ApkPublisher extends GooglePlayPublisher {
         final Set<Integer> versionCodes = new TreeSet<Integer>();
         for (String path : relativePaths) {
             FilePath apk = ws.child(path);
-            applicationIds.add(getApplicationId(apk));
-            versionCodes.add(getVersionCode(apk));
+            try {
+                applicationIds.add(getApplicationId(apk));
+                versionCodes.add(getVersionCode(apk));
+            } catch (ZipException e) {
+                // If the file is empty or not a zip file, we don't need to dump the whole stacktrace
+                logger.println(String.format("File does not appear to be a valid APK: %s", apk.getRemote()));
+                return false;
+            } catch (ParserException e) {
+                // Show a bit more information for APK parse exceptions
+                logger.println(String.format("File does not appear to be a valid APK: %s\n- %s",
+                        apk.getRemote(), e.getMessage()));
+                return false;
+            } catch (IOException e) {
+                // Otherwise, it's something more esoteric, so rethrow, dumping the stacktrace to the log
+        logger.println(String.format("File does not appear to be a valid APK: %s", apk.getRemote()));
+        throw e;
+    }
             apkFiles.add(apk);
         }
 
