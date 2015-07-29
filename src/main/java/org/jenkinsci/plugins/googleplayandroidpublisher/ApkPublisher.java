@@ -1,33 +1,26 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
-import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
 import hudson.Launcher;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractDescribableImpl;
-import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
 import hudson.model.Descriptor;
 import hudson.model.Result;
-import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Publisher;
 import hudson.util.ComboBoxModel;
 import hudson.util.FormValidation;
-import hudson.util.ListBoxModel;
 import net.dongliu.apk.parser.exception.ParserException;
-import net.sf.json.JSONObject;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
-import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.export.Exported;
 
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.Serializable;
-import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -38,41 +31,27 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.zip.ZipException;
 
-import static com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials.getCredentialsListBox;
 import static hudson.Util.fixEmptyAndTrim;
 import static hudson.Util.join;
 import static hudson.Util.tryParseNumber;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.DEFAULT_PERCENTAGE;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.OBB_FILE_REGEX;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.OBB_FILE_TYPE_MAIN;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.PERCENTAGE_FORMATTER;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.ROLLOUT_PERCENTAGES;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.PRODUCTION;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.fromConfigValue;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.getConfigValues;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.REGEX_LANGUAGE;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.REGEX_VARIABLE;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.SUPPORTED_LANGUAGES;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.expand;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getApplicationId;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getPublisherErrorMessage;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getVersionCode;
 
 /** Uploads Android application files to the Google Play Developer Console. */
 public class ApkPublisher extends GooglePlayPublisher {
-
-    /** Expansion file type: main */
-    public static final String TYPE_MAIN = "main";
-    /** Expansion file type: patch */
-    public static final String TYPE_PATCH = "patch";
-
-    public static final DecimalFormat PERCENTAGE_FORMATTER = new DecimalFormat("#.#");
-
-    /** Allowed percentage values when doing a staged rollout to production. */
-    private static final double[] ROLLOUT_PERCENTAGES = { 0.5, 1, 5, 10, 20, 50, 100 };
-    private static final double DEFAULT_PERCENTAGE = 100;
-
-    /** File name pattern which expansion files must match. */
-    private static final Pattern OBB_FILE_REGEX =
-            Pattern.compile("^(main|patch)\\.([0-9]+)\\.([._a-z0-9]+)\\.obb$", Pattern.CASE_INSENSITIVE);
 
     @DataBoundSetter
     private String apkFilesPattern;
@@ -99,16 +78,16 @@ public class ApkPublisher extends GooglePlayPublisher {
         return fixEmptyAndTrim(apkFilesPattern);
     }
 
-    private String getExpandedApkFilesPattern(EnvVars env) {
-        return expand(env, getApkFilesPattern());
+    private String getExpandedApkFilesPattern() throws IOException, InterruptedException {
+        return expand(getApkFilesPattern());
     }
 
     public String getExpansionFilesPattern() {
         return fixEmptyAndTrim(expansionFilesPattern);
     }
 
-    private String getExpandedExpansionFilesPattern(EnvVars env) {
-        return expand(env, getExpansionFilesPattern());
+    private String getExpandedExpansionFilesPattern() throws IOException, InterruptedException {
+        return expand(getExpansionFilesPattern());
     }
 
     public boolean getUsePreviousExpansionFilesIfMissing() {
@@ -119,8 +98,8 @@ public class ApkPublisher extends GooglePlayPublisher {
         return fixEmptyAndTrim(trackName);
     }
 
-    private String getCanonicalTrackName(EnvVars env) {
-        String name = expand(env, getTrackName());
+    private String getCanonicalTrackName() throws IOException, InterruptedException {
+        String name = expand(getTrackName());
         if (name == null) {
             return null;
         }
@@ -131,42 +110,42 @@ public class ApkPublisher extends GooglePlayPublisher {
         return fixEmptyAndTrim(rolloutPercentage);
     }
 
-    private double getRolloutPercentageValue(EnvVars env) {
+    private double getRolloutPercentageValue() throws IOException, InterruptedException {
         String pct = getRolloutPercentage();
         if (pct != null) {
             // Allow % characters in the config
             pct = pct.replace("%", "");
         }
         // If no valid numeric value was set, we will roll out to 100%
-        return tryParseNumber(expand(env, pct), DEFAULT_PERCENTAGE).doubleValue();
+        return tryParseNumber(expand(pct), DEFAULT_PERCENTAGE).doubleValue();
     }
 
     public RecentChanges[] getRecentChangeList() {
         return recentChangeList;
     }
 
-    private RecentChanges[] getExpandedRecentChangesList(EnvVars env) {
+    private RecentChanges[] getExpandedRecentChangesList() throws IOException, InterruptedException {
         if (recentChangeList == null) {
             return null;
         }
         RecentChanges[] expanded = new RecentChanges[recentChangeList.length];
         for (int i = 0; i < recentChangeList.length; i++) {
             RecentChanges r = recentChangeList[i];
-            expanded[i] = new RecentChanges(expand(env, r.language), expand(env, r.text));
+            expanded[i] = new RecentChanges(expand(r.language), expand(r.text));
         }
         return expanded;
     }
 
-    private boolean isConfigValid(PrintStream logger, EnvVars env) {
+    private boolean isConfigValid(PrintStream logger) throws IOException, InterruptedException {
         final List<String> errors = new ArrayList<String>();
 
         // Check whether a file pattern was provided
-        if (getExpandedApkFilesPattern(env) == null) {
+        if (getExpandedApkFilesPattern() == null) {
             errors.add("Path or pattern to APK file was not specified");
         }
 
         // Track name is also required
-        final String trackName = getCanonicalTrackName(env);
+        final String trackName = getCanonicalTrackName();
         final ReleaseTrack track = fromConfigValue(trackName);
         if (trackName == null) {
             errors.add("Release track was not specified");
@@ -174,7 +153,7 @@ public class ApkPublisher extends GooglePlayPublisher {
             errors.add(String.format("'%s' is not a valid release track", trackName));
         } else if (track == PRODUCTION) {
             // Check for valid rollout percentage
-            double pct = getRolloutPercentageValue(env);
+            double pct = getRolloutPercentageValue();
             if (Arrays.binarySearch(ROLLOUT_PERCENTAGES, pct) < 0) {
                 errors.add(String.format("%s%% is not a valid rollout percentage", PERCENTAGE_FORMATTER.format(pct)));
             }
@@ -195,6 +174,7 @@ public class ApkPublisher extends GooglePlayPublisher {
     @Override
     public boolean perform(AbstractBuild build, Launcher launcher,
             BuildListener listener) throws IOException, InterruptedException {
+        super.perform(build, launcher, listener);
         PrintStream logger = listener.getLogger();
 
         // Check whether we should execute at all
@@ -205,13 +185,12 @@ public class ApkPublisher extends GooglePlayPublisher {
         }
 
         // Check that the job has been configured correctly
-        final EnvVars env = build.getEnvironment(listener);
-        if (!isConfigValid(logger, env)) {
+        if (!isConfigValid(logger)) {
             return false;
         }
 
         // Find the APK filename(s) which match the pattern after variable expansion
-        final String filesPattern = getExpandedApkFilesPattern(env);
+        final String filesPattern = getExpandedApkFilesPattern();
         final FilePath ws = build.getWorkspace();
         List<String> relativePaths = ws.act(new FindFilesTask(filesPattern));
         if (relativePaths.isEmpty()) {
@@ -239,9 +218,9 @@ public class ApkPublisher extends GooglePlayPublisher {
                 return false;
             } catch (IOException e) {
                 // Otherwise, it's something more esoteric, so rethrow, dumping the stacktrace to the log
-        logger.println(String.format("File does not appear to be a valid APK: %s", apk.getRemote()));
-        throw e;
-    }
+                logger.println(String.format("File does not appear to be a valid APK: %s", apk.getRemote()));
+                throw e;
+            }
             apkFiles.add(apk);
         }
 
@@ -259,7 +238,7 @@ public class ApkPublisher extends GooglePlayPublisher {
 
         // Find the expansion filename(s) which match the pattern after variable expansion
         final Map<Integer, ExpansionFileSet> expansionFiles = new TreeMap<Integer, ExpansionFileSet>();
-        final String expansionPattern = getExpandedExpansionFilesPattern(env);
+        final String expansionPattern = getExpandedExpansionFilesPattern();
         if (expansionPattern != null) {
             List<String> expansionPaths = ws.act(new FindFilesTask(expansionPattern));
 
@@ -277,16 +256,16 @@ public class ApkPublisher extends GooglePlayPublisher {
                 // We can only associate expansion files with the application ID we're going to upload
                 final String appId = matcher.group(3);
                 if (!applicationId.equals(appId)) {
-                    logger.println(String.format("Expansion filename '%s' doesn't match the application ID to be " +
-                            "uploaded: %s", path, applicationId));
+                    logger.println(String.format("Expansion filename '%s' doesn't match the application ID to be "
+                            + "uploaded: %s", path, applicationId));
                     return false;
                 }
 
                 // We can only associate expansion files with version codes we're going to upload
                 final int versionCode = Integer.parseInt(matcher.group(2));
                 if (!versionCodes.contains(versionCode)) {
-                    logger.println(String.format("Expansion filename '%s' doesn't match the versionCode of any of " +
-                            "APK(s) to be uploaded: %s", path, join(versionCodes, ", ")));
+                    logger.println(String.format("Expansion filename '%s' doesn't match the versionCode of any of "
+                            + "APK(s) to be uploaded: %s", path, join(versionCodes, ", ")));
                     return false;
                 }
 
@@ -297,7 +276,7 @@ public class ApkPublisher extends GooglePlayPublisher {
                     fileSet = new ExpansionFileSet();
                     expansionFiles.put(versionCode, fileSet);
                 }
-                if (type.equals(TYPE_MAIN)) {
+                if (type.equals(OBB_FILE_TYPE_MAIN)) {
                     fileSet.setMainFile(file);
                 } else {
                     fileSet.setPatchFile(file);
@@ -306,11 +285,12 @@ public class ApkPublisher extends GooglePlayPublisher {
 
             // If there are patch files, make sure that each has a main file, or "use previous if missing" is enabled
             for (ExpansionFileSet fileSet : expansionFiles.values()) {
-                if (!usePreviousExpansionFilesIfMissing && fileSet.getPatchFile() != null && fileSet.getMainFile() == null) {
+                if (!usePreviousExpansionFilesIfMissing && fileSet.getPatchFile() != null
+                        && fileSet.getMainFile() == null) {
                     logger.println(String.format("Patch expansion file '%s' was provided, but no main expansion file " +
-                                    "was provided, and the option to reuse a pre-existing expansion file was " +
-                                    "disabled.\nGoogle Play requires that each APK with a patch file also has a main " +
-                                    "file.", fileSet.getPatchFile().getName()));
+                            "was provided, and the option to reuse a pre-existing expansion file was " +
+                            "disabled.\nGoogle Play requires that each APK with a patch file also has a main " +
+                            "file.", fileSet.getPatchFile().getName()));
                     return false;
                 }
             }
@@ -321,8 +301,8 @@ public class ApkPublisher extends GooglePlayPublisher {
             GoogleRobotCredentials credentials = getCredentialsHandler().getServiceAccountCredentials();
             return build.getWorkspace()
                     .act(new ApkUploadTask(listener, credentials, applicationId, ws, apkFiles, expansionFiles,
-                            usePreviousExpansionFilesIfMissing, fromConfigValue(getCanonicalTrackName(env)),
-                            getRolloutPercentageValue(env), getExpandedRecentChangesList(env)));
+                            usePreviousExpansionFilesIfMissing, fromConfigValue(getCanonicalTrackName()),
+                            getRolloutPercentageValue(), getExpandedRecentChangesList()));
         } catch (UploadException e) {
             logger.println(String.format("Upload failed: %s", getPublisherErrorMessage(e)));
             logger.println("- No changes have been applied to the Google Play account");
@@ -404,93 +384,10 @@ public class ApkPublisher extends GooglePlayPublisher {
     }
 
     @Extension
-    public static final class DescriptorImpl extends BuildStepDescriptor<Publisher> {
-
-        public DescriptorImpl() {
-            load();
-        }
+    public static final class DescriptorImpl extends GooglePlayBuildStepDescriptor<Publisher> {
 
         public String getDisplayName() {
             return "Upload Android APK to Google Play";
-        }
-
-        public ListBoxModel doFillGoogleCredentialsIdItems() {
-            ListBoxModel credentials = getCredentialsListBox(GooglePlayPublisher.class);
-            if (credentials.isEmpty()) {
-                credentials.add("(No Google Play account credentials have been added to Jenkins)", null);
-            }
-            return credentials;
-        }
-
-        public FormValidation doCheckGoogleCredentialsId(@QueryParameter String value) {
-            // Complain if no credentials exist
-            ListBoxModel credentials = getCredentialsListBox(GooglePlayPublisher.class);
-            if (credentials.isEmpty()) {
-                // TODO: Can we link to the credentials page from this message?
-                return FormValidation.error("You must add at least one Google Service Account via the Credentials page");
-            }
-
-            // Otherwise, attempt to load the given credential to see whether it has been set up correctly
-            try {
-                new CredentialsHandler(value).getServiceAccountCredentials();
-            } catch (UploadException e) {
-                return FormValidation.error(e.getMessage());
-            }
-
-            // Everything is fine
-            return FormValidation.ok();
-        }
-
-        public FormValidation doCheckApkFilesPattern(@QueryParameter String value) {
-            if (fixEmptyAndTrim(value) == null) {
-                return FormValidation.error("An APK file path or pattern is required");
-            }
-            return FormValidation.ok();
-        }
-
-        public FormValidation doCheckTrackName(@QueryParameter String value) {
-            if (fixEmptyAndTrim(value) == null) {
-                return FormValidation.error("A release track is required");
-            }
-            return FormValidation.ok();
-        }
-
-        public FormValidation doCheckRolloutPercentage(@QueryParameter String value) {
-            value = fixEmptyAndTrim(value);
-            if (value == null || value.matches(REGEX_VARIABLE)) {
-                return FormValidation.ok();
-            }
-
-            final double lowest = ROLLOUT_PERCENTAGES[0];
-            final double highest = DEFAULT_PERCENTAGE;
-            double pct = tryParseNumber(value.replace("%", ""), highest).doubleValue();
-            if (Double.compare(pct, lowest) < 0 || Double.compare(pct, DEFAULT_PERCENTAGE) > 0) {
-                return FormValidation.error("Percentage value must be between %s and %s%%",
-                        PERCENTAGE_FORMATTER.format(lowest), PERCENTAGE_FORMATTER.format(highest));
-            }
-            return FormValidation.ok();
-        }
-
-        public ComboBoxModel doFillTrackNameItems() {
-            return new ComboBoxModel(getConfigValues());
-        }
-
-        public ComboBoxModel doFillRolloutPercentageItems() {
-            ComboBoxModel list = new ComboBoxModel();
-            for (double pct : ROLLOUT_PERCENTAGES) {
-                list.add(String.format("%s%%", PERCENTAGE_FORMATTER.format(pct)));
-            }
-            return list;
-        }
-
-        public boolean isApplicable(Class<? extends AbstractProject> c) {
-            return true;
-        }
-
-        @Override
-        public boolean configure(StaplerRequest req, JSONObject formData) throws FormException {
-            save();
-            return super.configure(req, formData);
         }
 
     }

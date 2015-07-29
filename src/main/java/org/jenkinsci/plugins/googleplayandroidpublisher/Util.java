@@ -4,18 +4,22 @@ import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.services.androidpublisher.AndroidPublisher;
 import com.google.common.base.Throwables;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
-import hudson.EnvVars;
 import hudson.FilePath;
+import hudson.model.AbstractBuild;
+import hudson.model.TaskListener;
 import hudson.remoting.VirtualChannel;
 import jenkins.model.Jenkins;
 import net.dongliu.apk.parser.ApkParser;
 import net.dongliu.apk.parser.bean.ApkMeta;
+import org.jenkinsci.plugins.tokenmacro.MacroEvaluationException;
+import org.jenkinsci.plugins.tokenmacro.TokenMacro;
 
 import java.io.File;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 
 import static hudson.Util.fixEmptyAndTrim;
+import static hudson.Util.replaceMacro;
 
 public class Util {
 
@@ -69,8 +73,19 @@ public class Util {
     }
 
     /** @return The given value with variables expanded and trimmed; {@code null} if that results in an empty string. */
-    static String expand(EnvVars env, String value) {
-        return fixEmptyAndTrim(env.expand(value));
+    static String expand(AbstractBuild build, TaskListener listener, String value)
+            throws InterruptedException, IOException {
+        if (Jenkins.getInstance().getPlugin("token-macro") == null) {
+            String s = build.getEnvironment(listener).expand(value);
+            return fixEmptyAndTrim(replaceMacro(s, build.getBuildVariableResolver()));
+        }
+
+        try {
+            return fixEmptyAndTrim(TokenMacro.expandAll(build, listener, value));
+        } catch (MacroEvaluationException e) {
+            listener.getLogger().println(e.getMessage());
+            return value;
+        }
     }
 
     /** @return A user-friendly(ish) Google Play API error message, if one could be found in the given exception. */

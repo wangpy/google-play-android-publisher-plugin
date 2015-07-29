@@ -6,23 +6,14 @@ import hudson.Extension;
 import hudson.FilePath;
 import hudson.Launcher;
 import hudson.model.AbstractBuild;
-import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
-import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
-import hudson.util.ComboBoxModel;
-import hudson.util.FormValidation;
-import hudson.util.ListBoxModel;
 import net.dongliu.apk.parser.exception.ParserException;
-import net.sf.json.JSONObject;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
-import org.kohsuke.stapler.QueryParameter;
-import org.kohsuke.stapler.StaplerRequest;
 
 import java.io.IOException;
 import java.io.PrintStream;
-import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -33,24 +24,17 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.zip.ZipException;
 
-import static com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials.getCredentialsListBox;
 import static hudson.Util.fixEmptyAndTrim;
 import static hudson.Util.tryParseNumber;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.DEFAULT_PERCENTAGE;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.PERCENTAGE_FORMATTER;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.ROLLOUT_PERCENTAGES;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.PRODUCTION;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.fromConfigValue;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.getConfigValues;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.REGEX_VARIABLE;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.expand;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getPublisherErrorMessage;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getVersionCode;
 
 public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
-
-    public static final DecimalFormat PERCENTAGE_FORMATTER = new DecimalFormat("#.#");
-
-    /** Allowed percentage values when doing a staged rollout to production. */
-    private static final double[] ROLLOUT_PERCENTAGES = { 0.5, 1, 5, 10, 20, 50, 100 };
-    private static final double DEFAULT_PERCENTAGE = 100;
 
     @DataBoundSetter
     private Boolean fromVersionCode;
@@ -81,32 +65,32 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
         return applicationId;
     }
 
-    private String getExpandedApplicationId(EnvVars env) {
-        return expand(env, getApplicationId());
+    private String getExpandedApplicationId() throws IOException, InterruptedException {
+        return expand(getApplicationId());
     }
 
     public String getVersionCodes() {
         return versionCodes;
     }
 
-    private String getExpandedVersionCodes(EnvVars env) {
-        return expand(env, getVersionCodes());
+    private String getExpandedVersionCodes() throws IOException, InterruptedException {
+        return expand(getVersionCodes());
     }
 
     public String getApkFilesPattern() {
         return fixEmptyAndTrim(apkFilesPattern);
     }
 
-    private String getExpandedApkFilesPattern(EnvVars env) {
-        return expand(env, getApkFilesPattern());
+    private String getExpandedApkFilesPattern() throws IOException, InterruptedException {
+        return expand(getApkFilesPattern());
     }
 
     public String getTrackName() {
         return fixEmptyAndTrim(trackName);
     }
 
-    private String getCanonicalTrackName(EnvVars env) {
-        String name = expand(env, getTrackName());
+    private String getCanonicalTrackName() throws IOException, InterruptedException {
+        String name = expand(getTrackName());
         if (name == null) {
             return null;
         }
@@ -117,33 +101,33 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
         return fixEmptyAndTrim(rolloutPercentage);
     }
 
-    private double getRolloutPercentageValue(EnvVars env) {
+    private double getRolloutPercentageValue() throws IOException, InterruptedException {
         String pct = getRolloutPercentage();
         if (pct != null) {
             // Allow % characters in the config
             pct = pct.replace("%", "");
         }
         // If no valid numeric value was set, we will roll out to 100%
-        return tryParseNumber(expand(env, pct), DEFAULT_PERCENTAGE).doubleValue();
+        return tryParseNumber(expand(pct), DEFAULT_PERCENTAGE).doubleValue();
     }
 
-    private boolean isConfigValid(PrintStream logger, EnvVars env) {
+    private boolean isConfigValid(PrintStream logger) throws IOException, InterruptedException {
         final List<String> errors = new ArrayList<String>();
 
         // Check whether the relevant values were provided, based on the method chosen
         if (isFromVersionCode()) {
-            if (getExpandedApplicationId(env) == null) {
+            if (getExpandedApplicationId() == null) {
                 errors.add("No application ID was specified");
             }
-            if (getExpandedVersionCodes(env) == null) {
+            if (getExpandedVersionCodes() == null) {
                 errors.add("No version codes were specified");
             }
-        } else if (getExpandedApkFilesPattern(env) == null) {
+        } else if (getExpandedApkFilesPattern() == null) {
             errors.add("Path or pattern to APK file(s) was not specified");
         }
 
         // Track name is also required
-        final String trackName = getCanonicalTrackName(env);
+        final String trackName = getCanonicalTrackName();
         final ReleaseTrack track = fromConfigValue(trackName);
         if (trackName == null) {
             errors.add("Release track was not specified");
@@ -151,7 +135,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
             errors.add(String.format("'%s' is not a valid release track", trackName));
         } else if (track == PRODUCTION) {
             // Check for valid rollout percentage
-            double pct = getRolloutPercentageValue(env);
+            double pct = getRolloutPercentageValue();
             if (Arrays.binarySearch(ROLLOUT_PERCENTAGES, pct) < 0) {
                 errors.add(String.format("%s%% is not a valid rollout percentage", PERCENTAGE_FORMATTER.format(pct)));
             }
@@ -172,19 +156,20 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
     @Override
     public boolean perform(AbstractBuild build, Launcher launcher,
             BuildListener listener) throws IOException, InterruptedException {
+        super.perform(build, launcher, listener);
         PrintStream logger = listener.getLogger();
 
         // Check that the job has been configured correctly
         final EnvVars env = build.getEnvironment(listener);
-        if (!isConfigValid(logger, env)) {
+        if (!isConfigValid(logger)) {
             return false;
         }
 
         String applicationId;
         Collection<Integer> versionCodeList = new TreeSet<Integer>();
         if (isFromVersionCode()) {
-            applicationId = getExpandedApplicationId(env);
-            String codes = getExpandedVersionCodes(env);
+            applicationId = getExpandedApplicationId();
+            String codes = getExpandedVersionCodes();
             for (String s : codes.split("[,\\s]+")) {
                 int versionCode = tryParseNumber(s.trim(), -1).intValue();
                 if (versionCode != -1) {
@@ -192,7 +177,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
                 }
             }
         } else {
-            AppInfo info = getApplicationInfoForApks(build, logger, getExpandedApkFilesPattern(env));
+            AppInfo info = getApplicationInfoForApks(build, logger, getExpandedApkFilesPattern());
             if (info == null) {
                 return false;
             }
@@ -205,7 +190,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
             GoogleRobotCredentials credentials = getCredentialsHandler().getServiceAccountCredentials();
             return build.getWorkspace()
                     .act(new TrackAssignmentTask(listener, credentials, applicationId, versionCodeList,
-                            fromConfigValue(getCanonicalTrackName(env)), getRolloutPercentageValue(env)));
+                            fromConfigValue(getCanonicalTrackName()), getRolloutPercentageValue()));
         } catch (UploadException e) {
             logger.println(String.format("Upload failed: %s", getPublisherErrorMessage(e)));
             logger.println("- No changes have been applied to the Google Play account");
@@ -266,93 +251,10 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
     }
 
     @Extension
-    public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
-
-        public DescriptorImpl() {
-            load();
-        }
+    public static final class DescriptorImpl extends GooglePlayBuildStepDescriptor<Builder> {
 
         public String getDisplayName() {
             return "Move Android APKs to a different release track";
-        }
-
-        public ListBoxModel doFillGoogleCredentialsIdItems() {
-            ListBoxModel credentials = getCredentialsListBox(GooglePlayPublisher.class);
-            if (credentials.isEmpty()) {
-                credentials.add("(No Google Play account credentials have been added to Jenkins)", null);
-            }
-            return credentials;
-        }
-
-        public FormValidation doCheckGoogleCredentialsId(@QueryParameter String value) {
-            // Complain if no credentials exist
-            ListBoxModel credentials = getCredentialsListBox(GooglePlayPublisher.class);
-            if (credentials.isEmpty()) {
-                // TODO: Can we link to the credentials page from this message?
-                return FormValidation.error("You must add at least one Google Service Account via the Credentials page");
-            }
-
-            // Otherwise, attempt to load the given credential to see whether it has been set up correctly
-            try {
-                new CredentialsHandler(value).getServiceAccountCredentials();
-            } catch (UploadException e) {
-                return FormValidation.error(e.getMessage());
-            }
-
-            // Everything is fine
-            return FormValidation.ok();
-        }
-
-        public FormValidation doCheckApkFilesPattern(@QueryParameter String value) {
-            if (fixEmptyAndTrim(value) == null) {
-                return FormValidation.error("An APK file path or pattern is required");
-            }
-            return FormValidation.ok();
-        }
-
-        public FormValidation doCheckTrackName(@QueryParameter String value) {
-            if (fixEmptyAndTrim(value) == null) {
-                return FormValidation.error("A release track is required");
-            }
-            return FormValidation.ok();
-        }
-
-        public FormValidation doCheckRolloutPercentage(@QueryParameter String value) {
-            value = fixEmptyAndTrim(value);
-            if (value == null || value.matches(REGEX_VARIABLE)) {
-                return FormValidation.ok();
-            }
-
-            final double lowest = ROLLOUT_PERCENTAGES[0];
-            final double highest = DEFAULT_PERCENTAGE;
-            double pct = tryParseNumber(value.replace("%", ""), highest).doubleValue();
-            if (Double.compare(pct, lowest) < 0 || Double.compare(pct, DEFAULT_PERCENTAGE) > 0) {
-                return FormValidation.error("Percentage value must be between %s and %s%%",
-                        PERCENTAGE_FORMATTER.format(lowest), PERCENTAGE_FORMATTER.format(highest));
-            }
-            return FormValidation.ok();
-        }
-
-        public ComboBoxModel doFillTrackNameItems() {
-            return new ComboBoxModel(getConfigValues());
-        }
-
-        public ComboBoxModel doFillRolloutPercentageItems() {
-            ComboBoxModel list = new ComboBoxModel();
-            for (double pct : ROLLOUT_PERCENTAGES) {
-                list.add(String.format("%s%%", PERCENTAGE_FORMATTER.format(pct)));
-            }
-            return list;
-        }
-
-        public boolean isApplicable(Class<? extends AbstractProject> c) {
-            return true;
-        }
-
-        @Override
-        public boolean configure(StaplerRequest req, JSONObject formData) throws FormException {
-            save();
-            return super.configure(req, formData);
         }
 
     }

@@ -27,8 +27,8 @@ import java.util.TreeSet;
 
 import static org.jenkinsci.plugins.googleplayandroidpublisher.ApkPublisher.ExpansionFileSet;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.ApkPublisher.RecentChanges;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.ApkPublisher.TYPE_MAIN;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.ApkPublisher.TYPE_PATCH;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.OBB_FILE_TYPE_MAIN;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.OBB_FILE_TYPE_PATCH;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getApkMetadata;
 
 class ApkUploadTask extends TrackPublisherTask<Boolean> {
@@ -118,8 +118,8 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
                 FilePath patchFile = fileSet == null ? null : fileSet.getPatchFile();
 
                 logger.println(String.format("Handling expansion files for versionCode %d", versionCode));
-                applyExpansionFile(versionCode, TYPE_MAIN, mainFile, usePreviousExpansionFilesIfMissing);
-                applyExpansionFile(versionCode, TYPE_PATCH, patchFile, usePreviousExpansionFilesIfMissing);
+                applyExpansionFile(versionCode, OBB_FILE_TYPE_MAIN, mainFile, usePreviousExpansionFilesIfMissing);
+                applyExpansionFile(versionCode, OBB_FILE_TYPE_PATCH, patchFile, usePreviousExpansionFilesIfMissing);
                 logger.println();
             }
         }
@@ -177,7 +177,7 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
             fetchLatestExpansionFileVersionCodes();
 
             // If there is no previous APK with this type of expansion file, there's nothing we can do
-            final int latestVersionCodeWithExpansion = type.equals(TYPE_MAIN) ?
+            final int latestVersionCodeWithExpansion = type.equals(OBB_FILE_TYPE_MAIN) ?
                     latestMainExpansionFileVersionCode : latestPatchExpansionFileVersionCode;
             if (latestVersionCodeWithExpansion == -1) {
                 logger.println(String.format("- No %1$s expansion file to apply, and no existing APK with a %1$s " +
@@ -209,8 +209,8 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
         Collections.reverse(existingVersionCodes);
 
         // Find the latest APK with a main expansion file, and the latest with a patch expansion file
-        latestMainExpansionFileVersionCode = fetchLatestExpansionFileVersionCode(TYPE_MAIN);
-        latestPatchExpansionFileVersionCode = fetchLatestExpansionFileVersionCode(TYPE_PATCH);
+        latestMainExpansionFileVersionCode = fetchLatestExpansionFileVersionCode(OBB_FILE_TYPE_MAIN);
+        latestPatchExpansionFileVersionCode = fetchLatestExpansionFileVersionCode(OBB_FILE_TYPE_PATCH);
     }
 
     /** @return The version code of the newest APK which has an expansion file of this type, else {@code -1}. */

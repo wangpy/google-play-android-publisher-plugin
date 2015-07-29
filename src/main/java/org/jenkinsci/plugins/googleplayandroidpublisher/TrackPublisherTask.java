@@ -11,7 +11,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import static hudson.Util.join;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.ApkPublisher.PERCENTAGE_FORMATTER;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.PERCENTAGE_FORMATTER;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.ALPHA;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.BETA;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.PRODUCTION;
