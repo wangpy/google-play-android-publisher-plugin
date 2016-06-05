@@ -8,6 +8,7 @@ import hudson.FilePath;
 import hudson.model.AbstractBuild;
 import hudson.model.TaskListener;
 import hudson.remoting.VirtualChannel;
+import jenkins.MasterToSlaveFileCallable;
 import jenkins.model.Jenkins;
 import net.dongliu.apk.parser.ApkParser;
 import net.dongliu.apk.parser.bean.ApkMeta;
@@ -46,7 +47,7 @@ public class Util {
 
     /** @return The application ID of the given APK file. */
     public static String getApplicationId(FilePath apk) throws IOException, InterruptedException {
-        return apk.act(new FilePath.FileCallable<String>() {
+        return apk.act(new MasterToSlaveFileCallable<String>() {
             public String invoke(File f, VirtualChannel channel) throws IOException, InterruptedException {
                 return getApkMetadata(f).getPackageName();
             }
@@ -55,7 +56,7 @@ public class Util {
 
     /** @return The version code of the given APK file. */
     public static int getVersionCode(FilePath apk) throws IOException, InterruptedException {
-        return apk.act(new FilePath.FileCallable<Integer>() {
+        return apk.act(new MasterToSlaveFileCallable<Integer>() {
             public Integer invoke(File f, VirtualChannel channel) throws IOException, InterruptedException {
                 return (int) getApkMetadata(f).getVersionCode();
             }

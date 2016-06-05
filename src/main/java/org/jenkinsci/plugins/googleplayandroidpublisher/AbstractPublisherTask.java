@@ -4,12 +4,13 @@ import com.google.api.services.androidpublisher.AndroidPublisher;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import hudson.model.BuildListener;
 import hudson.remoting.Callable;
+import jenkins.security.MasterToSlaveCallable;
 
 import java.io.IOException;
 import java.io.PrintStream;
 import java.security.GeneralSecurityException;
 
-public abstract class AbstractPublisherTask<V> implements Callable<V, UploadException> {
+public abstract class AbstractPublisherTask<V> extends MasterToSlaveCallable<V, UploadException> {
 
     private final BuildListener listener;
     private final GoogleRobotCredentials credentials;

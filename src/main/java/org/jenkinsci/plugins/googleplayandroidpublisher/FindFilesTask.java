@@ -1,7 +1,7 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
-import hudson.FilePath;
 import hudson.remoting.VirtualChannel;
+import jenkins.MasterToSlaveFileCallable;
 
 import java.io.File;
 import java.io.IOException;
@@ -10,7 +10,7 @@ import java.util.Collections;
 import java.util.List;
 
 /** Task which searches for files using an Ant Fileset pattern. */
-public class FindFilesTask implements FilePath.FileCallable<List<String>> {
+public class FindFilesTask extends MasterToSlaveFileCallable<List<String>> {
 
     private final String includes;
 
