@@ -3,6 +3,7 @@ package org.jenkinsci.plugins.googleplayandroidpublisher;
 import com.google.api.services.androidpublisher.model.Apk;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import hudson.model.BuildListener;
+import hudson.model.TaskListener;
 
 import java.io.IOException;
 import java.net.SocketTimeoutException;
@@ -17,8 +18,8 @@ class TrackAssignmentTask extends TrackPublisherTask<Boolean> {
 
     private final Collection<Integer> versionCodes;
 
-    TrackAssignmentTask(BuildListener listener, GoogleRobotCredentials credentials, String applicationId,
-            Collection<Integer> versionCodes, ReleaseTrack track, double rolloutPercentage) {
+    TrackAssignmentTask(TaskListener listener, GoogleRobotCredentials credentials, String applicationId,
+                        Collection<Integer> versionCodes, ReleaseTrack track, double rolloutPercentage) {
         super(listener, credentials, applicationId, track, rolloutPercentage);
         this.versionCodes = versionCodes;
     }

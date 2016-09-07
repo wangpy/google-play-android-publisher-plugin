@@ -6,6 +6,7 @@ import com.google.common.base.Throwables;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import hudson.FilePath;
 import hudson.model.AbstractBuild;
+import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.remoting.VirtualChannel;
 import jenkins.MasterToSlaveFileCallable;
@@ -74,14 +75,15 @@ public class Util {
     }
 
     /** @return The given value with variables expanded and trimmed; {@code null} if that results in an empty string. */
-    static String expand(AbstractBuild build, TaskListener listener, String value)
+    static String expand(Run<?, ?> run, TaskListener listener, String value)
             throws InterruptedException, IOException {
-        if (Jenkins.getInstance().getPlugin("token-macro") == null) {
-            String s = build.getEnvironment(listener).expand(value);
-            return fixEmptyAndTrim(replaceMacro(s, build.getBuildVariableResolver()));
+        // If this is a pipeline run, there's no need to expand tokens
+        if (!(run instanceof AbstractBuild)) {
+            return value;
         }
 
         try {
+            final AbstractBuild build = (AbstractBuild) run;
             return fixEmptyAndTrim(TokenMacro.expandAll(build, listener, value));
         } catch (MacroEvaluationException e) {
             listener.getLogger().println(e.getMessage());

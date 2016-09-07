@@ -1,17 +1,21 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
+import hudson.AbortException;
 import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
 import hudson.Launcher;
 import hudson.model.AbstractBuild;
 import hudson.model.BuildListener;
+import hudson.model.Run;
+import hudson.model.TaskListener;
 import hudson.tasks.Builder;
 import net.dongliu.apk.parser.exception.ParserException;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -154,13 +158,21 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
     }
 
     @Override
-    public boolean perform(AbstractBuild build, Launcher launcher,
-            BuildListener listener) throws IOException, InterruptedException {
-        super.perform(build, launcher, listener);
-        PrintStream logger = listener.getLogger();
+    public void perform(@Nonnull Run<?, ?> run, @Nonnull FilePath workspace, @Nonnull Launcher launcher,
+                        @Nonnull TaskListener listener) throws InterruptedException, IOException {
+        super.perform(run, workspace, launcher, listener);
+
+        // Calling assignApk logs the reason when a failure occurs, so in that case we just need to throw here
+        if (!assignApk(run, workspace, listener)) {
+            throw new AbortException("APK assignment failed");
+        }
+    }
+
+    private boolean assignApk(@Nonnull Run<?, ?> run, @Nonnull FilePath workspace, @Nonnull TaskListener listener)
+            throws IOException, InterruptedException {
+        final PrintStream logger = listener.getLogger();
 
         // Check that the job has been configured correctly
-        final EnvVars env = build.getEnvironment(listener);
         if (!isConfigValid(logger)) {
             return false;
         }
@@ -177,7 +189,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
                 }
             }
         } else {
-            AppInfo info = getApplicationInfoForApks(build, logger, getExpandedApkFilesPattern());
+            AppInfo info = getApplicationInfoForApks(workspace, logger, getExpandedApkFilesPattern());
             if (info == null) {
                 return false;
             }
@@ -188,8 +200,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
         // Assign the APKs to the desired track
         try {
             GoogleRobotCredentials credentials = getCredentialsHandler().getServiceAccountCredentials();
-            return build.getWorkspace()
-                    .act(new TrackAssignmentTask(listener, credentials, applicationId, versionCodeList,
+            return workspace.act(new TrackAssignmentTask(listener, credentials, applicationId, versionCodeList,
                             fromConfigValue(getCanonicalTrackName()), getRolloutPercentageValue()));
         } catch (UploadException e) {
             logger.println(String.format("Upload failed: %s", getPublisherErrorMessage(e)));
@@ -198,10 +209,10 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
         return false;
     }
 
-    private AppInfo getApplicationInfoForApks(AbstractBuild build, PrintStream logger, String apkFilesPattern) throws IOException, InterruptedException {
+    private AppInfo getApplicationInfoForApks(FilePath workspace, PrintStream logger, String apkFilesPattern)
+            throws IOException, InterruptedException {
         // Find the APK filename(s) which match the pattern after variable expansion
-        final FilePath ws = build.getWorkspace();
-        List<String> relativePaths = ws.act(new FindFilesTask(apkFilesPattern));
+        List<String> relativePaths = workspace.act(new FindFilesTask(apkFilesPattern));
         if (relativePaths.isEmpty()) {
             logger.println(String.format("No APK files matching the pattern '%s' could be found", apkFilesPattern));
             return null;
@@ -211,7 +222,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
         final Set<String> applicationIds = new HashSet<String>();
         final List<Integer> versionCodes = new ArrayList<Integer>();
         for (String path : relativePaths) {
-            FilePath apk = ws.child(path);
+            FilePath apk = workspace.child(path);
             final int versionCode;
             try {
                 applicationIds.add(Util.getApplicationId(apk));

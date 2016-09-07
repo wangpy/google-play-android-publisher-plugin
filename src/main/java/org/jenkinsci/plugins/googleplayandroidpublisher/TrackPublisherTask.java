@@ -3,6 +3,7 @@ package org.jenkinsci.plugins.googleplayandroidpublisher;
 import com.google.api.services.androidpublisher.model.Track;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import hudson.model.BuildListener;
+import hudson.model.TaskListener;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -23,8 +24,8 @@ abstract class TrackPublisherTask<V> extends AbstractPublisherTask<V> {
     protected final ReleaseTrack track;
     protected final double rolloutFraction;
 
-    TrackPublisherTask(BuildListener listener, GoogleRobotCredentials credentials, String applicationId,
-            ReleaseTrack track, double rolloutPercentage) {
+    TrackPublisherTask(TaskListener listener, GoogleRobotCredentials credentials, String applicationId,
+                       ReleaseTrack track, double rolloutPercentage) {
         super(listener, credentials);
         this.applicationId = applicationId;
         this.track = track;

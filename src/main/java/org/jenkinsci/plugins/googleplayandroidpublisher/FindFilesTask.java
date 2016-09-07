@@ -20,6 +20,13 @@ public class FindFilesTask extends MasterToSlaveFileCallable<List<String>> {
 
     @Override
     public List<String> invoke(File baseDir, VirtualChannel channel) throws IOException, InterruptedException {
+        // If we're being called from a Pipeline, the workspace directory may not necessarily exist, and because
+        // Util#createFileset doesn't guard against the given directory not existing, we need to check it here first
+        if (!baseDir.exists()) {
+            return Collections.emptyList();
+        }
+
+        // Scan for files matching the given pattern
         String[] files = hudson.Util.createFileSet(baseDir, includes).getDirectoryScanner().getIncludedFiles();
         return Collections.unmodifiableList(Arrays.asList(files));
     }

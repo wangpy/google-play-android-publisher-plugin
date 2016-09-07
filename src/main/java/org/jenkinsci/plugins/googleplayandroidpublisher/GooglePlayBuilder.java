@@ -1,37 +1,44 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
 import com.google.jenkins.plugins.credentials.domains.RequiresDomain;
+import hudson.FilePath;
 import hudson.Launcher;
 import hudson.model.AbstractBuild;
 import hudson.model.BuildListener;
+import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.tasks.BuildStepMonitor;
 import hudson.tasks.Builder;
+import jenkins.tasks.SimpleBuildStep;
 import org.kohsuke.stapler.DataBoundSetter;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 
 @RequiresDomain(value = AndroidPublisherScopeRequirement.class)
-public abstract class GooglePlayBuilder extends Builder {
+public abstract class GooglePlayBuilder extends Builder implements SimpleBuildStep {
 
-    protected static transient final ThreadLocal<AbstractBuild> currentBuild = new ThreadLocal<AbstractBuild>();
-    protected static transient final ThreadLocal<TaskListener> currentListener = new ThreadLocal<TaskListener>();
+    protected static transient final ThreadLocal<Run<?, ?>> currentBuild = new ThreadLocal<>();
+    protected static transient final ThreadLocal<TaskListener> currentListener = new ThreadLocal<>();
 
     private transient CredentialsHandler credentialsHandler;
 
-    @DataBoundSetter
     private String googleCredentialsId;
+
+    @DataBoundSetter
+    public void setGoogleCredentialsId(String googleCredentialsId) {
+        this.googleCredentialsId = googleCredentialsId;
+    }
 
     public final String getGoogleCredentialsId() {
         return googleCredentialsId;
     }
 
     @Override
-    public boolean perform(AbstractBuild<?, ?> build, Launcher launcher,
-            BuildListener listener) throws InterruptedException, IOException {
-        currentBuild.set(build);
+    public void perform(@Nonnull Run<?, ?> run, @Nonnull FilePath workspace, @Nonnull Launcher launcher,
+                        @Nonnull TaskListener listener) throws InterruptedException, IOException {
+        currentBuild.set(run);
         currentListener.set(listener);
-        return true;
     }
 
     protected CredentialsHandler getCredentialsHandler() throws CredentialsException {
@@ -47,8 +54,7 @@ public abstract class GooglePlayBuilder extends Builder {
     }
 
     public BuildStepMonitor getRequiredMonitorService() {
-        // Try to minimise concurrent editing, as the Google Play Developer Publishing API does not allow it
-        return BuildStepMonitor.STEP;
+        return BuildStepMonitor.NONE;
     }
 
 }
