@@ -59,7 +59,7 @@ public class Util {
     public static int getVersionCode(FilePath apk) throws IOException, InterruptedException {
         return apk.act(new MasterToSlaveFileCallable<Integer>() {
             public Integer invoke(File f, VirtualChannel channel) throws IOException, InterruptedException {
-                return (int) getApkMetadata(f).getVersionCode();
+                return getApkMetadata(f).getVersionCode().intValue();
             }
         });
     }
