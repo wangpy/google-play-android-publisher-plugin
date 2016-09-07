@@ -12,6 +12,7 @@ import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.tasks.Builder;
 import net.dongliu.apk.parser.exception.ParserException;
+import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 
@@ -261,6 +262,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
         }
     }
 
+    @Symbol("androidApkMove")
     @Extension
     public static final class DescriptorImpl extends GooglePlayBuildStepDescriptor<Builder> {
 

@@ -14,6 +14,7 @@ import hudson.tasks.Publisher;
 import hudson.util.ComboBoxModel;
 import hudson.util.FormValidation;
 import net.dongliu.apk.parser.exception.ParserException;
+import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
@@ -392,6 +393,7 @@ public class ApkPublisher extends GooglePlayPublisher {
 
     }
 
+    @Symbol("androidApkUpload")
     @Extension
     public static final class DescriptorImpl extends GooglePlayBuildStepDescriptor<Publisher> {
 
