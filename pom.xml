@@ -5,7 +5,7 @@
     <groupId>org.jenkins-ci.plugins</groupId>
     <artifactId>plugin</artifactId>
     <version>2.14</version>
-    <relativePath/>
+    <relativePath />
   </parent>
 
   <properties>
@@ -16,7 +16,7 @@
 
   <groupId>org.jenkins-ci.plugins</groupId>
   <artifactId>google-play-android-publisher</artifactId>
-  <version>1.4.2-SNAPSHOT</version>
+  <version>1.5</version>
   <packaging>hpi</packaging>
 
   <name>Google Play Android Publisher Plugin</name>
@@ -88,7 +88,7 @@
     <connection>scm:git:git://github.com/jenkinsci/google-play-android-publisher-plugin.git</connection>
     <developerConnection>scm:git:git@github.com:jenkinsci/google-play-android-publisher-plugin.git</developerConnection>
     <url>https://github.com/jenkinsci/google-play-android-publisher-plugin</url>
-    <tag>HEAD</tag>
+    <tag>google-play-android-publisher-1.5</tag>
   </scm>
 
 </project>
