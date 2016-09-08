@@ -294,7 +294,12 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
 
     /** @return The SHA-1 hash of the given file, as a lower-case hex string. */
     private static String getSha1Hash(String path) throws IOException {
-        return DigestUtils.shaHex(new FileInputStream(path)).toLowerCase(Locale.ENGLISH);
+        FileInputStream fis = new FileInputStream(path);
+        try {
+            return DigestUtils.sha1Hex(fis).toLowerCase(Locale.ENGLISH);
+        } finally {
+            fis.close();
+        }
     }
 
 }
