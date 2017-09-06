@@ -1,0 +1,16 @@
+<div>
+  Specifies a filepath or -pattern matching one deobfuscation-file per APK that gets uploaded to Google Play,
+  e.g. "<tt>../mapping/*/mapping.txt</tt>".
+  <p/>
+  The path to the deobfuscation-file is resolved relative to the directory of each APK.<br/>
+  Missing deobfuscation-files or multiple matches are ignored.
+  <p/>
+  At the beginning of the path you can use "<tt>../</tt>" (also more than once) to search relative to an
+  ancestor-directory. However, you cannot leave the workspace.<br/>
+  You can also use wildcards like "<tt>**/mapping/*/*-mapping.txt</tt>". See
+  <a href='https://ant.apache.org/manual/Types/fileset.html'>the 'includes' attribute of Ant's FileSet</a>
+  for the exact format.
+  <hr/>
+  This field supports substituting environment variables in the form
+  <tt>${SOME_VARIABLE}</tt> or <tt>$SOME_VARIABLE</tt> at build time.
+</div>

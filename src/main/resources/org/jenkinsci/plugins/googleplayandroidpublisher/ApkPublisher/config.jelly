@@ -9,6 +9,10 @@
     <f:textbox />
   </f:entry>
 
+  <f:entry title="${%Deobfuscation files}" field="deobfuscationFilesPattern" description="${%Filepath or -pattern relative to each apk}">
+    <f:textbox />
+  </f:entry>
+
   <f:entry title="${%Expansion files}" field="expansionFilesPattern">
     <f:textbox />
     <f:checkbox title="${%Re-use expansion files from existing APKs where necessary}" field="usePreviousExpansionFilesIfMissing" />

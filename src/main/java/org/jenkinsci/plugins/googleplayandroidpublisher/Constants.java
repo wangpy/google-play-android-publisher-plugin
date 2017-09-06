@@ -5,6 +5,9 @@ import java.util.regex.Pattern;
 
 public class Constants {
 
+    /** Deobfuscation file type: proguard */
+    public static final String DEOBFUSCATION_FILE_TYPE_PROGUARD = "proguard";
+
     /** File name pattern which expansion files must match. */
     public static final Pattern OBB_FILE_REGEX =
             Pattern.compile("^(main|patch)\\.([0-9]+)\\.([._a-z0-9]+)\\.obb$", Pattern.CASE_INSENSITIVE);

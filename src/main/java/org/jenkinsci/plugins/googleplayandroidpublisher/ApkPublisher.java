@@ -60,6 +60,9 @@ public class ApkPublisher extends GooglePlayPublisher {
     private String apkFilesPattern;
 
     @DataBoundSetter
+    private String deobfuscationFilesPattern;
+
+    @DataBoundSetter
     private String expansionFilesPattern;
 
     @DataBoundSetter
@@ -83,6 +86,14 @@ public class ApkPublisher extends GooglePlayPublisher {
 
     private String getExpandedApkFilesPattern() throws IOException, InterruptedException {
         return expand(getApkFilesPattern());
+    }
+
+    public String getDeobfuscationFilesPattern() {
+        return fixEmptyAndTrim(deobfuscationFilesPattern);
+    }
+
+    private String getExpandedDeobfuscationFilesPattern() throws IOException, InterruptedException {
+        return expand(getDeobfuscationFilesPattern());
     }
 
     public String getExpansionFilesPattern() {
@@ -311,8 +322,9 @@ public class ApkPublisher extends GooglePlayPublisher {
         try {
             GoogleRobotCredentials credentials = getCredentialsHandler().getServiceAccountCredentials();
             return workspace.act(new ApkUploadTask(listener, credentials, applicationId, workspace, apkFiles,
-                    expansionFiles, usePreviousExpansionFilesIfMissing, fromConfigValue(getCanonicalTrackName()),
-                    getRolloutPercentageValue(), getExpandedRecentChangesList()));
+                    getExpandedDeobfuscationFilesPattern(), expansionFiles, usePreviousExpansionFilesIfMissing,
+                    fromConfigValue(getCanonicalTrackName()), getRolloutPercentageValue(),
+                    getExpandedRecentChangesList()));
         } catch (UploadException e) {
             logger.println(String.format("Upload failed: %s", getPublisherErrorMessage(e)));
             logger.println("- No changes have been applied to the Google Play account");

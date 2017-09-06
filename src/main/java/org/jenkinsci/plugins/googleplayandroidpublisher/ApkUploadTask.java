@@ -7,13 +7,10 @@ import com.google.api.services.androidpublisher.model.Apk;
 import com.google.api.services.androidpublisher.model.ApkListing;
 import com.google.api.services.androidpublisher.model.ExpansionFile;
 import com.google.api.services.androidpublisher.model.ExpansionFilesUploadResponse;
+import com.google.common.base.Strings;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import hudson.FilePath;
-import hudson.model.BuildListener;
 import hudson.model.TaskListener;
-import net.dongliu.apk.parser.bean.ApkMeta;
-import org.apache.commons.codec.digest.DigestUtils;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -25,9 +22,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TreeSet;
-
+import net.dongliu.apk.parser.bean.ApkMeta;
+import org.apache.commons.codec.digest.DigestUtils;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.ApkPublisher.ExpansionFileSet;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.ApkPublisher.RecentChanges;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.DEOBFUSCATION_FILE_TYPE_PROGUARD;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.OBB_FILE_TYPE_MAIN;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.OBB_FILE_TYPE_PATCH;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getApkMetadata;
@@ -36,6 +35,7 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
 
     private final FilePath workspace;
     private final List<FilePath> apkFiles;
+    private final String deobfuscationFilesPattern;
     private final Map<Integer, ExpansionFileSet> expansionFiles;
     private final boolean usePreviousExpansionFilesIfMissing;
     private final RecentChanges[] recentChangeList;
@@ -44,12 +44,13 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
     private int latestPatchExpansionFileVersionCode;
 
     ApkUploadTask(TaskListener listener, GoogleRobotCredentials credentials, String applicationId,
-                  FilePath workspace, List<FilePath> apkFiles, Map<Integer, ExpansionFileSet> expansionFiles,
+                  FilePath workspace, List<FilePath> apkFiles, String deobfuscationFilesPattern, Map<Integer, ExpansionFileSet> expansionFiles,
                   boolean usePreviousExpansionFilesIfMissing, ReleaseTrack track, double rolloutPercentage,
                   ApkPublisher.RecentChanges[] recentChangeList) {
         super(listener, credentials, applicationId, track, rolloutPercentage);
         this.workspace = workspace;
         this.apkFiles = apkFiles;
+        this.deobfuscationFilesPattern = deobfuscationFilesPattern;
         this.expansionFiles = expansionFiles;
         this.usePreviousExpansionFilesIfMissing = usePreviousExpansionFilesIfMissing;
         this.recentChangeList = recentChangeList;
@@ -109,6 +110,9 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
                     new FileContent("application/vnd.android.package-archive", new File(apkFile.getRemote()));
             Apk uploadedApk = editService.apks().upload(applicationId, editId, apk).execute();
             uploadedVersionCodes.add(uploadedApk.getVersionCode());
+            if (!Strings.isNullOrEmpty(deobfuscationFilesPattern)) {
+                uploadDeobfuscationFileForApk(apkFile, uploadedApk.getVersionCode());
+            }
         }
 
         // Upload the expansion files, or associate the previous ones, if configured
@@ -160,6 +164,37 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
         // If committing didn't throw an exception, everything worked fine
         logger.println("Changes were successfully applied to Google Play");
         return true;
+    }
+
+    private void uploadDeobfuscationFileForApk(FilePath apkFile, Integer versionCode)
+            throws IOException, InterruptedException {
+        logger.println("Searching for deobfuscation-file...");
+
+        FilePath basePath = apkFile.getParent();
+        String deobfuscationFilesPatternWithoutGoingUp = this.deobfuscationFilesPattern;
+        while (deobfuscationFilesPatternWithoutGoingUp.startsWith("../")) {
+            if (workspace.equals(basePath)) {
+                logger.println("Stopped search, because it leads out of the workspace.");
+                return;
+            }
+            basePath = basePath.getParent();
+            deobfuscationFilesPatternWithoutGoingUp = deobfuscationFilesPatternWithoutGoingUp.substring("../".length());
+        }
+
+        List<String> deobfuscationFiles = basePath.act(new FindFilesTask(deobfuscationFilesPatternWithoutGoingUp));
+        if (!deobfuscationFiles.isEmpty()) {
+            String deobfuscationFilePath = basePath.child(deobfuscationFiles.get(0)).getRemote();
+            logger.println(String.format("Uploading deobfuscation-file: %s", deobfuscationFilePath));
+            FileContent deobfuscationFileContent
+                    = new FileContent("application/octet-stream", new File(deobfuscationFilePath));
+            editService.deobfuscationfiles().upload(applicationId, editId, versionCode,
+                    DEOBFUSCATION_FILE_TYPE_PROGUARD, deobfuscationFileContent).execute();
+            if (deobfuscationFiles.size() > 1) {
+                logger.println("Ignoring further deobfuscation-files.");
+            }
+        } else {
+            logger.println("No deobfuscation-file found.");
+        }
     }
 
     /** Applies an expansion file to an APK, whether from a given file, or by using previously-uploaded file.  */
