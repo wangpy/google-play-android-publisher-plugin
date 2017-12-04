@@ -4,17 +4,15 @@
   <parent>
     <groupId>org.jenkins-ci.plugins</groupId>
     <artifactId>plugin</artifactId>
-    <version>2.14</version>
+    <version>3.2</version>
     <relativePath />
   </parent>
 
   <properties>
-    <jenkins.version>1.642.3</jenkins.version>
+    <jenkins.version>2.32</jenkins.version>
     <java.level>7</java.level>
-    <jenkins-test-harness.version>2.15</jenkins-test-harness.version>
   </properties>
 
-  <groupId>org.jenkins-ci.plugins</groupId>
   <artifactId>google-play-android-publisher</artifactId>
   <version>1.6-SNAPSHOT</version>
   <packaging>hpi</packaging>
