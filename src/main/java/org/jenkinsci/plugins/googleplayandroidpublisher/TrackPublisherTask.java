@@ -104,7 +104,7 @@ abstract class TrackPublisherTask<V> extends AbstractPublisherTask<V> {
         }
         Track updatedTrack =
                 editService.tracks().update(applicationId, editId, trackToAssign.getTrack(), trackToAssign).execute();
-        logger.println(String.format("The %s release track will now contain the APK(s): %s\n", track,
+        logger.println(String.format("The %s release track will now contain APK(s) with version code(s): %s\n", track,
                 join(updatedTrack.getVersionCodes(), ", ")));
     }
 
