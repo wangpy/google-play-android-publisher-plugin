@@ -51,6 +51,9 @@ public abstract class GooglePlayBuildStepDescriptor<T extends BuildStep & Descri
         // Otherwise, attempt to load the given credential to see whether it has been set up correctly
         try {
             new CredentialsHandler(value).getServiceAccountCredentials();
+        } catch (EphemeralCredentialsException e) {
+            // Loading the credential (apparently) goes online, so we may get ephemeral connectivity problems
+            return FormValidation.warning(e.getMessage());
         } catch (UploadException e) {
             return FormValidation.error(e.getMessage());
         }

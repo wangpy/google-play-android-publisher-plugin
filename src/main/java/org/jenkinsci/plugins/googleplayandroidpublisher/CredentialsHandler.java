@@ -6,6 +6,7 @@ import com.google.jenkins.plugins.credentials.oauth.GoogleRobotPrivateKeyCredent
 import org.apache.commons.lang.exception.ExceptionUtils;
 
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.security.GeneralSecurityException;
 
 import static hudson.Util.fixEmptyAndTrim;
@@ -57,6 +58,10 @@ public class CredentialsHandler {
             }
             throw new UploadException(e);
         } catch (GeneralSecurityException e) {
+            if (ExceptionUtils.getRootCause(e) instanceof IOException) {
+                throw new UploadException("Failed to validate Google Service Account credential against the " +
+                        "Google API servers. Check internet connectivity on the Jenkins server and try again.", e);
+            }
             throw new UploadException(e);
         }
     }
