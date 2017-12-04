@@ -1,6 +1,7 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.AbortException;
 import hudson.Extension;
 import hudson.FilePath;
@@ -113,6 +114,7 @@ public class ApkPublisher extends GooglePlayPublisher {
         return fixEmptyAndTrim(rolloutPercentage);
     }
 
+    @SuppressFBWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     private double getRolloutPercentageValue() throws IOException, InterruptedException {
         String pct = getRolloutPercentage();
         if (pct != null) {
@@ -123,6 +125,7 @@ public class ApkPublisher extends GooglePlayPublisher {
         return tryParseNumber(expand(pct), DEFAULT_PERCENTAGE).doubleValue();
     }
 
+    @SuppressFBWarnings("EI_EXPOSE_REP")
     public RecentChanges[] getRecentChangeList() {
         return recentChangeList;
     }
@@ -224,7 +227,7 @@ public class ApkPublisher extends GooglePlayPublisher {
                 return false;
             } catch (ParserException e) {
                 // Show a bit more information for APK parse exceptions
-                logger.println(String.format("File does not appear to be a valid APK: %s\n- %s",
+                logger.println(String.format("File does not appear to be a valid APK: %s%n- %s",
                         apk.getRemote(), e.getMessage()));
                 return false;
             } catch (IOException e) {
@@ -300,7 +303,7 @@ public class ApkPublisher extends GooglePlayPublisher {
                         && fileSet.getMainFile() == null) {
                     logger.println(String.format("Patch expansion file '%s' was provided, but no main expansion file " +
                             "was provided, and the option to reuse a pre-existing expansion file was " +
-                            "disabled.\nGoogle Play requires that each APK with a patch file also has a main " +
+                            "disabled.%nGoogle Play requires that each APK with a patch file also has a main " +
                             "file.", fileSet.getPatchFile().getName()));
                     return false;
                 }
@@ -366,7 +369,7 @@ public class ApkPublisher extends GooglePlayPublisher {
 
             @Override
             public String getDisplayName() {
-                return null;
+                return "Recent changes";
             }
 
             public ComboBoxModel doFillLanguageItems() {

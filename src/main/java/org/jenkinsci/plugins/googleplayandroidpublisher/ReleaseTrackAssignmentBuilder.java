@@ -1,6 +1,7 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.AbortException;
 import hudson.EnvVars;
 import hudson.Extension;
@@ -106,6 +107,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
         return fixEmptyAndTrim(rolloutPercentage);
     }
 
+    @SuppressFBWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     private double getRolloutPercentageValue() throws IOException, InterruptedException {
         String pct = getRolloutPercentage();
         if (pct != null) {
@@ -169,6 +171,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
         }
     }
 
+    @SuppressFBWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     private boolean assignApk(@Nonnull Run<?, ?> run, @Nonnull FilePath workspace, @Nonnull TaskListener listener)
             throws IOException, InterruptedException {
         final PrintStream logger = listener.getLogger();
@@ -232,7 +235,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
             } catch (ZipException e) {
                 throw new IOException(String.format("File does not appear to be a valid APK: %s", apk.getRemote()), e);
             } catch (ParserException e) {
-                logger.println(String.format("File does not appear to be a valid APK: %s\n- %s",
+                logger.println(String.format("File does not appear to be a valid APK: %s%n- %s",
                         apk.getRemote(), e.getMessage()));
                 throw e;
             }

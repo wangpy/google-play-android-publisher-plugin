@@ -1,5 +1,6 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.model.AbstractProject;
 import hudson.model.Describable;
 import hudson.tasks.BuildStep;
@@ -76,6 +77,7 @@ public abstract class GooglePlayBuildStepDescriptor<T extends BuildStep & Descri
         return FormValidation.ok();
     }
 
+    @SuppressFBWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     public FormValidation doCheckRolloutPercentage(@QueryParameter String value) {
         value = fixEmptyAndTrim(value);
         if (value == null || value.matches(REGEX_VARIABLE)) {
