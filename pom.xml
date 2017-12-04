@@ -41,7 +41,7 @@
     <dependency>
       <groupId>com.google.apis</groupId>
       <artifactId>google-api-services-androidpublisher</artifactId>
-      <version>v2-rev35-1.22.0</version>
+      <version>v2-rev47-1.22.0</version>
     </dependency>
 
     <dependency>
