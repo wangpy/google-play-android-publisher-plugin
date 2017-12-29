@@ -72,8 +72,8 @@ abstract class TrackPublisherTask<V> extends AbstractPublisherTask<V> {
                 trackToAssign.setUserFraction(rolloutFraction);
 
                 // Check whether we also need to override the desired rollout percentage
-                Double currentFraction = rolloutTrack == null ? rolloutFraction : rolloutTrack.getUserFraction();
-                if (currentFraction != null && currentFraction > rolloutFraction) {
+                double currentFraction = rolloutTrack == null ? rolloutFraction : rolloutTrack.getUserFraction();
+                if (currentFraction > rolloutFraction) {
                     if (shouldReducingRolloutPercentageCauseFailure()) {
                         throw new UploadException(String.format("Staged rollout percentage cannot be reduced from " +
                                 "%s%% to the configured %s%%",
@@ -104,7 +104,7 @@ abstract class TrackPublisherTask<V> extends AbstractPublisherTask<V> {
         }
         Track updatedTrack =
                 editService.tracks().update(applicationId, editId, trackToAssign.getTrack(), trackToAssign).execute();
-        logger.println(String.format("The %s release track will now contain the APK(s): %s\n", track,
+        logger.println(String.format("The %s release track will now contain APK(s) with version code(s): %s%n", track,
                 join(updatedTrack.getVersionCodes(), ", ")));
     }
 

@@ -73,7 +73,7 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
 
     protected Boolean execute() throws IOException, InterruptedException, UploadException {
         // Open an edit via the Google Play API, thereby ensuring that our credentials etc. are working
-        logger.println(String.format("Authenticating to Google Play API...\n- Credential:     %s\n- Application ID: %s",
+        logger.println(String.format("Authenticating to Google Play API...%n- Credential:     %s%n- Application ID: %s%n",
                 getCredentialName(), applicationId));
         createEdit(applicationId);
 

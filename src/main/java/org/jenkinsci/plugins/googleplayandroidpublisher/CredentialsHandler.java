@@ -3,9 +3,11 @@ package org.jenkinsci.plugins.googleplayandroidpublisher;
 import com.google.jenkins.plugins.credentials.oauth.GoogleOAuth2ScopeRequirement;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotPrivateKeyCredentials;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.commons.lang.exception.ExceptionUtils;
 
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.security.GeneralSecurityException;
 
 import static hudson.Util.fixEmptyAndTrim;
@@ -24,23 +26,24 @@ public class CredentialsHandler {
     }
 
     /** @return The Google API credentials configured for this job. */
+    @SuppressFBWarnings("VA_FORMAT_STRING_USES_NEWLINE")
     public final GoogleRobotCredentials getServiceAccountCredentials() throws UploadException {
         try {
             GoogleOAuth2ScopeRequirement req = new AndroidPublisherScopeRequirement();
             GoogleRobotCredentials credentials = GoogleRobotCredentials.getById(googleCredentialsId);
             if (credentials == null) {
                 throw new CredentialsException(String.format("The Google Service Account credential '%s' "
-                        + "could not be found.\n\tIf you renamed the credential since configuring this job, you must "
+                        + "could not be found.%n\tIf you renamed the credential since configuring this job, you must "
                         + "re-configure this job, choosing the new credential name", googleCredentialsId));
             }
             return credentials.forRemote(req);
         } catch (GoogleRobotPrivateKeyCredentials.AccountIdNotSetException e) {
             throw new CredentialsException(String.format("The Google Service Account credential '%s' "
-                    + "has not been configured correctly.\n\tUpdate the credential, ensuring that the required data "
+                    + "has not been configured correctly.%n\tUpdate the credential, ensuring that the required data "
                     + "have been entered, then try again", googleCredentialsId));
         } catch (GoogleRobotPrivateKeyCredentials.PrivateKeyNotSetException e) {
             throw new CredentialsException(String.format("The Google Service Account credential '%s' "
-                    + "has not been configured correctly.\n\tUpdate the credential, ensuring that the required data "
+                    + "has not been configured correctly.%n\tUpdate the credential, ensuring that the required data "
                     + "have been entered, then try again", googleCredentialsId));
         } catch (NullPointerException e) {
             // This should really be handled by the Google OAuth plugin
@@ -57,6 +60,10 @@ public class CredentialsHandler {
             }
             throw new UploadException(e);
         } catch (GeneralSecurityException e) {
+            if (ExceptionUtils.getRootCause(e) instanceof IOException) {
+                throw new UploadException("Failed to validate Google Service Account credential against the " +
+                        "Google API servers. Check internet connectivity on the Jenkins server and try again.", e);
+            }
             throw new UploadException(e);
         }
     }

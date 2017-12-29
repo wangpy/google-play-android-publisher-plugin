@@ -1,5 +1,6 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.model.AbstractProject;
 import hudson.model.Describable;
 import hudson.tasks.BuildStep;
@@ -51,6 +52,9 @@ public abstract class GooglePlayBuildStepDescriptor<T extends BuildStep & Descri
         // Otherwise, attempt to load the given credential to see whether it has been set up correctly
         try {
             new CredentialsHandler(value).getServiceAccountCredentials();
+        } catch (EphemeralCredentialsException e) {
+            // Loading the credential (apparently) goes online, so we may get ephemeral connectivity problems
+            return FormValidation.warning(e.getMessage());
         } catch (UploadException e) {
             return FormValidation.error(e.getMessage());
         }
@@ -73,6 +77,7 @@ public abstract class GooglePlayBuildStepDescriptor<T extends BuildStep & Descri
         return FormValidation.ok();
     }
 
+    @SuppressFBWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     public FormValidation doCheckRolloutPercentage(@QueryParameter String value) {
         value = fixEmptyAndTrim(value);
         if (value == null || value.matches(REGEX_VARIABLE)) {
