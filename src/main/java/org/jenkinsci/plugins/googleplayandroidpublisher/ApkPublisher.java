@@ -240,7 +240,8 @@ public class ApkPublisher extends GooglePlayPublisher {
 
         // If there are multiple APKs, ensure that all have the same application ID
         if (applicationIds.size() != 1) {
-            logger.println("Multiple APKs were found but they have inconsistent application IDs:");
+            logger.println(String.format("Multiple APKs matched the pattern '%s', " +
+                            "but they have inconsistent application IDs:", filesPattern));
             for (String id : applicationIds) {
                 logger.print("- ");
                 logger.println(id);
