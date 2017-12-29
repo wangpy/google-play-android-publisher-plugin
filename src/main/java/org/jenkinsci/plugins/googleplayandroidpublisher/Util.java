@@ -11,7 +11,7 @@ import hudson.model.TaskListener;
 import hudson.remoting.VirtualChannel;
 import jenkins.MasterToSlaveFileCallable;
 import jenkins.model.Jenkins;
-import net.dongliu.apk.parser.ApkParser;
+import net.dongliu.apk.parser.ApkParsers;
 import net.dongliu.apk.parser.bean.ApkMeta;
 import org.jenkinsci.plugins.tokenmacro.MacroEvaluationException;
 import org.jenkinsci.plugins.tokenmacro.TokenMacro;
@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.security.GeneralSecurityException;
 
 import static hudson.Util.fixEmptyAndTrim;
-import static hudson.Util.replaceMacro;
 
 public class Util {
 
@@ -56,7 +55,7 @@ public class Util {
     }
 
     /** @return The version code of the given APK file. */
-    public static int getVersionCode(FilePath apk) throws IOException, InterruptedException {
+    static int getVersionCode(FilePath apk) throws IOException, InterruptedException {
         return apk.act(new MasterToSlaveFileCallable<Integer>() {
             public Integer invoke(File f, VirtualChannel channel) throws IOException, InterruptedException {
                 return getApkMetadata(f).getVersionCode().intValue();
@@ -65,13 +64,8 @@ public class Util {
     }
 
     /** @return The application metadata of the given APK file. */
-    public static ApkMeta getApkMetadata(File apk) throws IOException, InterruptedException {
-        ApkParser apkParser = new ApkParser(apk);
-        try {
-            return apkParser.getApkMeta();
-        } finally {
-            apkParser.close();
-        }
+    static ApkMeta getApkMetadata(File apk) throws IOException {
+        return ApkParsers.getMetaInfo(apk);
     }
 
     /** @return The given value with variables expanded and trimmed; {@code null} if that results in an empty string. */
