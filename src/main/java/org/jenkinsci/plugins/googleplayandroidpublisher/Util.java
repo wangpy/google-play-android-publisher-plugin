@@ -19,6 +19,7 @@ import org.jenkinsci.plugins.tokenmacro.TokenMacro;
 import java.io.File;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
+import java.util.List;
 
 import static hudson.Util.fixEmptyAndTrim;
 
@@ -92,10 +93,15 @@ public class Util {
         }
         if (e instanceof PublisherApiException) {
             // TODO: Here we could map error reasons like "apkUpgradeVersionConflict" to better (and localised) text
-            String message = ((PublisherApiException) e).getDetailsMessage();
-            if (message != null && message.trim().length() > 0) {
-                return message;
+            List<String> errors = ((PublisherApiException) e).getErrorMessages();
+            if (errors.isEmpty()) {
+                return "(unknown error)";
             }
+            String message = "\n";
+            for (String error : errors) {
+                message += String.format("- %s%n", error);
+            }
+            return message;
         }
 
         // Otherwise print the whole stacktrace, as it's something unrelated to this plugin
