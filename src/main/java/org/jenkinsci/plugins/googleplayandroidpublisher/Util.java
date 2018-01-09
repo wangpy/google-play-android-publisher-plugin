@@ -97,11 +97,13 @@ public class Util {
             if (errors.isEmpty()) {
                 return "(unknown error)";
             }
-            String message = "\n";
+            StringBuilder message = new StringBuilder("\n");
             for (String error : errors) {
-                message += String.format("- %s%n", error);
+                message.append("- ");
+                message.append(error);
+                message.append('\n');
             }
-            return message;
+            return message.toString();
         }
 
         // Otherwise print the whole stacktrace, as it's something unrelated to this plugin
