@@ -1,15 +1,30 @@
 <div>
-  Specifies a filepath or -pattern matching one deobfuscation-file per APK that gets uploaded to Google Play,
-  e.g. "<tt>../mapping/*/mapping.txt</tt>".
+  Specifies filenames or patterns matching one or more ProGuard mapping
+  files that should be uploaded to Google Play, so that it can automatically
+  deobfuscate stacktraces from crash reports.
   <p/>
-  The path to the deobfuscation-file is resolved relative to the directory of each APK.<br/>
-  Missing deobfuscation-files or multiple matches are ignored.
+  You can use wildcards like "<tt>**/build/**/mapping.txt</tt>".<br/>
+  See <a href='https://ant.apache.org/manual/Types/fileset.html'>
+  the 'includes' attribute of Ant's FileSet</a> for the exact format.<br/>
+  Note that multiple entries must be comma-separated.
   <p/>
-  At the beginning of the path you can use "<tt>../</tt>" (also more than once) to search relative to an
-  ancestor-directory. However, you cannot leave the workspace.<br/>
-  You can also use wildcards like "<tt>**/mapping/*/*-mapping.txt</tt>". See
-  <a href='https://ant.apache.org/manual/Types/fileset.html'>the 'includes' attribute of Ant's FileSet</a>
-  for the exact format.
+  The base directory is <a href='ws/'>the build's workspace</a>.
+  You can only upload mapping files that are located in your workspace.
+  <p/>
+  If there are multiple APKs being uploaded, and only one
+  <tt>mapping.txt</tt> file is found, then this file will be associated
+  with each of the APKs being uploaded. If there are multiple
+  <tt>mapping.txt</tt> files, this plugin will make a basic attempt to
+  associate each mapping file with the corresponding APK.<br/>
+  Otherwise, if the number of mapping files found is not equal to the
+  number of APKs being uploaded, the build will fail, as this situation
+  is not supported.
+  <p/>
+  For more information on deobfuscating crash stacktraces, see the
+  Google Play documentation:<br/>
+  <a href='https://support.google.com/googleplay/android-developer/answer/6295281'>
+    https://support.google.com/googleplay/android-developer/answer/6295281
+  </a>
   <hr/>
   This field supports substituting environment variables in the form
   <tt>${SOME_VARIABLE}</tt> or <tt>$SOME_VARIABLE</tt> at build time.

@@ -27,6 +27,7 @@ import java.io.PrintStream;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -260,6 +261,55 @@ public class ApkPublisher extends GooglePlayPublisher {
             return false;
         }
 
+        // Find the obfuscation mapping filename(s) which match the pattern after variable expansion
+        final Map<FilePath, FilePath> apkFilesToMappingFiles = new HashMap<>();
+        final String mappingFilesPattern = getExpandedDeobfuscationFilesPattern();
+        if (getExpandedDeobfuscationFilesPattern() != null) {
+            List<String> relativeMappingPaths = workspace.act(new FindFilesTask(mappingFilesPattern));
+            if (relativeMappingPaths.isEmpty()) {
+                logger.println(String.format("No obfuscation mapping files matching the pattern '%s' could be found; " +
+                        "no files will be uploaded", filesPattern));
+                return false;
+            }
+
+            // Create a mapping of APK files to their obfuscation mapping file
+            if (relativeMappingPaths.size() == 1) {
+                // If there is only one mapping file, associate it with each of the APKs
+                FilePath mappingFile = workspace.child(relativeMappingPaths.get(0));
+                for (FilePath apk : apkFiles) {
+                    apkFilesToMappingFiles.put(apk, mappingFile);
+                }
+            } else if (relativeMappingPaths.size() == apkFiles.size()) {
+                // If there are multiple mapping files, this usually means that there is one per dimension;
+                // the folder structure will typically look like this for the APKs and their mapping files:
+                //
+                // - build/outputs/apk/dimension_one/release/app-release.apk
+                // - build/outputs/apk/dimension_two/release/app-release.apk
+                // - build/outputs/mapping/dimension_one/release/mapping.txt
+                // - build/outputs/mapping/dimension_two/release/mapping.txt
+                //
+                // i.e. an APK and its mapping file don't share the same path prefix, but as the directories are named
+                // by dimension, we assume that the order of the output of both FindFileTasks here will be the same
+                //
+                // We use this assumption here to associate the individual mapping files with the discovered APK files
+                for (int i = 0, n = apkFiles.size(); i < n; i++) {
+                    apkFilesToMappingFiles.put(apkFiles.get(i), workspace.child(relativeMappingPaths.get(i)));
+                }
+            } else {
+                // If, for some reason, the number of APK files don't match, we won't deal with this situation
+                logger.println(String.format("There are %d APKs to be uploaded, but only %d obfuscation mapping " +
+                        "files were found matching the pattern '%s':",
+                        apkFiles.size(), relativeMappingPaths.size(), mappingFilesPattern));
+                for (String path : relativePaths) {
+                    logger.println(String.format("- %s", path));
+                }
+                for (String path : relativeMappingPaths) {
+                    logger.println(String.format("- %s", path));
+                }
+                return false;
+            }
+        }
+
         final String applicationId = applicationIds.iterator().next();
 
         // Find the expansion filename(s) which match the pattern after variable expansion
@@ -326,7 +376,7 @@ public class ApkPublisher extends GooglePlayPublisher {
         try {
             GoogleRobotCredentials credentials = getCredentialsHandler().getServiceAccountCredentials();
             return workspace.act(new ApkUploadTask(listener, credentials, applicationId, workspace, apkFiles,
-                    getExpandedDeobfuscationFilesPattern(), expansionFiles, usePreviousExpansionFilesIfMissing,
+                    apkFilesToMappingFiles, expansionFiles, usePreviousExpansionFilesIfMissing,
                     fromConfigValue(getCanonicalTrackName()), getRolloutPercentageValue(),
                     getExpandedRecentChangesList()));
         } catch (UploadException e) {

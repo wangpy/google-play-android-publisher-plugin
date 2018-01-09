@@ -7,7 +7,6 @@ import com.google.api.services.androidpublisher.model.Apk;
 import com.google.api.services.androidpublisher.model.ApkListing;
 import com.google.api.services.androidpublisher.model.ExpansionFile;
 import com.google.api.services.androidpublisher.model.ExpansionFilesUploadResponse;
-import com.google.common.base.Strings;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import hudson.FilePath;
 import hudson.model.TaskListener;
@@ -35,7 +34,7 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
 
     private final FilePath workspace;
     private final List<FilePath> apkFiles;
-    private final String deobfuscationFilesPattern;
+    private final Map<FilePath, FilePath> apkFilesToMappingFiles;
     private final Map<Integer, ExpansionFileSet> expansionFiles;
     private final boolean usePreviousExpansionFilesIfMissing;
     private final RecentChanges[] recentChangeList;
@@ -44,13 +43,13 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
     private int latestPatchExpansionFileVersionCode;
 
     ApkUploadTask(TaskListener listener, GoogleRobotCredentials credentials, String applicationId,
-                  FilePath workspace, List<FilePath> apkFiles, String deobfuscationFilesPattern, Map<Integer, ExpansionFileSet> expansionFiles,
-                  boolean usePreviousExpansionFilesIfMissing, ReleaseTrack track, double rolloutPercentage,
-                  ApkPublisher.RecentChanges[] recentChangeList) {
+                  FilePath workspace, List<FilePath> apkFiles, Map<FilePath, FilePath> apkFilesToMappingFiles,
+                  Map<Integer, ExpansionFileSet> expansionFiles, boolean usePreviousExpansionFilesIfMissing,
+                  ReleaseTrack track, double rolloutPercentage, ApkPublisher.RecentChanges[] recentChangeList) {
         super(listener, credentials, applicationId, track, rolloutPercentage);
         this.workspace = workspace;
         this.apkFiles = apkFiles;
-        this.deobfuscationFilesPattern = deobfuscationFilesPattern;
+        this.apkFilesToMappingFiles = apkFilesToMappingFiles;
         this.expansionFiles = expansionFiles;
         this.usePreviousExpansionFilesIfMissing = usePreviousExpansionFilesIfMissing;
         this.recentChangeList = recentChangeList;
@@ -73,8 +72,9 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
 
     protected Boolean execute() throws IOException, InterruptedException, UploadException {
         // Open an edit via the Google Play API, thereby ensuring that our credentials etc. are working
-        logger.println(String.format("Authenticating to Google Play API...%n- Credential:     %s%n- Application ID: %s%n",
-                getCredentialName(), applicationId));
+        logger.println(String.format("Authenticating to Google Play API...%n" +
+                        "- Credential:     %s%n" +
+                        "- Application ID: %s%n", getCredentialName(), applicationId));
         createEdit(applicationId);
 
         // Get the list of existing APKs and their info
@@ -84,7 +84,7 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
         }
 
         // Upload each of the APKs
-        logger.println(String.format("Uploading %d APK(s) with application ID: %s", apkFiles.size(), applicationId));
+        logger.println(String.format("Uploading %d APK(s) with application ID: %s%n", apkFiles.size(), applicationId));
         final ArrayList<Integer> uploadedVersionCodes = new ArrayList<Integer>();
         for (FilePath apkFile : apkFiles) {
             final ApkMeta metadata = getApkMetadata(new File(apkFile.getRemote()));
@@ -95,11 +95,11 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
             logger.println(String.format("    SHA-1 hash: %s", apkSha1Hash));
             logger.println(String.format("   versionCode: %d", metadata.getVersionCode()));
             logger.println(String.format(" minSdkVersion: %s", metadata.getMinSdkVersion()));
-            logger.println();
 
             // Check whether this APK already exists on the server (i.e. uploading it would fail)
             for (Apk apk : existingApks) {
                 if (apk.getBinary().getSha1().toLowerCase(Locale.ENGLISH).equals(apkSha1Hash)) {
+                    logger.println();
                     logger.println("This APK already exists in the Google Play account; it cannot be uploaded again");
                     return false;
                 }
@@ -110,9 +110,18 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
                     new FileContent("application/vnd.android.package-archive", new File(apkFile.getRemote()));
             Apk uploadedApk = editService.apks().upload(applicationId, editId, apk).execute();
             uploadedVersionCodes.add(uploadedApk.getVersionCode());
-            if (!Strings.isNullOrEmpty(deobfuscationFilesPattern)) {
-                uploadDeobfuscationFileForApk(apkFile, uploadedApk.getVersionCode());
+
+            // Upload the ProGuard mapping file for this APK, if there is one
+            final FilePath mappingFile = apkFilesToMappingFiles.get(apkFile);
+            if (mappingFile != null) {
+                logger.println(String.format(" Uploading associated ProGuard mapping file: %s",
+                        getRelativeFileName(mappingFile)));
+                FileContent mapping =
+                        new FileContent("application/octet-stream",new File(mappingFile.getRemote()));
+                editService.deobfuscationfiles().upload(applicationId, editId, uploadedApk.getVersionCode(),
+                        DEOBFUSCATION_FILE_TYPE_PROGUARD, mapping).execute();
             }
+            logger.println("");
         }
 
         // Upload the expansion files, or associate the previous ones, if configured
@@ -164,37 +173,6 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
         // If committing didn't throw an exception, everything worked fine
         logger.println("Changes were successfully applied to Google Play");
         return true;
-    }
-
-    private void uploadDeobfuscationFileForApk(FilePath apkFile, Integer versionCode)
-            throws IOException, InterruptedException {
-        logger.println("Searching for deobfuscation-file...");
-
-        FilePath basePath = apkFile.getParent();
-        String deobfuscationFilesPatternWithoutGoingUp = this.deobfuscationFilesPattern;
-        while (deobfuscationFilesPatternWithoutGoingUp.startsWith("../")) {
-            if (workspace.equals(basePath)) {
-                logger.println("Stopped search, because it leads out of the workspace.");
-                return;
-            }
-            basePath = basePath.getParent();
-            deobfuscationFilesPatternWithoutGoingUp = deobfuscationFilesPatternWithoutGoingUp.substring("../".length());
-        }
-
-        List<String> deobfuscationFiles = basePath.act(new FindFilesTask(deobfuscationFilesPatternWithoutGoingUp));
-        if (!deobfuscationFiles.isEmpty()) {
-            String deobfuscationFilePath = basePath.child(deobfuscationFiles.get(0)).getRemote();
-            logger.println(String.format("Uploading deobfuscation-file: %s", deobfuscationFilePath));
-            FileContent deobfuscationFileContent
-                    = new FileContent("application/octet-stream", new File(deobfuscationFilePath));
-            editService.deobfuscationfiles().upload(applicationId, editId, versionCode,
-                    DEOBFUSCATION_FILE_TYPE_PROGUARD, deobfuscationFileContent).execute();
-            if (deobfuscationFiles.size() > 1) {
-                logger.println("Ignoring further deobfuscation-files.");
-            }
-        } else {
-            logger.println("No deobfuscation-file found.");
-        }
     }
 
     /** Applies an expansion file to an APK, whether from a given file, or by using previously-uploaded file.  */
