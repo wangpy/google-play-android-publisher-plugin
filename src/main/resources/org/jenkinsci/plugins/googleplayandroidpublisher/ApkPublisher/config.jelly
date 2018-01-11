@@ -5,24 +5,28 @@
     <f:select />
   </f:entry>
 
-  <f:entry title="${%APK files}" field="apkFilesPattern" description="${%Comma-separated list of filenames or patterns}">
+  <f:entry title="${%APK files}" field="apkFilesPattern"
+      description="${%Comma-separated list of filenames or patterns}">
     <f:textbox />
   </f:entry>
 
-  <f:entry title="${%Deobfuscation files}" field="deobfuscationFilesPattern" description="${%Filepath or -pattern relative to each apk}">
+  <f:entry title="${%Deobfuscation files}" field="deobfuscationFilesPattern"
+      description="${%Optional, comma-separated list of filenames or patterns}">
     <f:textbox />
   </f:entry>
 
   <f:entry title="${%Expansion files}" field="expansionFilesPattern">
     <f:textbox />
-    <f:checkbox title="${%Re-use expansion files from existing APKs where necessary}" field="usePreviousExpansionFilesIfMissing" />
+    <f:checkbox title="${%Re-use expansion files from existing APKs where necessary}"
+        field="usePreviousExpansionFilesIfMissing" />
   </f:entry>
 
   <f:entry title="${%Release track}" field="trackName">
     <f:combobox style="width:15em" />
   </f:entry>
 
-  <f:entry title="${%Rollout %}" field="rolloutPercentage" description="${%Only applies to the 'production' release track}">
+  <f:entry title="${%Rollout %}" field="rolloutPercentage"
+      description="${%Only applies to the 'production' release track}">
     <f:combobox style="width:15em" />
   </f:entry>
 
