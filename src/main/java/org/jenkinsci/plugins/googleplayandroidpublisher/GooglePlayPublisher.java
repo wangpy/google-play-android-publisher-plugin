@@ -41,9 +41,11 @@ public abstract class GooglePlayPublisher extends Recorder implements SimpleBuil
         currentListener.set(listener);
     }
 
-    protected CredentialsHandler getCredentialsHandler() throws CredentialsException {
+    protected CredentialsHandler getCredentialsHandler() throws CredentialsException, IOException,
+            InterruptedException {
         if (credentialsHandler == null) {
-            credentialsHandler = new CredentialsHandler(googleCredentialsId);
+            String id = expand(googleCredentialsId);
+            credentialsHandler = new CredentialsHandler(id);
         }
         return credentialsHandler;
     }

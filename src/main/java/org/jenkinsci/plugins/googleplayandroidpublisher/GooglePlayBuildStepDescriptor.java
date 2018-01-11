@@ -40,12 +40,11 @@ public abstract class GooglePlayBuildStepDescriptor<T extends BuildStep & Descri
         // Complain if no credentials have been set up
         ListBoxModel credentials = getCredentialsListBox(GooglePlayPublisher.class);
         if (credentials.isEmpty()) {
-            // TODO: Can we link to the credentials page from this message?
             return FormValidation.error("You must add at least one Google Service Account via the Credentials page");
         }
 
-        // Don't validate value if it hasn't been set
-        if (value == null || value.isEmpty()) {
+        // Don't validate value if it hasn't been set, or looks like an expression
+        if (value == null || value.isEmpty() || value.matches("\\$\\{[A-Za-z0-9_]+}")) {
             return FormValidation.ok();
         }
 
