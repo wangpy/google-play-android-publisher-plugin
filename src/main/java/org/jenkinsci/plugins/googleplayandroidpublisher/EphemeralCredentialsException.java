@@ -7,4 +7,8 @@ public class EphemeralCredentialsException extends UploadException {
         super(message);
     }
 
+    public EphemeralCredentialsException(String message, Throwable cause) {
+        super(message, cause);
+    }
+
 }

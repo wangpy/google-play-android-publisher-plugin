@@ -61,8 +61,9 @@ public class CredentialsHandler {
             throw new UploadException(e);
         } catch (GeneralSecurityException e) {
             if (ExceptionUtils.getRootCause(e) instanceof IOException) {
-                throw new UploadException("Failed to validate Google Service Account credential against the " +
-                        "Google API servers. Check internet connectivity on the Jenkins server and try again.", e);
+                throw new EphemeralCredentialsException("Failed to validate Google Service Account credential " +
+                        "against the Google API servers. Check internet connectivity on the Jenkins server and try " +
+                        "again.", e);
             }
             throw new UploadException(e);
         }
