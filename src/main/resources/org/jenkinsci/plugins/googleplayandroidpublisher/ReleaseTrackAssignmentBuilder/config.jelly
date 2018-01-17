@@ -1,0 +1,41 @@
+<?jelly escape-by-default="true"?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form" xmlns:c="/lib/credentials">
+
+  <f:entry title="${%Google Play account}" field="googleCredentialsId">
+    <c:select expressionAllowed="true" />
+  </f:entry>
+
+  <j:set var="fromVersionCode" value="${(instance.fromVersionCode == null) ? true : instance.fromVersionCode}" />
+  <f:radioBlock title="${%Enter version codes to be assigned}" name="fromVersionCode" value="true"
+      checked="${fromVersionCode}" inline="true">
+
+    <f:entry title="${%Application ID}" field="applicationId">
+      <f:textbox />
+    </f:entry>
+
+    <f:entry title="${%Version code(s)}" field="versionCodes" description="${%Comma-separated list of version codes}">
+      <f:textbox />
+    </f:entry>
+
+  </f:radioBlock>
+
+  <f:radioBlock title="${%Read version codes to be assigned from APK files}" name="fromVersionCode" value="false"
+      checked="${!fromVersionCode}" inline="true">
+
+    <f:entry title="${%APK files}" field="apkFilesPattern"
+        description="${%Comma-separated list of filenames or patterns}">
+      <f:textbox />
+    </f:entry>
+
+  </f:radioBlock>
+
+  <f:entry title="${%Release track}" field="trackName">
+    <f:combobox style="width:15em" />
+  </f:entry>
+
+  <f:entry title="${%Rollout %}" field="rolloutPercentage"
+      description="${%Only applies to the 'production' release track}">
+    <f:combobox style="width:15em" />
+  </f:entry>
+
+</j:jelly>
