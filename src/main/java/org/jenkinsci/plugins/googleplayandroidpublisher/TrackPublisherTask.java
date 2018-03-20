@@ -92,8 +92,12 @@ abstract class TrackPublisherTask<V> extends AbstractPublisherTask<V> {
             logger.println("Ignoring staged rollout percentage as it only applies to production releases");
         }
 
-        // Remove older APKs from the alpha track
-        unassignOlderApks(ALPHA, newestVersionCodeAllowed);
+        // Updates to the INTERNAL track does not require removing lower version code APKs from the
+        // Alpha/Beta track.
+        if (track == BETA || track == ALPHA) {
+            // Remove older APKs from the alpha track
+            unassignOlderApks(ALPHA, newestVersionCodeAllowed);
+        }
 
         // Assign the new APK(s) to the desired track
         if (trackToAssign.getTrack().equals(ROLLOUT.getApiValue())) {

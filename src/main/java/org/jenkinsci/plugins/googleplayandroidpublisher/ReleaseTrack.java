@@ -7,6 +7,7 @@ import java.util.Locale;
 /** Release tracks to which APKs can be assigned. */
 public enum ReleaseTrack {
 
+    INTERNAL,
     ALPHA,
     BETA,
     PRODUCTION,
