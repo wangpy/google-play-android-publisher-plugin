@@ -95,7 +95,7 @@ public class Util {
             // TODO: Here we could map error reasons like "apkUpgradeVersionConflict" to better (and localised) text
             List<String> errors = ((PublisherApiException) e).getErrorMessages();
             if (errors == null || errors.isEmpty()) {
-                return "(unknown error)" + e;
+                return "Unknown error: " + e;
             }
             StringBuilder message = new StringBuilder("\n");
             for (String error : errors) {
