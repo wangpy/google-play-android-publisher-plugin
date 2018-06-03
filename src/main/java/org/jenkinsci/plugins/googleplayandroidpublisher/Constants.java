@@ -21,8 +21,4 @@ public class Constants {
     /** Formatter that only displays decimal places when necessary. */
     static final DecimalFormat PERCENTAGE_FORMATTER = new DecimalFormat("#.#");
 
-    /** Allowed percentage values when doing a staged rollout to production. */
-    static final double[] ROLLOUT_PERCENTAGES = { 0.5, 1, 5, 10, 20, 50, 100 };
-    static final double DEFAULT_PERCENTAGE = 100;
-
 }

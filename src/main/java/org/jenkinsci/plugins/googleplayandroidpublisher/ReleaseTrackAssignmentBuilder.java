@@ -3,12 +3,9 @@ package org.jenkinsci.plugins.googleplayandroidpublisher;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.AbortException;
-import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
 import hudson.Launcher;
-import hudson.model.AbstractBuild;
-import hudson.model.BuildListener;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.tasks.Builder;
@@ -21,7 +18,6 @@ import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -32,9 +28,7 @@ import java.util.zip.ZipException;
 
 import static hudson.Util.fixEmptyAndTrim;
 import static hudson.Util.tryParseNumber;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.DEFAULT_PERCENTAGE;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.PERCENTAGE_FORMATTER;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.ROLLOUT_PERCENTAGES;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.PRODUCTION;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.fromConfigValue;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getPublisherErrorMessage;
@@ -115,7 +109,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
             pct = pct.replace("%", "");
         }
         // If no valid numeric value was set, we will roll out to 100%
-        return tryParseNumber(expand(pct), DEFAULT_PERCENTAGE).doubleValue();
+        return tryParseNumber(expand(pct), 100).doubleValue();
     }
 
     private boolean isConfigValid(PrintStream logger) throws IOException, InterruptedException {
@@ -143,7 +137,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
         } else if (track == PRODUCTION) {
             // Check for valid rollout percentage
             double pct = getRolloutPercentageValue();
-            if (Arrays.binarySearch(ROLLOUT_PERCENTAGES, pct) < 0) {
+            if (Double.compare(pct, 0) < 0 || Double.compare(pct, 100) > 0) {
                 errors.add(String.format("%s%% is not a valid rollout percentage", PERCENTAGE_FORMATTER.format(pct)));
             }
         }

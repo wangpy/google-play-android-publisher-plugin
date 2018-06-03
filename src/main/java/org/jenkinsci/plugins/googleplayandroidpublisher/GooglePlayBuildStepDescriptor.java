@@ -18,9 +18,6 @@ import org.kohsuke.stapler.StaplerRequest;
 import static hudson.Util.fixEmptyAndTrim;
 import static hudson.Util.tryParseNumber;
 import static hudson.model.Item.EXTENDED_READ;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.DEFAULT_PERCENTAGE;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.PERCENTAGE_FORMATTER;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.ROLLOUT_PERCENTAGES;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.getConfigValues;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.REGEX_VARIABLE;
 
@@ -96,26 +93,15 @@ public abstract class GooglePlayBuildStepDescriptor<T extends BuildStep & Descri
             return FormValidation.ok();
         }
 
-        final double lowest = ROLLOUT_PERCENTAGES[0];
-        final double highest = DEFAULT_PERCENTAGE;
-        double pct = tryParseNumber(value.replace("%", ""), highest).doubleValue();
-        if (Double.compare(pct, lowest) < 0 || Double.compare(pct, DEFAULT_PERCENTAGE) > 0) {
-            return FormValidation.error("Percentage value must be between %s and %s%%",
-                    PERCENTAGE_FORMATTER.format(lowest), PERCENTAGE_FORMATTER.format(highest));
+        double pct = tryParseNumber(value.replace("%", ""), 100).doubleValue();
+        if (Double.compare(pct, 0) < 0 || Double.compare(pct, 100) > 0) {
+            return FormValidation.error("Percentage value must be between 0 and 100%");
         }
         return FormValidation.ok();
     }
 
     public ComboBoxModel doFillTrackNameItems() {
         return new ComboBoxModel(getConfigValues());
-    }
-
-    public ComboBoxModel doFillRolloutPercentageItems() {
-        ComboBoxModel list = new ComboBoxModel();
-        for (double pct : ROLLOUT_PERCENTAGES) {
-            list.add(String.format("%s%%", PERCENTAGE_FORMATTER.format(pct)));
-        }
-        return list;
     }
 
     public boolean isApplicable(Class<? extends AbstractProject> c) {
