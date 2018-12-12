@@ -1,8 +1,8 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
 import com.google.api.services.androidpublisher.model.Apk;
+import com.google.api.services.androidpublisher.model.TrackRelease;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
-import hudson.model.BuildListener;
 import hudson.model.TaskListener;
 
 import java.io.IOException;
@@ -16,12 +16,12 @@ import static hudson.Util.join;
 
 class TrackAssignmentTask extends TrackPublisherTask<Boolean> {
 
-    private final Collection<Integer> versionCodes;
+    private final List<Integer> versionCodes;
 
     TrackAssignmentTask(TaskListener listener, GoogleRobotCredentials credentials, String applicationId,
                         Collection<Integer> versionCodes, ReleaseTrack track, double rolloutPercentage) {
         super(listener, credentials, applicationId, track, rolloutPercentage);
-        this.versionCodes = versionCodes;
+        this.versionCodes = new ArrayList<>(versionCodes);
     }
 
     @Override
@@ -63,7 +63,8 @@ class TrackAssignmentTask extends TrackPublisherTask<Boolean> {
         // TODO: We could be nice and detect in advance if a user attempts to downgrade
 
         // Move the version codes to the configured track
-        assignApksToTrack(versionCodes, track, rolloutFraction);
+        TrackRelease release = Util.buildRelease(versionCodes, rolloutFraction, null);
+        assignApksToTrack(versionCodes, track, rolloutFraction, release);
 
         // Commit the changes
         try {

@@ -1,16 +1,15 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
 import com.google.api.services.androidpublisher.model.Track;
+import com.google.api.services.androidpublisher.model.TrackRelease;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
-import hudson.model.BuildListener;
 import hudson.model.TaskListener;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-
 import static hudson.Util.join;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.PERCENTAGE_FORMATTER;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.ALPHA;
@@ -44,24 +43,28 @@ abstract class TrackPublisherTask<V> extends AbstractPublisherTask<V> {
      * @param rolloutFraction The rollout fraction, if track is a staged rollout.
      */
     protected void assignApksToTrack(Collection<Integer> versionCodes, ReleaseTrack track,
-            double rolloutFraction) throws IOException, UploadException {
+            double rolloutFraction, TrackRelease release) throws IOException, UploadException {
         // Determine which version codes should be unassigned
         final int newestVersionCodeAllowed = getNewestVersionCodeAllowed(versionCodes);
 
         // Prepare to assign the APK(s) to the desired track
-        final Track trackToAssign = new Track();
-        trackToAssign.setTrack(track.getApiValue());
-        trackToAssign.setVersionCodes(new ArrayList<Integer>(versionCodes));
+        final Track trackToAssign = new Track()
+                .setTrack(track.getApiValue())
+                .setReleases(Collections.singletonList(release));
+
         if (track == PRODUCTION) {
             // Remove older APKs from the beta track
             unassignOlderApks(BETA, newestVersionCodeAllowed);
 
             // If there's an existing rollout, we need to clear it out so a new production/rollout APK can be added
             final Track rolloutTrack = fetchTrack(ROLLOUT);
-            if (rolloutTrack != null) {
+            double currentFraction = rolloutFraction;
+
+            if (rolloutTrack != null && rolloutTrack.getReleases() != null && !rolloutTrack.getReleases().isEmpty()) {
+                currentFraction = rolloutTrack.getReleases().get(0).getUserFraction();
                 logger.println(String.format("Removing existing staged rollout APK(s): %s",
-                        join(rolloutTrack.getVersionCodes(), ", ")));
-                rolloutTrack.setVersionCodes(null);
+                        join(rolloutTrack.getReleases().get(0).getVersionCodes(), ", ")));
+                rolloutTrack.setReleases(Collections.<TrackRelease>emptyList());
                 editService.tracks().update(applicationId, editId, rolloutTrack.getTrack(), rolloutTrack).execute();
             }
 
@@ -69,10 +72,8 @@ abstract class TrackPublisherTask<V> extends AbstractPublisherTask<V> {
             if (rolloutFraction < 1) {
                 // Override the track name
                 trackToAssign.setTrack(ROLLOUT.getApiValue());
-                trackToAssign.setUserFraction(rolloutFraction);
 
                 // Check whether we also need to override the desired rollout percentage
-                double currentFraction = rolloutTrack == null ? rolloutFraction : rolloutTrack.getUserFraction();
                 if (currentFraction > rolloutFraction) {
                     if (shouldReducingRolloutPercentageCauseFailure()) {
                         throw new UploadException(String.format("Staged rollout percentage cannot be reduced from " +
@@ -85,7 +86,11 @@ abstract class TrackPublisherTask<V> extends AbstractPublisherTask<V> {
                                     "Google Play makes it impossible to reduce the rollout percentage in this case",
                             PERCENTAGE_FORMATTER.format(currentFraction * 100),
                             PERCENTAGE_FORMATTER.format(rolloutFraction * 100)));
-                    trackToAssign.setUserFraction(currentFraction);
+                    rolloutFraction = currentFraction;
+
+                    for (TrackRelease releaseToAssign : trackToAssign.getReleases()) {
+                        releaseToAssign.setUserFraction(currentFraction);
+                    }
                 }
             }
         } else if (rolloutFraction < 1) {
@@ -102,14 +107,14 @@ abstract class TrackPublisherTask<V> extends AbstractPublisherTask<V> {
         // Assign the new APK(s) to the desired track
         if (trackToAssign.getTrack().equals(ROLLOUT.getApiValue())) {
             logger.println(String.format("Assigning APK(s) to be rolled out to %s%% of production users...",
-                            PERCENTAGE_FORMATTER.format(trackToAssign.getUserFraction() * 100)));
+                            PERCENTAGE_FORMATTER.format(rolloutFraction * 100)));
         } else {
             logger.println(String.format("Assigning APK(s) to %s release track...", track));
         }
         Track updatedTrack =
                 editService.tracks().update(applicationId, editId, trackToAssign.getTrack(), trackToAssign).execute();
         logger.println(String.format("The %s release track will now contain APK(s) with version code(s): %s%n", track,
-                join(updatedTrack.getVersionCodes(), ", ")));
+                join(updatedTrack.getReleases().get(0).getVersionCodes(), ", ")));
     }
 
     /** @return The desired track fetched from the API, or {@code null} if the track has no APKs assigned. */
@@ -131,17 +136,20 @@ abstract class TrackPublisherTask<V> extends AbstractPublisherTask<V> {
      */
     private void unassignOlderApks(ReleaseTrack track, int maxVersionCode) throws IOException {
         final Track trackToAssign = fetchTrack(track);
-        if (trackToAssign == null || trackToAssign.getVersionCodes() == null) {
+        if (trackToAssign == null || trackToAssign.getReleases() == null || trackToAssign.getReleases().isEmpty()) {
             return;
         }
 
-        List<Integer> versionCodes = new ArrayList<Integer>(trackToAssign.getVersionCodes());
-        for (Iterator<Integer> it = versionCodes.iterator(); it.hasNext(); ) {
-            if (it.next() < maxVersionCode) {
-                it.remove();
+        for (TrackRelease release : trackToAssign.getReleases()) {
+            List<Long> versionCodes = new ArrayList<>(release.getVersionCodes());
+            for (Iterator<Long> it = versionCodes.iterator(); it.hasNext(); ) {
+                if (it.next() < maxVersionCode) {
+                    it.remove();
+                }
             }
+            release.setVersionCodes(versionCodes);
         }
-        trackToAssign.setVersionCodes(versionCodes);
+
         editService.tracks().update(applicationId, editId, trackToAssign.getTrack(), trackToAssign).execute();
     }
 
