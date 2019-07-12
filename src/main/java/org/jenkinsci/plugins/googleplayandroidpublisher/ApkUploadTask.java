@@ -20,7 +20,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.TreeSet;
 import net.dongliu.apk.parser.bean.ApkMeta;
 import org.apache.commons.codec.digest.DigestUtils;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.ApkPublisher.ExpansionFileSet;
@@ -56,21 +55,7 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
         this.existingVersionCodes = new ArrayList<Integer>();
     }
 
-    @Override
-    protected int getNewestVersionCodeAllowed(Collection<Integer> versionCodes) {
-        // Sort the version codes, so we know which is the lowest
-        final TreeSet<Integer> sortedVersionCodes = new TreeSet<>(versionCodes);
-
-        // Remove all APKs older than those we have just uploaded
-        return sortedVersionCodes.first();
-    }
-
-    @Override
-    protected boolean shouldReducingRolloutPercentageCauseFailure() {
-        return false;
-    }
-
-    protected Boolean execute() throws IOException, InterruptedException, UploadException {
+    protected Boolean execute() throws IOException, InterruptedException {
         // Open an edit via the Google Play API, thereby ensuring that our credentials etc. are working
         logger.println(String.format("Authenticating to Google Play API...%n" +
                         "- Credential:     %s%n" +
@@ -141,7 +126,7 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
         // Assign all uploaded APKs to the configured track
         List<LocalizedText> releaseNotes = Util.transformReleaseNotes(recentChangeList);
         TrackRelease release = Util.buildRelease(uploadedVersionCodes, rolloutFraction, releaseNotes);
-        assignApksToTrack(uploadedVersionCodes, track, rolloutFraction, release);
+        assignApksToTrack(track, rolloutFraction, release);
 
         // Commit all the changes
         try {

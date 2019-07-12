@@ -10,7 +10,6 @@ import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.TreeSet;
 
 import static hudson.Util.join;
 
@@ -24,21 +23,7 @@ class TrackAssignmentTask extends TrackPublisherTask<Boolean> {
         this.versionCodes = new ArrayList<>(versionCodes);
     }
 
-    @Override
-    protected int getNewestVersionCodeAllowed(Collection<Integer> versionCodes) {
-        // Sort the version codes, so we know which is the lowest
-        final TreeSet<Integer> sortedVersionCodes = new TreeSet<Integer>(versionCodes);
-
-        // Ensure all APKs including the ones we're changing are cleared out from other tracks
-        return sortedVersionCodes.last() + 1;
-    }
-
-    @Override
-    protected boolean shouldReducingRolloutPercentageCauseFailure() {
-        return true;
-    }
-
-    protected Boolean execute() throws IOException, InterruptedException, UploadException {
+    protected Boolean execute() throws IOException {
         // Open an edit via the Google Play API, thereby ensuring that our credentials etc. are working
         logger.println(String.format("Authenticating to Google Play API...%n- Credential:     %s%n- Application ID: %s",
                 getCredentialName(), applicationId));
@@ -60,11 +45,9 @@ class TrackAssignmentTask extends TrackPublisherTask<Boolean> {
             return false;
         }
 
-        // TODO: We could be nice and detect in advance if a user attempts to downgrade
-
-        // Move the version codes to the configured track
+        // Assign the version codes to the configured track
         TrackRelease release = Util.buildRelease(versionCodes, rolloutFraction, null);
-        assignApksToTrack(versionCodes, track, rolloutFraction, release);
+        assignApksToTrack(track, rolloutFraction, release);
 
         // Commit the changes
         try {
