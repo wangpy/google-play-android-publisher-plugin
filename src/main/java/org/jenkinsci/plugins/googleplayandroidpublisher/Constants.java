@@ -19,6 +19,6 @@ public class Constants {
     static final String OBB_FILE_TYPE_PATCH = "patch";
 
     /** Formatter that only displays decimal places when necessary. */
-    static final DecimalFormat PERCENTAGE_FORMATTER = new DecimalFormat("#.#");
+    static final DecimalFormat PERCENTAGE_FORMATTER = new DecimalFormat("#.####");
 
 }
