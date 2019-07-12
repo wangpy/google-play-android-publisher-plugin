@@ -34,7 +34,7 @@
   </f:entry>
 
   <f:entry title="${%Rollout %}" field="rolloutPercentage"
-      description="${%Only applies to the 'production' release track}">
+      description="${%Defaults to 100% if not set}">
     <f:combobox style="width:15em" />
   </f:entry>
 

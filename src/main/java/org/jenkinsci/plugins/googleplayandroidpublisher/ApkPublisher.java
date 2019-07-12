@@ -43,7 +43,6 @@ import static hudson.Util.tryParseNumber;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.OBB_FILE_REGEX;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.OBB_FILE_TYPE_MAIN;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.PERCENTAGE_FORMATTER;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.PRODUCTION;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.fromConfigValue;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.REGEX_LANGUAGE;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.REGEX_VARIABLE;
@@ -166,7 +165,7 @@ public class ApkPublisher extends GooglePlayPublisher {
             errors.add("Release track was not specified");
         } else if (track == null) {
             errors.add(String.format("'%s' is not a valid release track", trackName));
-        } else if (track == PRODUCTION) {
+        } else {
             // Check for valid rollout percentage
             double pct = getRolloutPercentageValue();
             if (Double.compare(pct, 0) < 0 || Double.compare(pct, 100) > 0) {
