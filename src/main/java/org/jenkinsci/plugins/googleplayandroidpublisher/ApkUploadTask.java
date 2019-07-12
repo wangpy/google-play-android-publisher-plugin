@@ -99,12 +99,19 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
             // Upload the ProGuard mapping file for this APK, if there is one
             final FilePath mappingFile = apkFilesToMappingFiles.get(apkFile);
             if (mappingFile != null) {
-                logger.println(String.format(" Uploading associated ProGuard mapping file: %s",
-                        getRelativeFileName(mappingFile)));
-                FileContent mapping =
-                        new FileContent("application/octet-stream",new File(mappingFile.getRemote()));
-                editService.deobfuscationfiles().upload(applicationId, editId, uploadedApk.getVersionCode(),
-                        DEOBFUSCATION_FILE_TYPE_PROGUARD, mapping).execute();
+                final String relativeFileName = getRelativeFileName(mappingFile);
+
+                // Google Play API doesn't accept empty mapping files
+                logger.println(String.format(" Mapping file size: %s", mappingFile.length()));
+                if (mappingFile.length() == 0) {
+                    logger.println(String.format(" Ignoring empty ProGuard mapping file: %s", relativeFileName));
+                } else {
+                    logger.println(String.format(" Uploading associated ProGuard mapping file: %s", relativeFileName));
+                    FileContent mapping =
+                            new FileContent("application/octet-stream", new File(mappingFile.getRemote()));
+                    editService.deobfuscationfiles().upload(applicationId, editId, uploadedApk.getVersionCode(),
+                            DEOBFUSCATION_FILE_TYPE_PROGUARD, mapping).execute();
+                }
             }
             logger.println("");
         }
