@@ -2,7 +2,11 @@ package org.jenkinsci.plugins.googleplayandroidpublisher;
 
 import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.services.androidpublisher.AndroidPublisher;
+import com.google.api.services.androidpublisher.model.LocalizedText;
+import com.google.api.services.androidpublisher.model.TrackRelease;
+import com.google.common.base.Function;
 import com.google.common.base.Throwables;
+import com.google.common.collect.Lists;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import hudson.FilePath;
 import hudson.model.AbstractBuild;
@@ -19,7 +23,9 @@ import org.jenkinsci.plugins.tokenmacro.TokenMacro;
 import java.io.File;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
+import java.util.Arrays;
 import java.util.List;
+import javax.annotation.Nullable;
 
 import static hudson.Util.fixEmptyAndTrim;
 
@@ -127,4 +133,35 @@ public class Util {
         return String.format("Jenkins-GooglePlayAndroidPublisher/%s", pluginVersion);
     }
 
+    @Nullable
+    static List<LocalizedText> transformReleaseNotes(@Nullable ApkPublisher.RecentChanges[] list) {
+        if (list != null) {
+            return Lists.transform(Arrays.asList(list), new Function<ApkPublisher.RecentChanges, LocalizedText>() {
+                @Override
+                public LocalizedText apply(@Nullable ApkPublisher.RecentChanges it) {
+                    if (it == null) return null;
+                    return new LocalizedText()
+                            .setLanguage(it.language)
+                            .setText(it.text);
+                }
+            });
+        }
+        return null;
+    }
+
+    static TrackRelease buildRelease(List<Integer> versionCodes, Double userFraction, @Nullable List<LocalizedText> releaseNotes) {
+        List<Long> longVersionCodes = Lists.transform(versionCodes, new Function<Integer, Long>() {
+            @Override
+            public Long apply(@Nullable Integer integer) {
+                if (integer == null) return null;
+                return integer.longValue();
+            }
+        });
+        TrackRelease release = new TrackRelease()
+                .setVersionCodes(longVersionCodes)
+                .setUserFraction(userFraction);
+
+        if (releaseNotes != null) release.setReleaseNotes(releaseNotes);
+        return release;
+    }
 }

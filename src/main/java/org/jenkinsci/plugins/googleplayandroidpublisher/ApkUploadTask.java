@@ -2,11 +2,11 @@ package org.jenkinsci.plugins.googleplayandroidpublisher;
 
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.client.http.FileContent;
-import com.google.api.services.androidpublisher.AndroidPublisher;
 import com.google.api.services.androidpublisher.model.Apk;
-import com.google.api.services.androidpublisher.model.ApkListing;
 import com.google.api.services.androidpublisher.model.ExpansionFile;
 import com.google.api.services.androidpublisher.model.ExpansionFilesUploadResponse;
+import com.google.api.services.androidpublisher.model.LocalizedText;
+import com.google.api.services.androidpublisher.model.TrackRelease;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import hudson.FilePath;
 import hudson.model.TaskListener;
@@ -59,7 +59,7 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
     @Override
     protected int getNewestVersionCodeAllowed(Collection<Integer> versionCodes) {
         // Sort the version codes, so we know which is the lowest
-        final TreeSet<Integer> sortedVersionCodes = new TreeSet<Integer>(versionCodes);
+        final TreeSet<Integer> sortedVersionCodes = new TreeSet<>(versionCodes);
 
         // Remove all APKs older than those we have just uploaded
         return sortedVersionCodes.first();
@@ -85,7 +85,7 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
 
         // Upload each of the APKs
         logger.println(String.format("Uploading %d APK(s) with application ID: %s%n", apkFiles.size(), applicationId));
-        final ArrayList<Integer> uploadedVersionCodes = new ArrayList<Integer>();
+        final ArrayList<Integer> uploadedVersionCodes = new ArrayList<>();
         for (FilePath apkFile : apkFiles) {
             final ApkMeta metadata = getApkMetadata(new File(apkFile.getRemote()));
             final String apkSha1Hash = getSha1Hash(apkFile.getRemote());
@@ -139,19 +139,9 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
         }
 
         // Assign all uploaded APKs to the configured track
-        assignApksToTrack(uploadedVersionCodes, track, rolloutFraction);
-
-        // Apply recent changes text to the APK(s), if provided
-        if (recentChangeList != null) {
-            for (Integer versionCode : uploadedVersionCodes) {
-                AndroidPublisher.Edits.Apklistings listings = editService.apklistings();
-                for (RecentChanges changes : recentChangeList) {
-                    ApkListing listing =
-                            new ApkListing().setLanguage(changes.language).setRecentChanges(changes.text);
-                    listings.update(applicationId, editId, versionCode, changes.language, listing).execute();
-                }
-            }
-        }
+        List<LocalizedText> releaseNotes = Util.transformReleaseNotes(recentChangeList);
+        TrackRelease release = Util.buildRelease(uploadedVersionCodes, rolloutFraction, releaseNotes);
+        assignApksToTrack(uploadedVersionCodes, track, rolloutFraction, release);
 
         // Commit all the changes
         try {
@@ -282,7 +272,7 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
         createEdit(applicationId);
 
         // Get the current list of version codes
-        List<Integer> currentVersionCodes = new ArrayList<Integer>();
+        List<Integer> currentVersionCodes = new ArrayList<>();
         final List<Apk> currentApks = editService.apks().list(applicationId, editId).execute().getApks();
         for (Apk apk : currentApks) {
             currentVersionCodes.add(apk.getVersionCode());
