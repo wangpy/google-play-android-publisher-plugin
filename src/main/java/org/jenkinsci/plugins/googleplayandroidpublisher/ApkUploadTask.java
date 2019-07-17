@@ -63,7 +63,8 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
         createEdit(applicationId);
 
         // Get the list of existing APKs and their info
-        final List<Apk> existingApks = editService.apks().list(applicationId, editId).execute().getApks();
+        List<Apk> existingApks = editService.apks().list(applicationId, editId).execute().getApks();
+        if (existingApks == null) existingApks = Collections.emptyList();
         for (Apk apk : existingApks) {
             existingVersionCodes.add(apk.getVersionCode());
         }
@@ -265,7 +266,8 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
 
         // Get the current list of version codes
         List<Integer> currentVersionCodes = new ArrayList<>();
-        final List<Apk> currentApks = editService.apks().list(applicationId, editId).execute().getApks();
+        List<Apk> currentApks = editService.apks().list(applicationId, editId).execute().getApks();
+        if (currentApks == null) currentApks = Collections.emptyList();
         for (Apk apk : currentApks) {
             currentVersionCodes.add(apk.getVersionCode());
         }

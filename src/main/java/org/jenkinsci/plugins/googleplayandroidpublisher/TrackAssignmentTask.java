@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 import static hudson.Util.join;
@@ -35,7 +36,8 @@ class TrackAssignmentTask extends TrackPublisherTask<Boolean> {
 
         // Check that all version codes to assign actually exist already on the server
         ArrayList<Integer> missingVersionCodes = new ArrayList<Integer>(versionCodes);
-        final List<Apk> existingApks = editService.apks().list(applicationId, editId).execute().getApks();
+        List<Apk> existingApks = editService.apks().list(applicationId, editId).execute().getApks();
+        if (existingApks == null) existingApks = Collections.emptyList();
         for (Apk apk : existingApks) {
             missingVersionCodes.remove(apk.getVersionCode());
         }
