@@ -104,6 +104,10 @@ public abstract class GooglePlayBuildStepDescriptor<T extends BuildStep & Descri
         return new ComboBoxModel(getConfigValues());
     }
 
+    public ComboBoxModel doFillRolloutPercentageItems() {
+        return null;
+    }
+
     public boolean isApplicable(Class<? extends AbstractProject> c) {
         return true;
     }
