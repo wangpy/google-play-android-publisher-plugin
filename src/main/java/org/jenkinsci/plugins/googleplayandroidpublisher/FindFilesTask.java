@@ -4,7 +4,6 @@ import hudson.remoting.VirtualChannel;
 import jenkins.MasterToSlaveFileCallable;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -19,7 +18,7 @@ public class FindFilesTask extends MasterToSlaveFileCallable<List<String>> {
     }
 
     @Override
-    public List<String> invoke(File baseDir, VirtualChannel channel) throws IOException, InterruptedException {
+    public List<String> invoke(File baseDir, VirtualChannel channel) {
         // If we're being called from a Pipeline, the workspace directory may not necessarily exist, and because
         // Util#createFileset doesn't guard against the given directory not existing, we need to check it here first
         if (!baseDir.exists()) {

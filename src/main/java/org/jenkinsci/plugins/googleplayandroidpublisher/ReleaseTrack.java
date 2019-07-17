@@ -16,7 +16,7 @@ public enum ReleaseTrack {
 
     /** @return List of release track names which may be configured. */
     public static List<String> getConfigValues() {
-        List<String> tracks = new ArrayList<String>();
+        List<String> tracks = new ArrayList<>();
         for (ReleaseTrack rt : values()) {
             tracks.add(rt.getApiValue());
         }

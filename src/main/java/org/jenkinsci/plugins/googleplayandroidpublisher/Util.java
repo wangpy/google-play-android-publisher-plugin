@@ -4,9 +4,7 @@ import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.services.androidpublisher.AndroidPublisher;
 import com.google.api.services.androidpublisher.model.LocalizedText;
 import com.google.api.services.androidpublisher.model.TrackRelease;
-import com.google.common.base.Function;
 import com.google.common.base.Throwables;
-import com.google.common.collect.Lists;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import hudson.FilePath;
 import hudson.model.AbstractBuild;
@@ -25,6 +23,7 @@ import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 import static hudson.Util.fixEmptyAndTrim;
@@ -55,7 +54,7 @@ public class Util {
     /** @return The application ID of the given APK file. */
     public static String getApplicationId(FilePath apk) throws IOException, InterruptedException {
         return apk.act(new MasterToSlaveFileCallable<String>() {
-            public String invoke(File f, VirtualChannel channel) throws IOException, InterruptedException {
+            public String invoke(File f, VirtualChannel channel) throws IOException {
                 return getApkMetadata(f).getPackageName();
             }
         });
@@ -64,7 +63,7 @@ public class Util {
     /** @return The version code of the given APK file. */
     static int getVersionCode(FilePath apk) throws IOException, InterruptedException {
         return apk.act(new MasterToSlaveFileCallable<Integer>() {
-            public Integer invoke(File f, VirtualChannel channel) throws IOException, InterruptedException {
+            public Integer invoke(File f, VirtualChannel channel) throws IOException {
                 return getApkMetadata(f).getVersionCode().intValue();
             }
         });
@@ -100,7 +99,7 @@ public class Util {
         if (e instanceof PublisherApiException) {
             // TODO: Here we could map error reasons like "apkUpgradeVersionConflict" to better (and localised) text
             List<String> errors = ((PublisherApiException) e).getErrorMessages();
-            if (errors == null || errors.isEmpty()) {
+            if (errors.isEmpty()) {
                 return "Unknown error: " + e;
             }
             StringBuilder message = new StringBuilder("\n");
@@ -136,27 +135,21 @@ public class Util {
     @Nullable
     static List<LocalizedText> transformReleaseNotes(@Nullable ApkPublisher.RecentChanges[] list) {
         if (list != null) {
-            return Lists.transform(Arrays.asList(list), new Function<ApkPublisher.RecentChanges, LocalizedText>() {
-                @Override
-                public LocalizedText apply(@Nullable ApkPublisher.RecentChanges it) {
-                    if (it == null) return null;
-                    return new LocalizedText()
-                            .setLanguage(it.language)
-                            .setText(it.text);
-                }
-            });
+            return Arrays.stream(list).map(it -> {
+                if (it == null) return null;
+                return new LocalizedText()
+                        .setLanguage(it.language)
+                        .setText(it.text);
+            }).collect(Collectors.toList());
         }
         return null;
     }
 
     static TrackRelease buildRelease(List<Integer> versionCodes, double userFraction, @Nullable List<LocalizedText> releaseNotes) {
-        List<Long> longVersionCodes = Lists.transform(versionCodes, new Function<Integer, Long>() {
-            @Override
-            public Long apply(@Nullable Integer integer) {
-                if (integer == null) return null;
-                return integer.longValue();
-            }
-        });
+        List<Long> longVersionCodes = versionCodes.stream().map(integer -> {
+            if (integer == null) return null;
+            return integer.longValue();
+        }).collect(Collectors.toList());
 
         // We need to explicitly set the fraction to null if it's not 0 < x < 1.
         // If so, then we also mark the rollout as done, rather than in-progress:

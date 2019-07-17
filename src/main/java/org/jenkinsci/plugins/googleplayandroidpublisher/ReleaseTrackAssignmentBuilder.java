@@ -112,7 +112,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
     }
 
     private boolean isConfigValid(PrintStream logger) throws IOException, InterruptedException {
-        final List<String> errors = new ArrayList<String>();
+        final List<String> errors = new ArrayList<>();
 
         // Check whether the relevant values were provided, based on the method chosen
         if (isFromVersionCode()) {
@@ -175,7 +175,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
         }
 
         String applicationId;
-        Collection<Integer> versionCodeList = new TreeSet<Integer>();
+        Collection<Integer> versionCodeList = new TreeSet<>();
         if (isFromVersionCode()) {
             applicationId = getExpandedApplicationId();
             String codes = getExpandedVersionCodes();
@@ -216,8 +216,8 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
         }
 
         // Read the metadata from each APK file
-        final Set<String> applicationIds = new HashSet<String>();
-        final List<Integer> versionCodes = new ArrayList<Integer>();
+        final Set<String> applicationIds = new HashSet<>();
+        final List<Integer> versionCodes = new ArrayList<>();
         for (String path : relativePaths) {
             FilePath apk = workspace.child(path);
             final int versionCode;

@@ -151,7 +151,7 @@ public class ApkPublisher extends GooglePlayPublisher {
     }
 
     private boolean isConfigValid(PrintStream logger) throws IOException, InterruptedException {
-        final List<String> errors = new ArrayList<String>();
+        final List<String> errors = new ArrayList<>();
 
         // Check whether a file pattern was provided
         if (getExpandedApkFilesPattern() == null) {
@@ -221,9 +221,9 @@ public class ApkPublisher extends GooglePlayPublisher {
         }
 
         // Get the full remote path in the workspace for each filename
-        final List<FilePath> apkFiles = new ArrayList<FilePath>();
-        final Set<String> applicationIds = new HashSet<String>();
-        final Set<Integer> versionCodes = new TreeSet<Integer>();
+        final List<FilePath> apkFiles = new ArrayList<>();
+        final Set<String> applicationIds = new HashSet<>();
+        final Set<Integer> versionCodes = new TreeSet<>();
         for (String path : relativePaths) {
             FilePath apk = workspace.child(path);
             try {
@@ -309,7 +309,7 @@ public class ApkPublisher extends GooglePlayPublisher {
         final String applicationId = applicationIds.iterator().next();
 
         // Find the expansion filename(s) which match the pattern after variable expansion
-        final Map<Integer, ExpansionFileSet> expansionFiles = new TreeMap<Integer, ExpansionFileSet>();
+        final Map<Integer, ExpansionFileSet> expansionFiles = new TreeMap<>();
         final String expansionPattern = getExpandedExpansionFilesPattern();
         if (expansionPattern != null) {
             List<String> expansionPaths = workspace.act(new FindFilesTask(expansionPattern));

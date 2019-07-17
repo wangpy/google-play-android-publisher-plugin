@@ -2,9 +2,7 @@ package org.jenkinsci.plugins.googleplayandroidpublisher;
 
 import com.google.api.services.androidpublisher.AndroidPublisher;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
-import hudson.model.BuildListener;
 import hudson.model.TaskListener;
-import hudson.remoting.Callable;
 import jenkins.security.MasterToSlaveCallable;
 
 import java.io.IOException;

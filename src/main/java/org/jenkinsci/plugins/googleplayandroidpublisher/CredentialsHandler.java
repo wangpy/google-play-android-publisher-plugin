@@ -2,7 +2,8 @@ package org.jenkinsci.plugins.googleplayandroidpublisher;
 
 import com.google.jenkins.plugins.credentials.oauth.GoogleOAuth2ScopeRequirement;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
-import com.google.jenkins.plugins.credentials.oauth.GoogleRobotPrivateKeyCredentials;
+import com.google.jenkins.plugins.credentials.oauth.GoogleRobotPrivateKeyCredentials.AccountIdNotSetException;
+import com.google.jenkins.plugins.credentials.oauth.GoogleRobotPrivateKeyCredentials.PrivateKeyNotSetException;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.commons.lang.exception.ExceptionUtils;
 
@@ -37,11 +38,7 @@ public class CredentialsHandler {
                         + "re-configure this job, choosing the new credential name", googleCredentialsId));
             }
             return credentials.forRemote(req);
-        } catch (GoogleRobotPrivateKeyCredentials.AccountIdNotSetException e) {
-            throw new CredentialsException(String.format("The Google Service Account credential '%s' "
-                    + "has not been configured correctly.%n\tUpdate the credential, ensuring that the required data "
-                    + "have been entered, then try again", googleCredentialsId));
-        } catch (GoogleRobotPrivateKeyCredentials.PrivateKeyNotSetException e) {
+        } catch (AccountIdNotSetException | PrivateKeyNotSetException e) {
             throw new CredentialsException(String.format("The Google Service Account credential '%s' "
                     + "has not been configured correctly.%n\tUpdate the credential, ensuring that the required data "
                     + "have been entered, then try again", googleCredentialsId));
