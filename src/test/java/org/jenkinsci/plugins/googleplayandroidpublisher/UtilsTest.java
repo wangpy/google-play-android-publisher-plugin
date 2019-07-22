@@ -25,6 +25,7 @@ public class UtilsTest {
     @Before
     public void setUp() {
         Util.setJenkinsUtil(new TestUtil());
+        Util.setAndroidUtil(new TestUtil());
     }
 
     @Test

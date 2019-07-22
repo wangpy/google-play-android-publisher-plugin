@@ -11,13 +11,11 @@ import hudson.FilePath;
 import hudson.model.AbstractBuild;
 import hudson.model.Run;
 import hudson.model.TaskListener;
-import hudson.remoting.VirtualChannel;
 import java.util.Objects;
-import jenkins.MasterToSlaveFileCallable;
-import net.dongliu.apk.parser.ApkParsers;
 import net.dongliu.apk.parser.bean.ApkMeta;
+import org.jenkinsci.plugins.googleplayandroidpublisher.internal.AndroidUtil;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.JenkinsUtil;
-import org.jenkinsci.plugins.googleplayandroidpublisher.internal.JenkinsUtilImpl;
+import org.jenkinsci.plugins.googleplayandroidpublisher.internal.UtilsImpl;
 import org.jenkinsci.plugins.tokenmacro.MacroEvaluationException;
 import org.jenkinsci.plugins.tokenmacro.TokenMacro;
 
@@ -32,7 +30,8 @@ import javax.annotation.Nullable;
 import static hudson.Util.fixEmptyAndTrim;
 
 public class Util {
-    private static JenkinsUtil sJenkins = new JenkinsUtilImpl();
+    private static JenkinsUtil sJenkins = UtilsImpl.getInstance();
+    private static AndroidUtil sAndroid = UtilsImpl.getInstance();
 
     /** Regex for the BCP 47 language codes used by Google Play. */
     static final String REGEX_LANGUAGE = "[a-z]{2,3}([-_][0-9A-Z]{2,})?";
@@ -55,25 +54,17 @@ public class Util {
 
     /** @return The application ID of the given APK file. */
     public static String getApplicationId(FilePath apk) throws IOException, InterruptedException {
-        return apk.act(new MasterToSlaveFileCallable<String>() {
-            public String invoke(File f, VirtualChannel channel) throws IOException {
-                return getApkMetadata(f).getPackageName();
-            }
-        });
+        return sJenkins.actOnPath(apk, file -> sAndroid.getApkPackageName(file));
     }
 
     /** @return The version code of the given APK file. */
     static int getVersionCode(FilePath apk) throws IOException, InterruptedException {
-        return apk.act(new MasterToSlaveFileCallable<Integer>() {
-            public Integer invoke(File f, VirtualChannel channel) throws IOException {
-                return getApkMetadata(f).getVersionCode().intValue();
-            }
-        });
+        return sJenkins.actOnPath(apk, file -> sAndroid.getApkVersionCode(file));
     }
 
     /** @return The application metadata of the given APK file. */
     static ApkMeta getApkMetadata(File apk) throws IOException {
-        return ApkParsers.getMetaInfo(apk);
+        return sAndroid.getApkMetadata(apk);
     }
 
     /** @return The given value with variables expanded and trimmed; {@code null} if that results in an empty string. */
@@ -121,17 +112,9 @@ public class Util {
      * @return An Android Publisher client, using the configured credentials.
      * @throws GeneralSecurityException If reading the service account credentials failed.
      */
-    static AndroidPublisher getPublisherClient(GoogleRobotCredentials credentials,
-            String pluginVersion) throws GeneralSecurityException {
-        final Credential credential = credentials.getGoogleCredential(new AndroidPublisherScopeRequirement());
-        return new AndroidPublisher.Builder(credential.getTransport(), credential.getJsonFactory(), credential)
-                .setApplicationName(getClientUserAgent(pluginVersion))
-                .build();
-    }
-
-    /** @return The Google API "application name" that the plugin should identify as when sending requests. */
-    private static String getClientUserAgent(String pluginVersion) {
-        return String.format("Jenkins-GooglePlayAndroidPublisher/%s", pluginVersion);
+    static AndroidPublisher getPublisherClient(GoogleRobotCredentials credentials, String pluginVersion)
+            throws GeneralSecurityException {
+        return sJenkins.createPublisherClient(credentials, pluginVersion);
     }
 
     @Nullable
@@ -172,5 +155,10 @@ public class Util {
     @VisibleForTesting
     public static void setJenkinsUtil(JenkinsUtil util) {
         sJenkins = Objects.requireNonNull(util);
+    }
+
+    @VisibleForTesting
+    public static void setAndroidUtil(AndroidUtil util) {
+        sAndroid = Objects.requireNonNull(util);
     }
 }
