@@ -12,7 +12,6 @@ import java.util.List;
 import org.hamcrest.Matchers;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestUtil;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
@@ -81,14 +80,12 @@ public class UtilsTest {
     }
 
     @Test
-    @Ignore(/*FIXME*/ "errorMessages is not initialized")
     public void errorMessage_withPlainIoError_isUnknown() {
         UploadException err = new PublisherApiException(new IOException("root cause"));
         assertEquals("Unknown error: java.io.IOException: root cause", Util.getPublisherErrorMessage(err));
     }
 
     @Test
-    @Ignore(/*FIXME*/ "errorMessages is not initialized")
     public void errorMessage_withUnauthorizedErrorCode_isApiCredentialsError() {
         HttpResponseException.Builder builder =
                 new HttpResponseException.Builder(401, "", new HttpHeaders());

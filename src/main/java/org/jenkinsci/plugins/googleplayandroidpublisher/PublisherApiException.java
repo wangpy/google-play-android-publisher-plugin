@@ -34,12 +34,12 @@ public class PublisherApiException extends UploadException {
                         errors.add(error.getMessage());
                     }
                 }
-                this.errorMessages = Collections.unmodifiableList(errors);
             }
+            this.errorMessages = Collections.unmodifiableList(errors);
         }
     }
 
-    @Nonnull
+    @Nullable
     public List<String> getErrorMessages() {
         return errorMessages;
     }
