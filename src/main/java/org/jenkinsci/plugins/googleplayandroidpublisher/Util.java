@@ -4,6 +4,7 @@ import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.services.androidpublisher.AndroidPublisher;
 import com.google.api.services.androidpublisher.model.LocalizedText;
 import com.google.api.services.androidpublisher.model.TrackRelease;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import hudson.FilePath;
@@ -11,10 +12,12 @@ import hudson.model.AbstractBuild;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.remoting.VirtualChannel;
+import java.util.Objects;
 import jenkins.MasterToSlaveFileCallable;
-import jenkins.model.Jenkins;
 import net.dongliu.apk.parser.ApkParsers;
 import net.dongliu.apk.parser.bean.ApkMeta;
+import org.jenkinsci.plugins.googleplayandroidpublisher.internal.JenkinsUtil;
+import org.jenkinsci.plugins.googleplayandroidpublisher.internal.JenkinsUtilImpl;
 import org.jenkinsci.plugins.tokenmacro.MacroEvaluationException;
 import org.jenkinsci.plugins.tokenmacro.TokenMacro;
 
@@ -29,6 +32,7 @@ import javax.annotation.Nullable;
 import static hudson.Util.fixEmptyAndTrim;
 
 public class Util {
+    private static JenkinsUtil sJenkins = new JenkinsUtilImpl();
 
     /** Regex for the BCP 47 language codes used by Google Play. */
     static final String REGEX_LANGUAGE = "[a-z]{2,3}([-_][0-9A-Z]{2,})?";
@@ -46,9 +50,7 @@ public class Util {
 
     /** @return The version of this Jenkins plugin, e.g. "1.0" or "1.1-SNAPSHOT" (for dev releases). */
     public static String getPluginVersion() {
-        final String version = Jenkins.getInstance().getPluginManager().whichPlugin(Util.class).getVersion();
-        int index = version.indexOf(' ');
-        return (index == -1) ? version : version.substring(0, index);
+        return sJenkins.getPluginVersion();
     }
 
     /** @return The application ID of the given APK file. */
@@ -165,5 +167,10 @@ public class Util {
 
         if (releaseNotes != null) release.setReleaseNotes(releaseNotes);
         return release;
+    }
+
+    @VisibleForTesting
+    public static void setJenkinsUtil(JenkinsUtil util) {
+        sJenkins = Objects.requireNonNull(util);
     }
 }
