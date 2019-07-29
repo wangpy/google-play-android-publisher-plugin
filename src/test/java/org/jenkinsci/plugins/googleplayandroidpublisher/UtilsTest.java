@@ -9,8 +9,7 @@ import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
 import java.util.List;
-import org.hamcrest.Matchers;
-import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestUtil;
+import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestUtilImpl;
 import org.junit.Before;
 import org.junit.Test;
 import static org.hamcrest.Matchers.contains;
@@ -24,8 +23,8 @@ import static org.junit.Assert.assertThat;
 public class UtilsTest {
     @Before
     public void setUp() {
-        Util.setJenkinsUtil(new TestUtil());
-        Util.setAndroidUtil(new TestUtil());
+        Util.setJenkinsUtil(new TestUtilImpl());
+        Util.setAndroidUtil(new TestUtilImpl());
     }
 
     @Test

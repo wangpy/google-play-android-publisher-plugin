@@ -11,7 +11,7 @@ import java.util.Map;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeHttpResponse;
 
 public class TestHttpTransport extends MockHttpTransport {
-    private static final boolean DEBUG = TestUtil.DEBUG;
+    private static final boolean DEBUG = TestUtilImpl.DEBUG;
 
     private Map<String, FakeHttpResponse> responses = new HashMap<>();
     private List<Request> requests = new ArrayList<>();

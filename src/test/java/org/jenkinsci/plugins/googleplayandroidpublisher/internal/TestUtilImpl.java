@@ -1,17 +1,16 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher.internal;
 
-import com.google.api.client.googleapis.testing.auth.oauth2.MockGoogleCredential;
 import com.google.api.services.androidpublisher.AndroidPublisher;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import hudson.FilePath;
 import java.io.File;
 import java.io.IOException;
-import java.security.GeneralSecurityException;
 import net.dongliu.apk.parser.bean.ApkMeta;
+import org.mockito.stubbing.Answer;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 
-public class TestUtil implements JenkinsUtil, AndroidUtil {
+public class TestUtilImpl implements JenkinsUtil, AndroidUtil {
     public static final boolean DEBUG = true;
 
     @Override
@@ -26,13 +25,13 @@ public class TestUtil implements JenkinsUtil, AndroidUtil {
 
     @Override
     public AndroidPublisher createPublisherClient(GoogleRobotCredentials credentials, String pluginVersion) {
-        // FIXME: let this be shared
-        TestHttpTransport fakeTransport = new TestHttpTransport();
-        MockGoogleCredential mockCredential = new MockGoogleCredential.Builder().build();
-        return new AndroidPublisher.Builder(fakeTransport, mockCredential.getJsonFactory(), mockCredential)
-                .setApplicationName("Jenkins-GooglePlayAndroidPublisher-tests")
-                .setSuppressAllChecks(true)
-                .build();
+        // Example:
+        //     AndroidPublisher androidClient = TestsHelper.createAndroidPublisher(transport);
+        //     when(jenkinsUtil.createPublisherClient(any(), anyString())).thenReturn(androidClient);
+        return mock(AndroidPublisher.class, (Answer) invocationOnMock -> {
+            throw new UnsupportedOperationException(
+                    "This should be implemented using `TestHelper.createAndroidPublisher()` for now.");
+        });
     }
 
     @Override
