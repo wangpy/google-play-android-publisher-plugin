@@ -6,11 +6,11 @@ import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.client.testing.http.MockLowLevelHttpResponse;
 import java.io.IOException;
 import javax.annotation.Nullable;
-import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestHttpTransport;
+import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestUtil;
 
 @SuppressWarnings("unchecked")
 public class FakeHttpResponse<T extends FakeHttpResponse<? extends T>> extends MockLowLevelHttpResponse {
-    public static final boolean DEBUG = TestHttpTransport.DEBUG;
+    private static final boolean DEBUG = TestUtil.DEBUG;
 
     public static FakeHttpResponse NOT_FOUND = forError(404, "not found");
 

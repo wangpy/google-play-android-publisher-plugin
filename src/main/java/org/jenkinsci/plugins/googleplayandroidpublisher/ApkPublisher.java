@@ -55,7 +55,7 @@ import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getVersionCo
 public class ApkPublisher extends GooglePlayPublisher {
 
     @DataBoundSetter
-    private String apkFilesPattern;
+    protected String apkFilesPattern;
 
     @DataBoundSetter
     private String deobfuscationFilesPattern;
@@ -67,7 +67,7 @@ public class ApkPublisher extends GooglePlayPublisher {
     private boolean usePreviousExpansionFilesIfMissing;
 
     @DataBoundSetter
-    private String trackName;
+    protected String trackName;
 
     @DataBoundSetter
     private String rolloutPercentage;

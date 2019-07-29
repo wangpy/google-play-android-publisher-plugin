@@ -12,6 +12,8 @@ import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 
 public class TestUtil implements JenkinsUtil, AndroidUtil {
+    public static final boolean DEBUG = true;
+
     @Override
     public String getPluginVersion() {
         return "0.0.0-TEST";
@@ -23,7 +25,7 @@ public class TestUtil implements JenkinsUtil, AndroidUtil {
     }
 
     @Override
-    public AndroidPublisher createPublisherClient(GoogleRobotCredentials credentials, String pluginVersion) throws GeneralSecurityException {
+    public AndroidPublisher createPublisherClient(GoogleRobotCredentials credentials, String pluginVersion) {
         // FIXME: let this be shared
         TestHttpTransport fakeTransport = new TestHttpTransport();
         MockGoogleCredential mockCredential = new MockGoogleCredential.Builder().build();
