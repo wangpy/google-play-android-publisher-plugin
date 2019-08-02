@@ -7,7 +7,6 @@ import java.io.File;
 import java.io.IOException;
 import net.dongliu.apk.parser.bean.ApkMeta;
 import org.mockito.stubbing.Answer;
-import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 
 public class TestUtilImpl implements JenkinsUtil, AndroidUtil {
@@ -46,6 +45,10 @@ public class TestUtilImpl implements JenkinsUtil, AndroidUtil {
 
     @Override
     public ApkMeta getApkMetadata(File apk) {
-        return mock(ApkMeta.class, RETURNS_DEEP_STUBS);
+        return ApkMeta.newBuilder()
+                .setPackageName("org.jenkins.appId")
+                .setVersionCode(42L)
+                .setMinSdkVersion("16")
+                .build();
     }
 }

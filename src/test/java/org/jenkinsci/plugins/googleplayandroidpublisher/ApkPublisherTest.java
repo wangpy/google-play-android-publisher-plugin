@@ -8,7 +8,6 @@ import hudson.model.Result;
 import hudson.model.queue.QueueTaskFuture;
 import java.io.File;
 import java.util.Arrays;
-import net.dongliu.apk.parser.bean.ApkMeta;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.AndroidUtil;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.JenkinsUtil;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestHttpTransport;
@@ -28,7 +27,6 @@ import org.jvnet.hudson.test.JenkinsRule;
 import static hudson.Util.join;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
@@ -36,27 +34,18 @@ public class ApkPublisherTest {
     @Rule
     public JenkinsRule j = new JenkinsRule();
 
-    private AndroidUtil mockAndroid = mock(AndroidUtil.class);
+    private AndroidUtil androidUtil = spy(TestUtilImpl.class);
     private JenkinsUtil jenkinsUtil = spy(TestUtilImpl.class);
 
     private TestHttpTransport transport = new TestHttpTransport();
 
     @Before
     public void setUp() throws Exception {
-        ApkMeta mockMetadata = mock(ApkMeta.class);
-        when(mockMetadata.getPackageName()).thenReturn("org.jenkins.appId");
-        when(mockMetadata.getVersionCode()).thenReturn((long) 42);
-        when(mockMetadata.getMinSdkVersion()).thenReturn("16");
-
-        when(mockAndroid.getApkVersionCode(any())).thenReturn(42);
-        when(mockAndroid.getApkPackageName(any())).thenReturn("org.jenkins.appId");
-        when(mockAndroid.getApkMetadata(any())).thenReturn(mockMetadata);
-
         // Create fake AndroidPublisher client
         AndroidPublisher androidClient = TestsHelper.createAndroidPublisher(transport);
         when(jenkinsUtil.createPublisherClient(any(), anyString())).thenReturn(androidClient);
 
-        Util.setAndroidUtil(mockAndroid);
+        Util.setAndroidUtil(androidUtil);
         Util.setJenkinsUtil(jenkinsUtil);
     }
 
