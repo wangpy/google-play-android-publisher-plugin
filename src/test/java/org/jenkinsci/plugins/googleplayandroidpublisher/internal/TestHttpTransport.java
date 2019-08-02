@@ -4,6 +4,7 @@ import com.google.api.client.http.LowLevelHttpRequest;
 import com.google.api.client.http.LowLevelHttpResponse;
 import com.google.api.client.testing.http.MockHttpTransport;
 import com.google.api.client.testing.http.MockLowLevelHttpRequest;
+import com.google.api.client.testing.http.MockLowLevelHttpResponse;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -15,7 +16,7 @@ import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeH
 public class TestHttpTransport extends MockHttpTransport implements Serializable {
     private static final boolean DEBUG = TestUtilImpl.DEBUG;
 
-    public final Map<String, FakeHttpResponse> responses = new HashMap<>();
+    public final Map<String, SimpleResponse> responses = new HashMap<>();
     private List<RemoteCall> remoteCalls = new ArrayList<>();
 
     @Override
@@ -23,10 +24,10 @@ public class TestHttpTransport extends MockHttpTransport implements Serializable
         if (DEBUG) System.out.println("Building request: " + method + " " + url + " on " + this);
 
         // Iterate through the configured responses, until we find a matching URL
-        FakeHttpResponse response = null;
-        for (Map.Entry<String, FakeHttpResponse> mockedEntry : responses.entrySet()) {
+        LowLevelHttpResponse response = null;
+        for (Map.Entry<String, SimpleResponse> mockedEntry : responses.entrySet()) {
             if (url.endsWith(mockedEntry.getKey())) {
-                response = mockedEntry.getValue();
+                response = createResponse(mockedEntry.getValue());
             }
         }
 
@@ -37,6 +38,14 @@ public class TestHttpTransport extends MockHttpTransport implements Serializable
         MockLowLevelHttpRequest request = new FakeHttpRequest(response);
         remoteCalls.add(new RemoteCall(method, url, request, response));
         return request;
+    }
+
+    private LowLevelHttpResponse createResponse(SimpleResponse response) {
+        MockLowLevelHttpResponse httpResponse = new FakeHttpResponse()
+                .setStatusCode(response.statusCode)
+                .setContent(response.jsonContent);
+        response.headers.forEach(httpResponse::addHeader);
+        return httpResponse;
     }
 
     /**
@@ -50,7 +59,8 @@ public class TestHttpTransport extends MockHttpTransport implements Serializable
         if (DEBUG) {
             System.out.println("Adding response: " + url + " => " + response);
         }
-        responses.put(url, response);
+
+        responses.put(url, new SimpleResponse(response));
         return this;
     }
 
@@ -72,9 +82,9 @@ public class TestHttpTransport extends MockHttpTransport implements Serializable
         public final String method;
         public final String url;
         public final MockLowLevelHttpRequest request;
-        private final FakeHttpResponse response;
+        private final LowLevelHttpResponse response;
 
-        RemoteCall(String method, String url, MockLowLevelHttpRequest request, FakeHttpResponse response) {
+        RemoteCall(String method, String url, MockLowLevelHttpRequest request, LowLevelHttpResponse response) {
             this.method = method;
             this.url = url;
             this.request = request;
@@ -82,7 +92,7 @@ public class TestHttpTransport extends MockHttpTransport implements Serializable
         }
 
         @Nullable
-        public FakeHttpResponse getResponse() {
+        public LowLevelHttpResponse getResponse() {
             return response;
         }
 
@@ -93,15 +103,31 @@ public class TestHttpTransport extends MockHttpTransport implements Serializable
     }
 
     static class FakeHttpRequest extends MockLowLevelHttpRequest implements Serializable {
-        final FakeHttpResponse response;
+        final LowLevelHttpResponse response;
 
-        FakeHttpRequest(FakeHttpResponse response) {
+        FakeHttpRequest(LowLevelHttpResponse response) {
             this.response = response;
         }
 
         @Override
         public LowLevelHttpResponse execute() {
             return this.response;
+        }
+    }
+
+    public static class SimpleResponse implements Serializable {
+        public final int statusCode;
+        public final String jsonContent;
+        public final Map<String, String> headers;
+
+        private SimpleResponse(int statusCode, String jsonContent, Map<String, String> headers) {
+            this.statusCode = statusCode;
+            this.jsonContent = jsonContent;
+            this.headers = headers;
+        }
+
+        public SimpleResponse(FakeHttpResponse response) {
+            this(response.getStatusCode(), response.getSerializedContent(), response.getHeaders());
         }
     }
 }

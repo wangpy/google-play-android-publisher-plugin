@@ -38,6 +38,7 @@ import static hudson.Util.join;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThat;
 import static org.mockito.Matchers.any;
@@ -142,7 +143,6 @@ public class ApkPublisherTest {
 
     @Test
     @WithoutJenkins
-    @Ignore("Serialization of response does not work")
     public void responsesCanBeSerialized() throws IOException, ClassNotFoundException {
         transport.withResponse("/edits",
                 new FakePostEditsResponse().setError(400, "error"));
@@ -162,14 +162,14 @@ public class ApkPublisherTest {
         TestHttpTransport deserializedTransport = (TestHttpTransport) deserialized;
 
         assertThat(deserializedTransport.responses, hasKey("/edits"));
-        FakeHttpResponse response = deserializedTransport.responses.get("/edits");
+        TestHttpTransport.SimpleResponse response = deserializedTransport.responses.get("/edits");
         assertNotNull(response);
-        assertThat(response.getStatusCode(), equalTo(400));
-        assertThat(response.getContentLength(), equalTo(18));
+        assertThat(response.statusCode, equalTo(400));
+        assertEquals(response.jsonContent, "{\"error\": \"error\"}");
     }
 
     @Test
-    @Ignore("Test does not work on a remote slave")
+    @Ignore("AndroidUtil override from test does not carry over to the DumbSlave")
     public void uploadSingleApk_fromSlave_succeeds() throws Exception {
         transport
                 .withResponse("/edits",

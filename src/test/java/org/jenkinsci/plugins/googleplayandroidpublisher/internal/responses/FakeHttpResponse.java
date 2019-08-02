@@ -6,6 +6,8 @@ import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.client.testing.http.MockLowLevelHttpResponse;
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
 import javax.annotation.Nullable;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestUtilImpl;
 
@@ -16,7 +18,10 @@ public class FakeHttpResponse<T extends FakeHttpResponse<? extends T>>
 
     public static FakeHttpResponse NOT_FOUND = forError(404, "not found");
 
-    FakeHttpResponse() {
+    private String mContent;
+    private Map<String, String> mHeaders = new HashMap<>();
+
+    public FakeHttpResponse() {
         super();
         setContentType(Json.MEDIA_TYPE);
         setError(503, "Not implemented");
@@ -53,6 +58,26 @@ public class FakeHttpResponse<T extends FakeHttpResponse<? extends T>>
         setStatusCode(code);
         setContent("{\"error\": \"" + error + "\"}");
         return (T) this;
+    }
+
+    @Override
+    public MockLowLevelHttpResponse setContent(String stringContent) {
+        mContent = stringContent;
+        return super.setContent(stringContent);
+    }
+
+    @Override
+    public MockLowLevelHttpResponse addHeader(String name, String value) {
+        mHeaders.put(name, value);
+        return super.addHeader(name, value);
+    }
+
+    public String getSerializedContent() {
+        return mContent;
+    }
+
+    public Map<String, String> getHeaders() {
+        return mHeaders;
     }
 
     public static FakeHttpResponse forError(int code, String error) {
