@@ -2,9 +2,7 @@ package org.jenkinsci.plugins.googleplayandroidpublisher.internal;
 
 import com.google.api.services.androidpublisher.AndroidPublisher;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
-import hudson.FilePath;
 import java.io.File;
-import java.io.IOException;
 import net.dongliu.apk.parser.bean.ApkMeta;
 import org.mockito.stubbing.Answer;
 import static org.mockito.Mockito.mock;
@@ -15,11 +13,6 @@ public class TestUtilImpl implements JenkinsUtil, AndroidUtil {
     @Override
     public String getPluginVersion() {
         return "0.0.0-TEST";
-    }
-
-    @Override
-    public <R> R actOnPath(FilePath file, CheckedFunction<File, R> function) throws IOException {
-        return function.apply(new File(file.getRemote()));
     }
 
     @Override

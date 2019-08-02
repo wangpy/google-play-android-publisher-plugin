@@ -3,12 +3,9 @@ package org.jenkinsci.plugins.googleplayandroidpublisher.internal;
 import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.services.androidpublisher.AndroidPublisher;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
-import hudson.FilePath;
-import hudson.remoting.VirtualChannel;
 import java.io.File;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
-import jenkins.MasterToSlaveFileCallable;
 import jenkins.model.Jenkins;
 import net.dongliu.apk.parser.ApkParsers;
 import net.dongliu.apk.parser.bean.ApkMeta;
@@ -30,16 +27,6 @@ public class UtilsImpl implements JenkinsUtil, AndroidUtil {
         final String version = Jenkins.getInstance().getPluginManager().whichPlugin(Util.class).getVersion();
         int index = version.indexOf(' ');
         return (index == -1) ? version : version.substring(0, index);
-    }
-
-    @Override
-    public <R> R actOnPath(FilePath file, CheckedFunction<File, R> function) throws IOException, InterruptedException {
-        return file.act(new MasterToSlaveFileCallable<R>() {
-            @Override
-            public R invoke(File f, VirtualChannel channel) throws IOException {
-                return function.apply(f);
-            }
-        });
     }
 
     @Override

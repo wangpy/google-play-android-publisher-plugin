@@ -1,6 +1,5 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
-import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.services.androidpublisher.AndroidPublisher;
 import com.google.api.services.androidpublisher.model.LocalizedText;
 import com.google.api.services.androidpublisher.model.TrackRelease;
@@ -11,7 +10,9 @@ import hudson.FilePath;
 import hudson.model.AbstractBuild;
 import hudson.model.Run;
 import hudson.model.TaskListener;
+import hudson.remoting.VirtualChannel;
 import java.util.Objects;
+import jenkins.MasterToSlaveFileCallable;
 import net.dongliu.apk.parser.bean.ApkMeta;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.AndroidUtil;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.JenkinsUtil;
@@ -54,12 +55,22 @@ public class Util {
 
     /** @return The application ID of the given APK file. */
     public static String getApplicationId(FilePath apk) throws IOException, InterruptedException {
-        return sJenkins.actOnPath(apk, file -> sAndroid.getApkPackageName(file));
+        return apk.act(new MasterToSlaveFileCallable<String>() {
+            @Override
+            public String invoke(File f, VirtualChannel channel) throws IOException {
+                return sAndroid.getApkPackageName(f);
+            }
+        });
     }
 
     /** @return The version code of the given APK file. */
     static int getVersionCode(FilePath apk) throws IOException, InterruptedException {
-        return sJenkins.actOnPath(apk, file -> sAndroid.getApkVersionCode(file));
+        return apk.act(new MasterToSlaveFileCallable<Integer>() {
+            @Override
+            public Integer invoke(File f, VirtualChannel channel) throws IOException {
+                return sAndroid.getApkVersionCode(f);
+            }
+        });
     }
 
     /** @return The application metadata of the given APK file. */
