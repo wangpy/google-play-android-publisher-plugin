@@ -5,11 +5,13 @@ import com.google.api.client.json.Json;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.client.testing.http.MockLowLevelHttpResponse;
 import java.io.IOException;
+import java.io.Serializable;
 import javax.annotation.Nullable;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestUtilImpl;
 
 @SuppressWarnings("unchecked")
-public class FakeHttpResponse<T extends FakeHttpResponse<? extends T>> extends MockLowLevelHttpResponse {
+public class FakeHttpResponse<T extends FakeHttpResponse<? extends T>>
+        extends MockLowLevelHttpResponse implements Serializable {
     private static final boolean DEBUG = TestUtilImpl.DEBUG;
 
     public static FakeHttpResponse NOT_FOUND = forError(404, "not found");

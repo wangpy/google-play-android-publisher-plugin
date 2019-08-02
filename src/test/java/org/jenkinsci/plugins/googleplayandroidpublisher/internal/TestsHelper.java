@@ -8,19 +8,12 @@ import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
 import hudson.model.Result;
 import hudson.model.queue.QueueTaskFuture;
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.concurrent.ExecutionException;
+import org.jenkinsci.plugins.googleplayandroidpublisher.internal.oauth.TestCredentials;
 import org.jvnet.hudson.test.JenkinsRule;
-import static org.mockito.Matchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 public class TestsHelper {
     public static void setUpCredentials(String name) throws Exception {
-        GoogleRobotCredentials fakeCredentials = mock(GoogleRobotCredentials.class);
-        when(fakeCredentials.getId()).thenReturn(name);
-        when(fakeCredentials.forRemote(any())).thenReturn(fakeCredentials);
+        GoogleRobotCredentials fakeCredentials = new TestCredentials(name);
         SystemCredentialsProvider.getInstance()
                 .getCredentials()
                 .add(fakeCredentials);

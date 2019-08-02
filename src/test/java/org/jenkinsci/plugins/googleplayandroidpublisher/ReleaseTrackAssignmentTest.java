@@ -1,11 +1,11 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
-import com.google.api.client.googleapis.testing.auth.oauth2.MockGoogleCredential;
 import com.google.api.services.androidpublisher.AndroidPublisher;
 import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
 import hudson.model.Result;
 import hudson.model.queue.QueueTaskFuture;
+import hudson.slaves.DumbSlave;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.AndroidUtil;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.JenkinsUtil;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestHttpTransport;
@@ -17,6 +17,7 @@ import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeL
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakePostEditsResponse;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.JenkinsRule;
@@ -53,7 +54,6 @@ public class ReleaseTrackAssignmentTest {
         transport.dumpRequests();
     }
 
-
     @Test
     public void moveApkTrack_whenVersionCodeDoesNotExist_buildFails() throws Exception {
         transport
@@ -87,6 +87,49 @@ public class ReleaseTrackAssignmentTest {
         ;
 
         FreeStyleProject p = j.createFreeStyleProject("moveReleaseTrack");
+
+        ReleaseTrackAssignmentBuilder builder = createBuilder();
+
+        // Authenticating to Google Play API...
+        // - Credential:     test-credentials
+        // - Application ID: org.jenkins.appId
+        // Assigning 1 APK(s) with application ID org.jenkins.appId to production release track
+        // Setting rollout to target 100% of production track users
+        // The production release track will now contain APK(s) with version code(s): 42
+        //
+        // Applying changes to Google Play...
+        // Changes were successfully applied to Google Play
+        // Finished: SUCCESS
+
+        p.getBuildersList().add(builder);
+        QueueTaskFuture<FreeStyleBuild> scheduled = p.scheduleBuild2(0);
+        j.assertBuildStatusSuccess(scheduled);
+
+        TestsHelper.assertLogLines(j, scheduled,
+                "Assigning 1 APK(s) with application ID org.jenkins.appId to production release track",
+                "Setting rollout to target 5% of production track users",
+                "The production release track will now contain APK(s) with version code(s): 42",
+                "Changes were successfully applied to Google Play"
+        );
+    }
+
+    @Test
+    @Ignore("Test does not work on a remote slave")
+    public void moveApkTrack_fromSlave_succeeds() throws Exception {
+        transport
+                .withResponse("/edits",
+                        new FakePostEditsResponse().setEditId("the-edit-id"))
+                .withResponse("/edits/the-edit-id/apks",
+                        new FakeListApksResponse().setApks(42))
+                .withResponse("/edits/the-edit-id/tracks/production",
+                        new FakeAssignTrackResponse().success("production", 42))
+                .withResponse("/edits/the-edit-id:commit",
+                        new FakeCommitResponse().success())
+        ;
+
+        DumbSlave agent = j.createOnlineSlave();
+        FreeStyleProject p = j.createFreeStyleProject("moveReleaseTrack");
+        p.setAssignedNode(agent);
 
         ReleaseTrackAssignmentBuilder builder = createBuilder();
 

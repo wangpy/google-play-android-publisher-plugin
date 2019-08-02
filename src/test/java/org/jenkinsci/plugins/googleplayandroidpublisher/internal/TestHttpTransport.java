@@ -4,42 +4,38 @@ import com.google.api.client.http.LowLevelHttpRequest;
 import com.google.api.client.http.LowLevelHttpResponse;
 import com.google.api.client.testing.http.MockHttpTransport;
 import com.google.api.client.testing.http.MockLowLevelHttpRequest;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeHttpResponse;
 
-public class TestHttpTransport extends MockHttpTransport {
+public class TestHttpTransport extends MockHttpTransport implements Serializable {
     private static final boolean DEBUG = TestUtilImpl.DEBUG;
 
-    private Map<String, FakeHttpResponse> responses = new HashMap<>();
+    public final Map<String, FakeHttpResponse> responses = new HashMap<>();
     private List<RemoteCall> remoteCalls = new ArrayList<>();
 
     @Override
     public LowLevelHttpRequest buildRequest(String method, String url) {
-        // when the SDK makes a request, keep track of it so that we can make assertions on the requests later.
-        final AtomicReference<FakeHttpResponse> futureResponse = new AtomicReference<>();
-        MockLowLevelHttpRequest request = new MockLowLevelHttpRequest() {
-            @Override
-            public LowLevelHttpResponse execute() {
-                // Iterate through the configured responses, until we find a matching URL
-                for (Map.Entry<String, FakeHttpResponse> mockedEntry : responses.entrySet()) {
-                    if (url.endsWith(mockedEntry.getKey())) {
-                        FakeHttpResponse fakeResponse = mockedEntry.getValue();
-                        futureResponse.set(fakeResponse);
-                        return fakeResponse;
-                    }
-                }
+        if (DEBUG) System.out.println("Building request: " + method + " " + url + " on " + this);
 
-                throw new RuntimeException("Could not find a mocked response for " + method + " to " + url);
+        // Iterate through the configured responses, until we find a matching URL
+        FakeHttpResponse response = null;
+        for (Map.Entry<String, FakeHttpResponse> mockedEntry : responses.entrySet()) {
+            if (url.endsWith(mockedEntry.getKey())) {
+                response = mockedEntry.getValue();
             }
-        };
+        }
 
-        remoteCalls.add(new RemoteCall(method, url, request, futureResponse));
+        if (response == null) {
+            throw new RuntimeException("Could not find a mocked response for " + method + " to " + url);
+        }
 
+        MockLowLevelHttpRequest request = new FakeHttpRequest(response);
+        remoteCalls.add(new RemoteCall(method, url, request, response));
         return request;
     }
 
@@ -51,6 +47,9 @@ public class TestHttpTransport extends MockHttpTransport {
      * @return {@code this} to enable method call chaining.
      */
     public TestHttpTransport withResponse(String url, FakeHttpResponse response) {
+        if (DEBUG) {
+            System.out.println("Adding response: " + url + " => " + response);
+        }
         responses.put(url, response);
         return this;
     }
@@ -69,13 +68,13 @@ public class TestHttpTransport extends MockHttpTransport {
         }
     }
 
-    public static class RemoteCall {
+    public static class RemoteCall implements Serializable {
         public final String method;
         public final String url;
         public final MockLowLevelHttpRequest request;
-        private final AtomicReference<FakeHttpResponse> response;
+        private final FakeHttpResponse response;
 
-        RemoteCall(String method, String url, MockLowLevelHttpRequest request, AtomicReference<FakeHttpResponse> response) {
+        RemoteCall(String method, String url, MockLowLevelHttpRequest request, FakeHttpResponse response) {
             this.method = method;
             this.url = url;
             this.request = request;
@@ -84,12 +83,25 @@ public class TestHttpTransport extends MockHttpTransport {
 
         @Nullable
         public FakeHttpResponse getResponse() {
-            return response.get();
+            return response;
         }
 
         @Override
         public String toString() {
             return method + " " + url;
+        }
+    }
+
+    static class FakeHttpRequest extends MockLowLevelHttpRequest implements Serializable {
+        final FakeHttpResponse response;
+
+        FakeHttpRequest(FakeHttpResponse response) {
+            this.response = response;
+        }
+
+        @Override
+        public LowLevelHttpResponse execute() {
+            return this.response;
         }
     }
 }
