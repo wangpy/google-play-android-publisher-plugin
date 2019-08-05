@@ -1,9 +1,9 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
-import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.services.androidpublisher.AndroidPublisher;
 import com.google.api.services.androidpublisher.model.LocalizedText;
 import com.google.api.services.androidpublisher.model.TrackRelease;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import hudson.FilePath;
@@ -11,10 +11,12 @@ import hudson.model.AbstractBuild;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.remoting.VirtualChannel;
+import java.util.Objects;
 import jenkins.MasterToSlaveFileCallable;
-import jenkins.model.Jenkins;
-import net.dongliu.apk.parser.ApkParsers;
 import net.dongliu.apk.parser.bean.ApkMeta;
+import org.jenkinsci.plugins.googleplayandroidpublisher.internal.AndroidUtil;
+import org.jenkinsci.plugins.googleplayandroidpublisher.internal.JenkinsUtil;
+import org.jenkinsci.plugins.googleplayandroidpublisher.internal.UtilsImpl;
 import org.jenkinsci.plugins.tokenmacro.MacroEvaluationException;
 import org.jenkinsci.plugins.tokenmacro.TokenMacro;
 
@@ -29,6 +31,8 @@ import javax.annotation.Nullable;
 import static hudson.Util.fixEmptyAndTrim;
 
 public class Util {
+    private static JenkinsUtil sJenkins = UtilsImpl.getInstance();
+    private static AndroidUtil sAndroid = UtilsImpl.getInstance();
 
     /** Regex for the BCP 47 language codes used by Google Play. */
     static final String REGEX_LANGUAGE = "[a-z]{2,3}([-_][0-9A-Z]{2,})?";
@@ -46,16 +50,15 @@ public class Util {
 
     /** @return The version of this Jenkins plugin, e.g. "1.0" or "1.1-SNAPSHOT" (for dev releases). */
     public static String getPluginVersion() {
-        final String version = Jenkins.getInstance().getPluginManager().whichPlugin(Util.class).getVersion();
-        int index = version.indexOf(' ');
-        return (index == -1) ? version : version.substring(0, index);
+        return sJenkins.getPluginVersion();
     }
 
     /** @return The application ID of the given APK file. */
     public static String getApplicationId(FilePath apk) throws IOException, InterruptedException {
         return apk.act(new MasterToSlaveFileCallable<String>() {
+            @Override
             public String invoke(File f, VirtualChannel channel) throws IOException {
-                return getApkMetadata(f).getPackageName();
+                return sAndroid.getApkPackageName(f);
             }
         });
     }
@@ -63,15 +66,16 @@ public class Util {
     /** @return The version code of the given APK file. */
     static int getVersionCode(FilePath apk) throws IOException, InterruptedException {
         return apk.act(new MasterToSlaveFileCallable<Integer>() {
+            @Override
             public Integer invoke(File f, VirtualChannel channel) throws IOException {
-                return getApkMetadata(f).getVersionCode().intValue();
+                return sAndroid.getApkVersionCode(f);
             }
         });
     }
 
     /** @return The application metadata of the given APK file. */
     static ApkMeta getApkMetadata(File apk) throws IOException {
-        return ApkParsers.getMetaInfo(apk);
+        return sAndroid.getApkMetadata(apk);
     }
 
     /** @return The given value with variables expanded and trimmed; {@code null} if that results in an empty string. */
@@ -99,8 +103,8 @@ public class Util {
         if (e instanceof PublisherApiException) {
             // TODO: Here we could map error reasons like "apkUpgradeVersionConflict" to better (and localised) text
             List<String> errors = ((PublisherApiException) e).getErrorMessages();
-            if (errors.isEmpty()) {
-                return "Unknown error: " + e;
+            if (errors == null || errors.isEmpty()) {
+                return "Unknown error: " + e.getCause();
             }
             StringBuilder message = new StringBuilder("\n");
             for (String error : errors) {
@@ -119,17 +123,9 @@ public class Util {
      * @return An Android Publisher client, using the configured credentials.
      * @throws GeneralSecurityException If reading the service account credentials failed.
      */
-    static AndroidPublisher getPublisherClient(GoogleRobotCredentials credentials,
-            String pluginVersion) throws GeneralSecurityException {
-        final Credential credential = credentials.getGoogleCredential(new AndroidPublisherScopeRequirement());
-        return new AndroidPublisher.Builder(credential.getTransport(), credential.getJsonFactory(), credential)
-                .setApplicationName(getClientUserAgent(pluginVersion))
-                .build();
-    }
-
-    /** @return The Google API "application name" that the plugin should identify as when sending requests. */
-    private static String getClientUserAgent(String pluginVersion) {
-        return String.format("Jenkins-GooglePlayAndroidPublisher/%s", pluginVersion);
+    static AndroidPublisher getPublisherClient(GoogleRobotCredentials credentials, String pluginVersion)
+            throws GeneralSecurityException {
+        return sJenkins.createPublisherClient(credentials, pluginVersion);
     }
 
     @Nullable
@@ -165,5 +161,15 @@ public class Util {
 
         if (releaseNotes != null) release.setReleaseNotes(releaseNotes);
         return release;
+    }
+
+    @VisibleForTesting
+    public static void setJenkinsUtil(JenkinsUtil util) {
+        sJenkins = Objects.requireNonNull(util);
+    }
+
+    @VisibleForTesting
+    public static void setAndroidUtil(AndroidUtil util) {
+        sAndroid = Objects.requireNonNull(util);
     }
 }

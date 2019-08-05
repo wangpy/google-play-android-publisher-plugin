@@ -39,19 +39,19 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
     private Boolean fromVersionCode;
 
     @DataBoundSetter
-    private String applicationId;
+    protected String applicationId;
 
     @DataBoundSetter
-    private String versionCodes;
+    protected String versionCodes;
 
     @DataBoundSetter
     private String apkFilesPattern;
 
     @DataBoundSetter
-    private String trackName;
+    protected String trackName;
 
     @DataBoundSetter
-    private String rolloutPercentage;
+    protected String rolloutPercentage;
 
     @DataBoundConstructor
     public ReleaseTrackAssignmentBuilder() {}
