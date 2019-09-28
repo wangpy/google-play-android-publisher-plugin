@@ -11,7 +11,6 @@ import hudson.model.AbstractBuild;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.remoting.VirtualChannel;
-import java.util.Objects;
 import jenkins.MasterToSlaveFileCallable;
 import net.dongliu.apk.parser.bean.ApkMeta;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.AndroidUtil;
@@ -20,13 +19,14 @@ import org.jenkinsci.plugins.googleplayandroidpublisher.internal.UtilsImpl;
 import org.jenkinsci.plugins.tokenmacro.MacroEvaluationException;
 import org.jenkinsci.plugins.tokenmacro.TokenMacro;
 
+import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 
 import static hudson.Util.fixEmptyAndTrim;
 
@@ -55,27 +55,31 @@ public class Util {
 
     /** @return The application ID of the given APK file. */
     public static String getApplicationId(FilePath apk) throws IOException, InterruptedException {
-        return apk.act(new MasterToSlaveFileCallable<String>() {
-            @Override
-            public String invoke(File f, VirtualChannel channel) throws IOException {
-                return sAndroid.getApkPackageName(f);
-            }
-        });
+        return apk.act(new GetApkPackageNameTask());
     }
 
     /** @return The version code of the given APK file. */
     static int getVersionCode(FilePath apk) throws IOException, InterruptedException {
-        return apk.act(new MasterToSlaveFileCallable<Integer>() {
-            @Override
-            public Integer invoke(File f, VirtualChannel channel) throws IOException {
-                return sAndroid.getApkVersionCode(f);
-            }
-        });
+        return apk.act(new GetApkVersionCodeTask());
     }
 
     /** @return The application metadata of the given APK file. */
     static ApkMeta getApkMetadata(File apk) throws IOException {
         return sAndroid.getApkMetadata(apk);
+    }
+
+    private static final class GetApkPackageNameTask extends MasterToSlaveFileCallable<String> {
+        @Override
+        public String invoke(File file, VirtualChannel virtualChannel) throws IOException {
+            return sAndroid.getApkPackageName(file);
+        }
+    }
+
+    private static final class GetApkVersionCodeTask extends MasterToSlaveFileCallable<Integer> {
+        @Override
+        public Integer invoke(File file, VirtualChannel virtualChannel) throws IOException {
+            return sAndroid.getApkVersionCode(file);
+        }
     }
 
     /** @return The given value with variables expanded and trimmed; {@code null} if that results in an empty string. */
