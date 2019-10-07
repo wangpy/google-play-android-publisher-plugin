@@ -82,7 +82,7 @@ public class ApkPublisherTest {
         // - Path or pattern to APK file was not specified
         QueueTaskFuture<FreeStyleBuild> scheduled = p.scheduleBuild2(0);
         j.assertBuildStatus(Result.FAILURE, scheduled);
-        j.assertLogContains("Path or pattern to APK file was not specified", scheduled.get());
+        j.assertLogContains("Relative path, or pattern to locate AAB or APK file(s) was not specified", scheduled.get());
     }
 
     @Test
@@ -132,7 +132,7 @@ public class ApkPublisherTest {
         // Changes were successfully applied to Google Play
 
         TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS,
-                "Uploading 1 APK(s) with application ID: org.jenkins.appId",
+                "Uploading 1 file(s) with application ID: org.jenkins.appId",
                 "APK file: " + join(Arrays.asList("build", "outputs", "apk", "app.apk"), File.separator),
                 "versionCode: 42",
                 "Setting rollout to target 100% of production track users",
