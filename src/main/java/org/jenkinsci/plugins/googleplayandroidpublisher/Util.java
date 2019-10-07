@@ -63,9 +63,15 @@ public class Util {
         return apk.act(new GetApkVersionCodeTask());
     }
 
-    /** @return The application metadata of the given APK file. */
-    static ApkMeta getApkMetadata(File apk) throws IOException {
-        return sAndroid.getApkMetadata(apk);
+    static AppFileMetadata getAppFileMetadata(FilePath file) throws IOException, InterruptedException {
+        return file.act(new GetAppFileMetadataTask());
+    }
+
+    private static final class GetAppFileMetadataTask extends MasterToSlaveFileCallable<AppFileMetadata> {
+        @Override
+        public AppFileMetadata invoke(File file, VirtualChannel virtualChannel) throws IOException {
+            return sAndroid.getAppFileMetadata(file);
+        }
     }
 
     private static final class GetApkPackageNameTask extends MasterToSlaveFileCallable<String> {

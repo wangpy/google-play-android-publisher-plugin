@@ -29,7 +29,7 @@ abstract class TrackPublisherTask<V> extends AbstractPublisherTask<V> {
      * @param track The track to which the APKs should be assigned.
      * @param rolloutFraction The rollout fraction, if track is a staged rollout.
      */
-    void assignApksToTrack(ReleaseTrack track, double rolloutFraction, TrackRelease release) throws IOException {
+    void assignAppFilesToTrack(ReleaseTrack track, double rolloutFraction, TrackRelease release) throws IOException {
         // Prepare to assign the APK(s) to the desired track
         final Track trackToAssign = new Track()
                 .setTrack(track.getApiValue())

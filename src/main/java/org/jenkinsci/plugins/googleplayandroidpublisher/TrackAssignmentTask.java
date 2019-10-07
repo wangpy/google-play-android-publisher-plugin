@@ -49,7 +49,7 @@ class TrackAssignmentTask extends TrackPublisherTask<Boolean> {
 
         // Assign the version codes to the configured track
         TrackRelease release = Util.buildRelease(versionCodes, rolloutFraction, null);
-        assignApksToTrack(track, rolloutFraction, release);
+        assignAppFilesToTrack(track, rolloutFraction, release);
 
         // Commit the changes
         try {
