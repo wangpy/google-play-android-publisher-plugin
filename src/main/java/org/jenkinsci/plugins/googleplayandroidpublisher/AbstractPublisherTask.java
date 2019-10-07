@@ -35,6 +35,8 @@ public abstract class AbstractPublisherTask<V> extends MasterToSlaveCallable<V, 
         } catch (InterruptedException e) {
             // There's no special handling we want to do if the build is interrupted, so just wrap and rethrow
             throw new UploadException(e);
+        } finally {
+            logger.flush();
         }
     }
 
