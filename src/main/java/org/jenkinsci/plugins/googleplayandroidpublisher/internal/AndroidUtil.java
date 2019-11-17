@@ -5,6 +5,7 @@ import java.io.IOException;
 
 import com.github.orrc.android.bundle.AndroidBundleMetadataParser;
 import com.github.orrc.android.bundle.BundleParser;
+import net.dongliu.apk.parser.ApkParsers;
 import net.dongliu.apk.parser.bean.ApkMeta;
 import org.jenkinsci.plugins.googleplayandroidpublisher.AppFileMetadata;
 
@@ -36,5 +37,7 @@ public interface AndroidUtil {
     /**
      * @return The application metadata of the given APK file.
      */
-    ApkMeta getApkMetadata(File apk) throws IOException;
+    default ApkMeta getApkMetadata(File apk) throws IOException {
+        return ApkParsers.getMetaInfo(apk);
+    }
 }

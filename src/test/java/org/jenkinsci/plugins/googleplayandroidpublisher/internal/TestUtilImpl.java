@@ -3,7 +3,9 @@ package org.jenkinsci.plugins.googleplayandroidpublisher.internal;
 import com.google.api.services.androidpublisher.AndroidPublisher;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import java.io.File;
-import net.dongliu.apk.parser.bean.ApkMeta;
+import java.io.IOException;
+
+import org.jenkinsci.plugins.googleplayandroidpublisher.AppFileMetadata;
 import org.mockito.stubbing.Answer;
 import static org.mockito.Mockito.mock;
 
@@ -27,21 +29,11 @@ public class TestUtilImpl implements JenkinsUtil, AndroidUtil {
     }
 
     @Override
-    public int getApkVersionCode(File apk) {
-        return 42;
-    }
-
-    @Override
-    public String getApkPackageName(File apk) {
-        return "org.jenkins.appId";
-    }
-
-    @Override
-    public ApkMeta getApkMetadata(File apk) {
-        return ApkMeta.newBuilder()
-                .setPackageName("org.jenkins.appId")
-                .setVersionCode(42L)
-                .setMinSdkVersion("16")
-                .build();
+    public AppFileMetadata getAppFileMetadata(File file) throws IOException {
+        boolean isBundle = file.getName().endsWith(".aab");
+        String appId = isBundle ? "org.jenkins.bundleAppId" : "org.jenkins.appId";
+        int versionCode = isBundle ? 43 : 42;
+        String minSdkVersion = isBundle ? "29" : "16";
+        return new AppFileMetadata(appId, versionCode, minSdkVersion);
     }
 }
