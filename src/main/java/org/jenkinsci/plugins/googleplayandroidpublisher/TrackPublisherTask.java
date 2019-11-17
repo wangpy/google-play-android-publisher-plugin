@@ -24,23 +24,23 @@ abstract class TrackPublisherTask<V> extends AbstractPublisherTask<V> {
     }
 
     /**
-     * Assigns a list of APKs with the given version codes to a release track.
+     * Assigns a release, which contains a list of version codes, to a release track.
      *
-     * @param track The track to which the APKs should be assigned.
+     * @param track The track to which the version codes should be assigned.
      * @param rolloutFraction The rollout fraction, if track is a staged rollout.
      */
     void assignAppFilesToTrack(ReleaseTrack track, double rolloutFraction, TrackRelease release) throws IOException {
-        // Prepare to assign the APK(s) to the desired track
+        // Prepare to assign the release to the desired track
         final Track trackToAssign = new Track()
                 .setTrack(track.getApiValue())
                 .setReleases(Collections.singletonList(release));
 
-        // Assign the new APK(s) to the desired track
+        // Assign the new file(s) to the desired track
         logger.println(String.format("Setting rollout to target %s%% of %s track users",
                         PERCENTAGE_FORMATTER.format(rolloutFraction * 100), track));
         Track updatedTrack =
                 editService.tracks().update(applicationId, editId, trackToAssign.getTrack(), trackToAssign).execute();
-        logger.println(String.format("The %s release track will now contain APK(s) with version code(s): %s%n", track,
+        logger.println(String.format("The %s release track will now contain the version code(s): %s%n", track,
                 join(updatedTrack.getReleases().get(0).getVersionCodes(), ", ")));
     }
 

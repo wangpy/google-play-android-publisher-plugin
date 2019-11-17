@@ -118,7 +118,7 @@ public class ApkPublisherTest {
         // - Credential:     test-credentials
         // - Application ID: org.jenkins.appId
         //
-        // Uploading 1 APK(s) with application ID: org.jenkins.appId
+        // Uploading 1 file(s) with application ID: org.jenkins.appId
         //
         //       APK file: build/outputs/apk/app.apk
         //     SHA-1 hash: da39a3ee5e6b4b0d3255bfef95601890afd80709
@@ -126,7 +126,7 @@ public class ApkPublisherTest {
         //  minSdkVersion: 16
         //
         // Setting rollout to target 100% of production track users
-        // The production release track will now contain APK(s) with version code(s): 42
+        // The production release track will now contain the version code(s): 42
         //
         // Applying changes to Google Play...
         // Changes were successfully applied to Google Play
@@ -136,7 +136,7 @@ public class ApkPublisherTest {
                 "APK file: " + join(Arrays.asList("build", "outputs", "apk", "app.apk"), File.separator),
                 "versionCode: 42",
                 "Setting rollout to target 100% of production track users",
-                "The production release track will now contain APK(s) with version code(s): 42",
+                "The production release track will now contain the version code(s): 42",
                 "Changes were successfully applied to Google Play"
         );
     }
@@ -204,7 +204,7 @@ public class ApkPublisherTest {
         // - Credential:     test-credentials
         // - Application ID: org.jenkins.appId
         //
-        // Uploading 1 APK(s) with application ID: org.jenkins.appId
+        // Uploading 1 file(s) with application ID: org.jenkins.appId
         //
         //       APK file: build/outputs/apk/app.apk
         //     SHA-1 hash: da39a3ee5e6b4b0d3255bfef95601890afd80709
@@ -212,17 +212,17 @@ public class ApkPublisherTest {
         //  minSdkVersion: 16
         //
         // Setting rollout to target 100% of production track users
-        // The production release track will now contain APK(s) with version code(s): 42
+        // The production release track will now contain the version code(s): 42
         //
         // Applying changes to Google Play...
         // Changes were successfully applied to Google Play
 
         TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS,
-                "Uploading 1 APK(s) with application ID: org.jenkins.appId",
+                "Uploading 1 file(s) with application ID: org.jenkins.appId",
                 "APK file: " + join(Arrays.asList("build", "outputs", "apk", "app.apk"), File.separator),
                 "versionCode: 42",
                 "Setting rollout to target 100% of production track users",
-                "The production release track will now contain APK(s) with version code(s): 42",
+                "The production release track will now contain the version code(s): 42",
                 "Changes were successfully applied to Google Play"
         );
     }

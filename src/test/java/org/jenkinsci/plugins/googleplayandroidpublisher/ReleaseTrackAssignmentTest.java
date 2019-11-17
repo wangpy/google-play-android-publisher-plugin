@@ -95,7 +95,7 @@ public class ReleaseTrackAssignmentTest {
         // - Application ID: org.jenkins.appId
         // Assigning 1 APK(s) with application ID org.jenkins.appId to production release track
         // Setting rollout to target 100% of production track users
-        // The production release track will now contain APK(s) with version code(s): 42
+        // The production release track will now contain the version code(s): 42
         //
         // Applying changes to Google Play...
         // Changes were successfully applied to Google Play
@@ -108,7 +108,7 @@ public class ReleaseTrackAssignmentTest {
         TestsHelper.assertLogLines(j, scheduled,
                 "Assigning 1 APK(s) with application ID org.jenkins.appId to production release track",
                 "Setting rollout to target 5% of production track users",
-                "The production release track will now contain APK(s) with version code(s): 42",
+                "The production release track will now contain the version code(s): 42",
                 "Changes were successfully applied to Google Play"
         );
     }
@@ -138,7 +138,7 @@ public class ReleaseTrackAssignmentTest {
         // - Application ID: org.jenkins.appId
         // Assigning 1 APK(s) with application ID org.jenkins.appId to production release track
         // Setting rollout to target 100% of production track users
-        // The production release track will now contain APK(s) with version code(s): 42
+        // The production release track will now contain the version code(s): 42
         //
         // Applying changes to Google Play...
         // Changes were successfully applied to Google Play
@@ -151,7 +151,7 @@ public class ReleaseTrackAssignmentTest {
         TestsHelper.assertLogLines(j, scheduled,
                 "Assigning 1 APK(s) with application ID org.jenkins.appId to production release track",
                 "Setting rollout to target 5% of production track users",
-                "The production release track will now contain APK(s) with version code(s): 42",
+                "The production release track will now contain the version code(s): 42",
                 "Changes were successfully applied to Google Play"
         );
     }
