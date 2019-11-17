@@ -22,11 +22,13 @@ import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestUtilImpl;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeAssignTrackResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeCommitResponse;
-import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeHttpResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeListApksResponse;
+import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeListBundlesResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakePostEditsResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakePutApkResponse;
+import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakePutBundleResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeUploadApkResponse;
+import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeUploadBundleResponse;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -142,6 +144,63 @@ public class ApkPublisherTest {
     }
 
     @Test
+    public void uploadSingleBundle_succeeds() throws Exception {
+        transport
+                .withResponse("/edits",
+                        new FakePostEditsResponse().setEditId("the-edit-id"))
+                .withResponse("/edits/the-edit-id/bundles",
+                        new FakeListBundlesResponse().setEmptyBundles())
+                .withResponse("/edits/the-edit-id/bundles?uploadType=resumable",
+                        new FakeUploadBundleResponse().willContinue())
+                .withResponse("google.local/uploading/foo/bundle",
+                        new FakePutBundleResponse().success(43, "the:sha"))
+                .withResponse("/edits/the-edit-id/tracks/production",
+                        new FakeAssignTrackResponse().success("production", 43))
+                .withResponse("/edits/the-edit-id:commit",
+                        new FakeCommitResponse().success())
+        ;
+
+        FreeStyleProject p = j.createFreeStyleProject("uploadBundles");
+
+        TestsHelper.setUpCredentials("test-credentials");
+        setUpBundleFile(p);
+
+        ApkPublisher publisher = new ApkPublisher();
+        publisher.setGoogleCredentialsId("test-credentials");
+        publisher.apkFilesPattern = "**/*.aab";
+        publisher.trackName = "production";
+
+        p.getPublishersList().add(publisher);
+
+        // Authenticating to Google Play API...
+        // - Credential:     test-credentials
+        // - Application ID: org.jenkins.bundleAppId
+        //
+        // Uploading 1 file(s) with application ID: org.jenkins.bundleAppId
+        //
+        //       AAB file: build/outputs/bundle/release/bundle.aab
+        //     SHA-1 hash: da39a3ee5e6b4b0d3255bfef95601890afd80709
+        //    versionCode: 43
+        //  minSdkVersion: 29
+        //
+        // Setting rollout to target 100% of production track users
+        // The production release track will now contain the version code(s): 43
+        //
+        // Applying changes to Google Play...
+        // Changes were successfully applied to Google Play
+
+        TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS,
+                "Uploading 1 file(s) with application ID: org.jenkins.bundleAppId",
+                "AAB file: " + join(Arrays.asList("build", "outputs", "bundle", "release", "bundle.aab"), File.separator),
+                "versionCode: 43",
+                "minSdkVersion: 29",
+                "Setting rollout to target 100% of production track users",
+                "The production release track will now contain the version code(s): 43",
+                "Changes were successfully applied to Google Play"
+        );
+    }
+
+    @Test
     @WithoutJenkins
     public void responsesCanBeSerialized() throws IOException, ClassNotFoundException {
         transport.withResponse("/edits",
@@ -229,9 +288,10 @@ public class ApkPublisherTest {
 
     private void setUpApkFile(FreeStyleProject p) throws Exception {
         FilePath workspace = j.jenkins.getWorkspaceFor(p);
-        FilePath apkDir = workspace.child("build").child("outputs").child("apk");
-        FilePath apk = apkDir.child("app.apk");
-        apk.copyFrom(getClass().getResourceAsStream("/foo.apk"));
+        FilePath dir = workspace.child("build/outputs/apk");
+        dir.mkdirs();
+        FilePath file = dir.child("app.apk");
+        file.touch(0);
     }
 
     private void setUpApkFileOnSlave(FreeStyleProject p, Slave agent) throws Exception {
@@ -239,5 +299,13 @@ public class ApkPublisherTest {
         FilePath apkDir = workspace.child("build").child("outputs").child("apk");
         FilePath apk = apkDir.child("app.apk");
         apk.copyFrom(getClass().getResourceAsStream("/foo.apk"));
+    }
+
+    private void setUpBundleFile(FreeStyleProject p) throws Exception {
+        FilePath workspace = j.jenkins.getWorkspaceFor(p);
+        FilePath dir = workspace.child("build/outputs/bundle/release");
+        dir.mkdirs();
+        FilePath file = dir.child("bundle.aab");
+        file.touch(0);
     }
 }
