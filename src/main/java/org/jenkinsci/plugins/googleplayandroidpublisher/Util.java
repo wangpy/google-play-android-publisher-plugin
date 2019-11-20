@@ -12,7 +12,6 @@ import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.remoting.VirtualChannel;
 import jenkins.MasterToSlaveFileCallable;
-import net.dongliu.apk.parser.bean.ApkMeta;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.AndroidUtil;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.JenkinsUtil;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.UtilsImpl;
@@ -25,7 +24,6 @@ import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static hudson.Util.fixEmptyAndTrim;
@@ -174,12 +172,12 @@ public class Util {
     }
 
     @VisibleForTesting
-    public static void setJenkinsUtil(JenkinsUtil util) {
-        sJenkins = Objects.requireNonNull(util);
+    static void setJenkinsUtil(JenkinsUtil util) {
+        sJenkins = util;
     }
 
     @VisibleForTesting
-    public static void setAndroidUtil(AndroidUtil util) {
-        sAndroid = Objects.requireNonNull(util);
+    static void setAndroidUtil(AndroidUtil util) {
+        sAndroid = util;
     }
 }

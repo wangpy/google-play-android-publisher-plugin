@@ -15,7 +15,6 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.Arrays;
-import org.jenkinsci.plugins.googleplayandroidpublisher.internal.AndroidUtil;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.JenkinsUtil;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestHttpTransport;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestUtilImpl;
@@ -52,24 +51,29 @@ public class ApkPublisherTest {
     @Rule
     public JenkinsRule j = new JenkinsRule();
 
-    private AndroidUtil androidUtil = spy(TestUtilImpl.class);
-    private JenkinsUtil jenkinsUtil = spy(TestUtilImpl.class);
+    private TestUtilImpl androidUtil;
 
-    private TestHttpTransport transport = new TestHttpTransport();
+    private TestHttpTransport transport;
 
     @Before
     public void setUp() throws Exception {
+        androidUtil = new TestUtilImpl();
+        Util.setAndroidUtil(androidUtil);
+
+        JenkinsUtil jenkinsUtil = spy(TestUtilImpl.class);
+        Util.setJenkinsUtil(jenkinsUtil);
+
         // Create fake AndroidPublisher client
+        transport = new TestHttpTransport();
         AndroidPublisher androidClient = TestsHelper.createAndroidPublisher(transport);
         when(jenkinsUtil.createPublisherClient(any(), anyString())).thenReturn(androidClient);
-
-        Util.setAndroidUtil(androidUtil);
-        Util.setJenkinsUtil(jenkinsUtil);
     }
 
     @After
     public void tearDown() {
         transport.dumpRequests();
+        Util.setAndroidUtil(null);
+        Util.setJenkinsUtil(null);
     }
 
     @Test
