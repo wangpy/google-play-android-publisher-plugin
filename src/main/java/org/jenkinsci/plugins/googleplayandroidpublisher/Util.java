@@ -66,7 +66,7 @@ public class Util {
         return file.act(new GetAppFileMetadataTask());
     }
 
-    private static final class GetAppFileMetadataTask extends MasterToSlaveFileCallable<AppFileMetadata> {
+    public static final class GetAppFileMetadataTask extends MasterToSlaveFileCallable<AppFileMetadata> {
         @Override
         public AppFileMetadata invoke(File file, VirtualChannel virtualChannel) throws IOException {
             return sAndroid.getAppFileMetadata(file);
