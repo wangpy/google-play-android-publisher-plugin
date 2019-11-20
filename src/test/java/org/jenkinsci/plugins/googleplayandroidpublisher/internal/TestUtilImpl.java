@@ -3,7 +3,6 @@ package org.jenkinsci.plugins.googleplayandroidpublisher.internal;
 import com.google.api.services.androidpublisher.AndroidPublisher;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import java.io.File;
-import java.io.IOException;
 
 import org.jenkinsci.plugins.googleplayandroidpublisher.AppFileMetadata;
 import org.mockito.stubbing.Answer;
@@ -11,6 +10,9 @@ import static org.mockito.Mockito.mock;
 
 public class TestUtilImpl implements JenkinsUtil, AndroidUtil {
     public static final boolean DEBUG = true;
+
+    private String apkAppId = "org.jenkins.appId";
+    private String bundleAppId = "org.jenkins.bundleAppId";
 
     @Override
     public String getPluginVersion() {
@@ -29,11 +31,20 @@ public class TestUtilImpl implements JenkinsUtil, AndroidUtil {
     }
 
     @Override
-    public AppFileMetadata getAppFileMetadata(File file) throws IOException {
+    public AppFileMetadata getAppFileMetadata(File file) {
         boolean isBundle = file.getName().endsWith(".aab");
-        String appId = isBundle ? "org.jenkins.bundleAppId" : "org.jenkins.appId";
+        String appId = isBundle ? bundleAppId : apkAppId;
         int versionCode = isBundle ? 43 : 42;
         String minSdkVersion = isBundle ? "29" : "16";
         return new AppFileMetadata(appId, versionCode, minSdkVersion);
     }
+
+    public void setApkAppId(String apkAppId) {
+        this.apkAppId = apkAppId;
+    }
+
+    public void setBundleAppId(String bundleAppId) {
+        this.bundleAppId = bundleAppId;
+    }
+
 }
