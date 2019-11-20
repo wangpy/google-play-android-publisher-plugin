@@ -4,7 +4,6 @@ import com.google.api.services.androidpublisher.AndroidPublisher;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import java.io.File;
 
-import org.jenkinsci.plugins.googleplayandroidpublisher.AppFileMetadata;
 import org.mockito.stubbing.Answer;
 import static org.mockito.Mockito.mock;
 

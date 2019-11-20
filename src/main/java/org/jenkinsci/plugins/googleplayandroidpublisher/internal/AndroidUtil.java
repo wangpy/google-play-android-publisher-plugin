@@ -7,7 +7,6 @@ import com.github.orrc.android.bundle.AndroidBundleMetadataParser;
 import com.github.orrc.android.bundle.BundleParser;
 import net.dongliu.apk.parser.ApkParsers;
 import net.dongliu.apk.parser.bean.ApkMeta;
-import org.jenkinsci.plugins.googleplayandroidpublisher.AppFileMetadata;
 
 public interface AndroidUtil {
     /**

@@ -23,6 +23,8 @@ import java.util.Locale;
 import java.util.Map;
 
 import org.apache.commons.codec.digest.DigestUtils;
+import org.jenkinsci.plugins.googleplayandroidpublisher.internal.AppFileMetadata;
+
 import static org.jenkinsci.plugins.googleplayandroidpublisher.ApkPublisher.ExpansionFileSet;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.ApkPublisher.RecentChanges;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.DEOBFUSCATION_FILE_TYPE_PROGUARD;

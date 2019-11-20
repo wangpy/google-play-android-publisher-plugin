@@ -1,4 +1,4 @@
-package org.jenkinsci.plugins.googleplayandroidpublisher;
+package org.jenkinsci.plugins.googleplayandroidpublisher.internal;
 
 import java.io.Serializable;
 

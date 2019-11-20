@@ -13,6 +13,7 @@ import hudson.model.TaskListener;
 import hudson.remoting.VirtualChannel;
 import jenkins.MasterToSlaveFileCallable;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.AndroidUtil;
+import org.jenkinsci.plugins.googleplayandroidpublisher.internal.AppFileMetadata;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.JenkinsUtil;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.UtilsImpl;
 import org.jenkinsci.plugins.tokenmacro.MacroEvaluationException;
