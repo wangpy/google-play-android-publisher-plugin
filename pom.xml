@@ -166,7 +166,7 @@
     <!-- Contains Jenkins artifacts and seems to cache requested artifacts from Maven Central -->
     <repository>
       <id>repo.jenkins-ci.org</id>
-      <url>http://repo.jenkins-ci.org/public/</url>
+      <url>https://repo.jenkins-ci.org/public/</url>
     </repository>
     <!-- For Android bundle lib -->
     <repository>
@@ -178,7 +178,7 @@
   <pluginRepositories>
     <pluginRepository>
       <id>repo.jenkins-ci.org</id>
-      <url>http://repo.jenkins-ci.org/public/</url>
+      <url>https://repo.jenkins-ci.org/public/</url>
     </pluginRepository>
   </pluginRepositories>
 
