@@ -179,6 +179,38 @@ public class ApkPublisherTest {
     }
 
     @Test
+    public void givenMultipleFileTypesBundlesArePreferred() throws Exception {
+        // Given a freestyle job which will attempt to upload all files in the workspace
+        FreeStyleProject p = j.createFreeStyleProject();
+        ApkPublisher publisher = new ApkPublisher();
+        publisher.setGoogleCredentialsId("test-credentials");
+        publisher.apkFilesPattern = "**/*";
+        publisher.trackName = "production";
+        p.getPublishersList().add(publisher);
+
+        TestsHelper.setUpCredentials("test-credentials");
+        setUpTransportForBundle();
+
+        // And there are both AAB and APK files in the workspace
+        setUpBundleFile(p);
+        setUpApkFile(p);
+
+        // And both have the same application ID
+        String appId = "com.example.test";
+        androidUtil.setApkAppId(appId);
+        androidUtil.setBundleAppId(appId);
+
+        // When a build occurs, then we should see a warning about multiple files
+        // And the AAB upload should succeed, without uploading the APK
+        TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS,
+            "Both AAB and APK files were found; only the AAB files will be uploaded",
+            "Uploading 1 file(s) with application ID: com.example.test",
+            "AAB file: " + join(Arrays.asList("build", "outputs", "bundle", "release", "bundle.aab"), File.separator),
+            "The production release track will now contain the version code(s): 43"
+        );
+    }
+
+    @Test
     @WithoutJenkins
     public void responsesCanBeSerialized() throws IOException, ClassNotFoundException {
         transport.withResponse("/edits",

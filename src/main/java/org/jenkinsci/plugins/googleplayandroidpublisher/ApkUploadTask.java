@@ -67,7 +67,7 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
         // Get the list of existing app files and their info
         // TODO: This if/else can probably be nicer
         List<String> existingAppFileHashes = new ArrayList<>();
-        if (appFilesToUpload.get(0).getName().endsWith(".aab")) {
+        if (appFilesToUpload.get(0).getName().endsWith(".aab")) { // TODO: Ideally we shouldn't rely on file extension
             List<Bundle> existingBundles = editService.bundles().list(applicationId, editId).execute().getBundles();
             if (existingBundles != null) {
                 for (Bundle bundle : existingBundles) {

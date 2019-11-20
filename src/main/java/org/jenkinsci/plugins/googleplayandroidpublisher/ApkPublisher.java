@@ -35,6 +35,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
+import java.util.stream.Collectors;
 import java.util.zip.ZipException;
 
 import static hudson.Util.fixEmptyAndTrim;
@@ -222,10 +223,8 @@ public class ApkPublisher extends GooglePlayPublisher {
             return false;
         }
 
-        // TODO: If we found AABs *and* APKs, fail -- choose one!
-
         // Get the full remote path in the workspace for each filename
-        final List<FilePath> validFiles = new ArrayList<>();
+        List<FilePath> validFiles = new ArrayList<>();
         final Set<String> applicationIds = new HashSet<>();
         final Set<Long> versionCodes = new TreeSet<>();
         for (String path : relativePaths) {
@@ -261,6 +260,22 @@ public class ApkPublisher extends GooglePlayPublisher {
                 logger.println(id);
             }
             return false;
+        }
+
+        // If both APKs and bundles were found, then prefer the bundles.
+        // e.g. a release job may build a bundle for upload, but also build a fat APK for archiving,
+        // or testing, etc. (though really the user should configure `apkFilesPattern` more sensibly)
+        // TODO: This relies on the filenames ending with .aab or .apk,
+        //       though presumably uploading an APK named .zip would work
+        boolean hasMultipleFileTypes = validFiles.stream()
+                .map(FilePath::getName)
+                .filter(it -> it.matches(".*\\.(aab|apk)$"))
+                .map(it -> it.substring(it.lastIndexOf('.')))
+                .collect(Collectors.toSet())
+                .size() > 1;
+        if (hasMultipleFileTypes) {
+            logger.println("Both AAB and APK files were found; only the AAB files will be uploaded");
+            validFiles = validFiles.stream().filter(f -> f.getName().endsWith(".aab")).collect(Collectors.toList());
         }
 
         // Find the obfuscation mapping filename(s) which match the pattern after variable expansion
