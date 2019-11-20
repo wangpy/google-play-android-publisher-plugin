@@ -24,13 +24,14 @@ public interface AndroidUtil {
     }
 
     default AppFileMetadata getAppFileMetadata(File file) throws IOException {
+        // TODO: It would be nice to detect based on file content, rather than by file name
         if (file.getName().endsWith(".aab")) {
             BundleParser parser = new AndroidBundleMetadataParser(file);
-            return new AppFileMetadata(parser.getApplicationId(), parser.getVersionCode(), parser.getMinSdkVersion());
+            return new BundleFileMetadata(parser.getApplicationId(), parser.getVersionCode(), parser.getMinSdkVersion());
         }
 
         ApkMeta apkMeta = getApkMetadata(file);
-        return new AppFileMetadata(apkMeta.getPackageName(), apkMeta.getVersionCode(), apkMeta.getMinSdkVersion());
+        return new ApkFileMetadata(apkMeta.getPackageName(), apkMeta.getVersionCode(), apkMeta.getMinSdkVersion());
     }
 
     /**

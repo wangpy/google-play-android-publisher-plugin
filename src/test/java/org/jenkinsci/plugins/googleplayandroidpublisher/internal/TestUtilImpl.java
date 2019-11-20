@@ -31,11 +31,11 @@ public class TestUtilImpl implements JenkinsUtil, AndroidUtil {
 
     @Override
     public AppFileMetadata getAppFileMetadata(File file) {
-        boolean isBundle = file.getName().endsWith(".aab");
-        String appId = isBundle ? bundleAppId : apkAppId;
-        int versionCode = isBundle ? 43 : 42;
-        String minSdkVersion = isBundle ? "29" : "16";
-        return new AppFileMetadata(appId, versionCode, minSdkVersion);
+        AppFileFormat format = file.getName().endsWith(".aab") ? AppFileFormat.BUNDLE : AppFileFormat.APK;
+        if (format == AppFileFormat.BUNDLE) {
+            return new BundleFileMetadata(bundleAppId, 43, "29");
+        }
+        return new ApkFileMetadata(apkAppId, 42, "16");
     }
 
     public void setApkAppId(String apkAppId) {
