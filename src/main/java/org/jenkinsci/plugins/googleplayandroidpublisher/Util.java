@@ -62,10 +62,6 @@ public class Util {
         return apk.act(new GetApkVersionCodeTask());
     }
 
-    static AppFileMetadata getAppFileMetadata(FilePath file) throws IOException, InterruptedException {
-        return file.act(new GetAppFileMetadataTask());
-    }
-
     public static final class GetAppFileMetadataTask extends MasterToSlaveFileCallable<AppFileMetadata> {
         @Override
         public AppFileMetadata invoke(File file, VirtualChannel virtualChannel) throws IOException {

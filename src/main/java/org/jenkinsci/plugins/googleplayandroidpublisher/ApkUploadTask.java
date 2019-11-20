@@ -12,7 +12,6 @@ import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import hudson.FilePath;
 import hudson.model.TaskListener;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
@@ -22,21 +21,19 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import org.apache.commons.codec.digest.DigestUtils;
-import org.jenkinsci.plugins.googleplayandroidpublisher.internal.AppFileMetadata;
+import org.jenkinsci.plugins.googleplayandroidpublisher.internal.AppFileFormat;
+import org.jenkinsci.plugins.googleplayandroidpublisher.internal.UploadFile;
 
 import static org.jenkinsci.plugins.googleplayandroidpublisher.ApkPublisher.ExpansionFileSet;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.ApkPublisher.RecentChanges;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.DEOBFUSCATION_FILE_TYPE_PROGUARD;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.OBB_FILE_TYPE_MAIN;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.OBB_FILE_TYPE_PATCH;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getAppFileMetadata;
 
 class ApkUploadTask extends TrackPublisherTask<Boolean> {
 
     private final FilePath workspace;
-    private final List<FilePath> appFilesToUpload;
-    private final Map<FilePath, FilePath> appFilesToMappingFiles;
+    private final List<UploadFile> appFilesToUpload;
     private final Map<Long, ExpansionFileSet> expansionFiles;
     private final boolean usePreviousExpansionFilesIfMissing;
     private final RecentChanges[] recentChangeList;
@@ -46,13 +43,12 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
 
     // TODO: Could be renamed
     ApkUploadTask(TaskListener listener, GoogleRobotCredentials credentials, String applicationId,
-                  FilePath workspace, List<FilePath> appFilesToUpload, Map<FilePath, FilePath> appFilesToMappingFiles,
-                  Map<Long, ExpansionFileSet> expansionFiles, boolean usePreviousExpansionFilesIfMissing,
-                  ReleaseTrack track, double rolloutPercentage, ApkPublisher.RecentChanges[] recentChangeList) {
+                  FilePath workspace, List<UploadFile> appFilesToUpload, Map<Long, ExpansionFileSet> expansionFiles,
+                  boolean usePreviousExpansionFilesIfMissing, ReleaseTrack track, double rolloutPercentage,
+                  ApkPublisher.RecentChanges[] recentChangeList) {
         super(listener, credentials, applicationId, track, rolloutPercentage);
         this.workspace = workspace;
         this.appFilesToUpload = appFilesToUpload;
-        this.appFilesToMappingFiles = appFilesToMappingFiles;
         this.expansionFiles = expansionFiles;
         this.usePreviousExpansionFilesIfMissing = usePreviousExpansionFilesIfMissing;
         this.recentChangeList = recentChangeList;
@@ -66,10 +62,13 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
                         "- Application ID: %s%n", getCredentialName(), applicationId));
         createEdit(applicationId);
 
-        // Get the list of existing app files and their info
-        // TODO: This if/else can probably be nicer
+        // Figure out what we're going to upload
+        // TODO: The overall APK vs BUNDLE logic can probably be nicer
+        final AppFileFormat fileFormat = appFilesToUpload.get(0).getFileFormat();
+
+        // Fetch information about the app files that already exist on Google Play
         List<String> existingAppFileHashes = new ArrayList<>();
-        if (appFilesToUpload.get(0).getName().endsWith(".aab")) { // TODO: Ideally we shouldn't rely on file extension
+        if (fileFormat == AppFileFormat.BUNDLE) {
             List<Bundle> existingBundles = editService.bundles().list(applicationId, editId).execute().getBundles();
             if (existingBundles != null) {
                 for (Bundle bundle : existingBundles) {
@@ -90,21 +89,17 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
         // Upload each of the files
         logger.println(String.format("Uploading %d file(s) with application ID: %s%n", appFilesToUpload.size(), applicationId));
         final ArrayList<Integer> uploadedVersionCodes = new ArrayList<>();
-        for (FilePath appFile : appFilesToUpload) {
-            final AppFileMetadata metadata = getAppFileMetadata(appFile);
-            final String appFileSha1Hash = getSha1Hash(appFile.getRemote());
-            final boolean isAppBundle = appFile.getName().endsWith(".aab");
-            final String fileType = isAppBundle ? "AAB" : "APK";
-
+        for (UploadFile appFile : appFilesToUpload) {
             // Log some useful information about the file that will be uploaded
-            logger.println(String.format("      %s file: %s", fileType, getRelativeFileName(appFile)));
-            logger.println(String.format("    SHA-1 hash: %s", appFileSha1Hash));
-            logger.println(String.format("   versionCode: %d", metadata.getVersionCode()));
-            logger.println(String.format(" minSdkVersion: %s", metadata.getMinSdkVersion()));
+            final String fileType = (fileFormat == AppFileFormat.BUNDLE) ? "AAB" : "APK";
+            logger.println(String.format("      %s file: %s", fileType, getRelativeFileName(appFile.getFilePath())));
+            logger.println(String.format("    SHA-1 hash: %s", appFile.getSha1Hash()));
+            logger.println(String.format("   versionCode: %d", appFile.getVersionCode()));
+            logger.println(String.format(" minSdkVersion: %s", appFile.getMinSdkVersion()));
 
             // Check whether this file already exists on the server (i.e. uploading it would fail)
             for (String hash : existingAppFileHashes) {
-                if (hash.toLowerCase(Locale.ROOT).equals(appFileSha1Hash)) {
+                if (hash.toLowerCase(Locale.ROOT).equals(appFile.getSha1Hash())) {
                     logger.println();
                     logger.println("This file already exists in the Google Play account; it cannot be uploaded again");
                     return false;
@@ -112,21 +107,21 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
             }
 
             // If not, we can upload the file
-            FileContent fileToUpload = new FileContent("application/octet-stream", new File(appFile.getRemote()));
-            // TODO: This if/else can probably be nicer
+            File fileToUpload = new File(appFile.getFilePath().getRemote());
+            FileContent fileContent = new FileContent("application/octet-stream", fileToUpload);
             final int uploadedVersionCode;
-            if (appFile.getName().endsWith(".aab")) {
-                Bundle uploadedBundle = editService.bundles().upload(applicationId, editId, fileToUpload).execute();
+            if (fileFormat == AppFileFormat.BUNDLE) {
+                Bundle uploadedBundle = editService.bundles().upload(applicationId, editId, fileContent).execute();
                 uploadedVersionCode = uploadedBundle.getVersionCode();
                 uploadedVersionCodes.add(uploadedVersionCode);
             } else {
-                Apk uploadedApk = editService.apks().upload(applicationId, editId, fileToUpload).execute();
+                Apk uploadedApk = editService.apks().upload(applicationId, editId, fileContent).execute();
                 uploadedVersionCode = uploadedApk.getVersionCode();
                 uploadedVersionCodes.add(uploadedVersionCode);
             }
 
             // Upload the ProGuard mapping file for this file, if there is one
-            final FilePath mappingFile = appFilesToMappingFiles.get(appFile);
+            final FilePath mappingFile = appFile.getMappingFile();
             if (mappingFile != null) {
                 final String relativeFileName = getRelativeFileName(mappingFile);
 
@@ -316,13 +311,6 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
             path = path.substring(1);
         }
         return path;
-    }
-
-    /** @return The SHA-1 hash of the given file, as a lower-case hex string. */
-    private static String getSha1Hash(String path) throws IOException {
-        try (FileInputStream fis = new FileInputStream(path)) {
-            return DigestUtils.sha1Hex(fis).toLowerCase(Locale.ROOT);
-        }
     }
 
 }
