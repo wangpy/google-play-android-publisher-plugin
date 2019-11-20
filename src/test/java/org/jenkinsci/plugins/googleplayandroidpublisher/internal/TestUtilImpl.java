@@ -31,8 +31,7 @@ public class TestUtilImpl implements JenkinsUtil, AndroidUtil {
 
     @Override
     public AppFileMetadata getAppFileMetadata(File file) {
-        AppFileFormat format = file.getName().endsWith(".aab") ? AppFileFormat.BUNDLE : AppFileFormat.APK;
-        if (format == AppFileFormat.BUNDLE) {
+        if (file.getName().endsWith(".aab")) {
             return new BundleFileMetadata(bundleAppId, 43, "29");
         }
         return new ApkFileMetadata(apkAppId, 42, "16");
