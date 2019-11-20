@@ -93,20 +93,7 @@ public class ApkPublisherTest {
 
     @Test
     public void uploadSingleApk_succeeds() throws Exception {
-        transport
-                .withResponse("/edits",
-                        new FakePostEditsResponse().setEditId("the-edit-id"))
-                .withResponse("/edits/the-edit-id/apks",
-                        new FakeListApksResponse().setEmptyApks())
-                .withResponse("/edits/the-edit-id/apks?uploadType=resumable",
-                        new FakeUploadApkResponse().willContinue())
-                .withResponse("google.local/uploading/foo/apk",
-                        new FakePutApkResponse().success(42, "the:sha"))
-                .withResponse("/edits/the-edit-id/tracks/production",
-                        new FakeAssignTrackResponse().success("production", 42))
-                .withResponse("/edits/the-edit-id:commit",
-                        new FakeCommitResponse().success())
-        ;
+        setUpTransportForApk();
 
         FreeStyleProject p = j.createFreeStyleProject("uploadApks");
 
@@ -149,20 +136,7 @@ public class ApkPublisherTest {
 
     @Test
     public void uploadSingleBundle_succeeds() throws Exception {
-        transport
-                .withResponse("/edits",
-                        new FakePostEditsResponse().setEditId("the-edit-id"))
-                .withResponse("/edits/the-edit-id/bundles",
-                        new FakeListBundlesResponse().setEmptyBundles())
-                .withResponse("/edits/the-edit-id/bundles?uploadType=resumable",
-                        new FakeUploadBundleResponse().willContinue())
-                .withResponse("google.local/uploading/foo/bundle",
-                        new FakePutBundleResponse().success(43, "the:sha"))
-                .withResponse("/edits/the-edit-id/tracks/production",
-                        new FakeAssignTrackResponse().success("production", 43))
-                .withResponse("/edits/the-edit-id:commit",
-                        new FakeCommitResponse().success())
-        ;
+        setUpTransportForBundle();
 
         FreeStyleProject p = j.createFreeStyleProject("uploadBundles");
 
@@ -234,20 +208,7 @@ public class ApkPublisherTest {
     @Test
     @Ignore("AndroidUtil override from test does not carry over to the DumbSlave")
     public void uploadSingleApk_fromSlave_succeeds() throws Exception {
-        transport
-                .withResponse("/edits",
-                        new FakePostEditsResponse().setEditId("the-edit-id"))
-                .withResponse("/edits/the-edit-id/apks",
-                        new FakeListApksResponse().setEmptyApks())
-                .withResponse("/edits/the-edit-id/apks?uploadType=resumable",
-                        new FakeUploadApkResponse().willContinue())
-                .withResponse("google.local/uploading/foo/apk",
-                        new FakePutApkResponse().success(42, "the:sha"))
-                .withResponse("/edits/the-edit-id/tracks/production",
-                        new FakeAssignTrackResponse().success("production", 42))
-                .withResponse("/edits/the-edit-id:commit",
-                        new FakeCommitResponse().success())
-        ;
+        setUpTransportForApk();
 
         DumbSlave agent = j.createOnlineSlave();
         FreeStyleProject p = j.createFreeStyleProject("uploadApks");
@@ -288,6 +249,40 @@ public class ApkPublisherTest {
                 "The production release track will now contain the version code(s): 42",
                 "Changes were successfully applied to Google Play"
         );
+    }
+
+    private void setUpTransportForApk() {
+        transport
+                .withResponse("/edits",
+                        new FakePostEditsResponse().setEditId("the-edit-id"))
+                .withResponse("/edits/the-edit-id/apks",
+                        new FakeListApksResponse().setEmptyApks())
+                .withResponse("/edits/the-edit-id/apks?uploadType=resumable",
+                        new FakeUploadApkResponse().willContinue())
+                .withResponse("google.local/uploading/foo/apk",
+                        new FakePutApkResponse().success(42, "the:sha"))
+                .withResponse("/edits/the-edit-id/tracks/production",
+                        new FakeAssignTrackResponse().success("production", 42))
+                .withResponse("/edits/the-edit-id:commit",
+                        new FakeCommitResponse().success())
+        ;
+    }
+
+    private void setUpTransportForBundle() {
+        transport
+                .withResponse("/edits",
+                        new FakePostEditsResponse().setEditId("the-edit-id"))
+                .withResponse("/edits/the-edit-id/bundles",
+                        new FakeListBundlesResponse().setEmptyBundles())
+                .withResponse("/edits/the-edit-id/bundles?uploadType=resumable",
+                        new FakeUploadBundleResponse().willContinue())
+                .withResponse("google.local/uploading/foo/bundle",
+                        new FakePutBundleResponse().success(43, "the:sha"))
+                .withResponse("/edits/the-edit-id/tracks/production",
+                        new FakeAssignTrackResponse().success("production", 43))
+                .withResponse("/edits/the-edit-id:commit",
+                        new FakeCommitResponse().success())
+        ;
     }
 
     private void setUpApkFile(FreeStyleProject p) throws Exception {
