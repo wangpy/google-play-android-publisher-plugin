@@ -15,6 +15,8 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.Arrays;
+import java.util.Collections;
+
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.JenkinsUtil;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestHttpTransport;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestUtilImpl;
@@ -39,6 +41,8 @@ import static hudson.Util.join;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestConstants.DEFAULT_APK;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestConstants.DEFAULT_BUNDLE;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThat;
@@ -92,6 +96,36 @@ public class ApkPublisherTest {
     }
 
     @Test
+    public void uploadingExistingApkFails() throws Exception {
+        // Given that some version codes already exist on Google Play
+        setUpTransportForApk();
+        transport.withResponse("/edits/the-edit-id/apks",
+                        new FakeListApksResponse().setApks(Collections.singletonList(DEFAULT_APK)));
+        transport.withResponse("/edits/the-edit-id/bundles",
+                new FakeListBundlesResponse().setBundles(Collections.singletonList(DEFAULT_BUNDLE)));
+
+        // And we have a freestyle job which will attempt to upload an existing APK
+        FreeStyleProject p = j.createFreeStyleProject();
+        ApkPublisher publisher = new ApkPublisher();
+        publisher.setGoogleCredentialsId("test-credentials");
+        publisher.apkFilesPattern = "**/*.apk";
+        publisher.trackName = "production";
+        p.getPublishersList().add(publisher);
+
+        TestsHelper.setUpCredentials("test-credentials");
+        setUpApkFile(p);
+
+        // When a build occurs, it should fail as the APK file already exists
+        TestsHelper.assertResultWithLogLines(j, p, Result.FAILURE,
+                "Uploading 1 file(s) with application ID: org.jenkins.appId",
+                "APK file: " + join(Arrays.asList("build", "outputs", "apk", "app.apk"), File.separator),
+                "versionCode: 42",
+                "This file already exists in the Google Play account; it cannot be uploaded again",
+                "Upload to Google Play failed"
+        );
+    }
+
+    @Test
     public void uploadSingleApk_succeeds() throws Exception {
         setUpTransportForApk();
 
@@ -131,6 +165,36 @@ public class ApkPublisherTest {
                 "Setting rollout to target 100% of production track users",
                 "The production release track will now contain the version code(s): 42",
                 "Changes were successfully applied to Google Play"
+        );
+    }
+
+    @Test
+    public void uploadingExistingBundleFails() throws Exception {
+        // Given that some version codes already exist on Google Play
+        setUpTransportForApk();
+        transport.withResponse("/edits/the-edit-id/apks",
+                new FakeListApksResponse().setApks(Collections.singletonList(DEFAULT_APK)));
+        transport.withResponse("/edits/the-edit-id/bundles",
+                new FakeListBundlesResponse().setBundles(Collections.singletonList(DEFAULT_BUNDLE)));
+
+        // And we have a freestyle job which will attempt to upload an existing bundle
+        FreeStyleProject p = j.createFreeStyleProject();
+        ApkPublisher publisher = new ApkPublisher();
+        publisher.setGoogleCredentialsId("test-credentials");
+        publisher.apkFilesPattern = "**/*.aab";
+        publisher.trackName = "production";
+        p.getPublishersList().add(publisher);
+
+        TestsHelper.setUpCredentials("test-credentials");
+        setUpBundleFile(p);
+
+        // When a build occurs, it should fail as the bundle file already exists
+        TestsHelper.assertResultWithLogLines(j, p, Result.FAILURE,
+                "Uploading 1 file(s) with application ID: org.jenkins.bundleAppId",
+                "AAB file: " + join(Arrays.asList("build", "outputs", "bundle", "release", "bundle.aab"), File.separator),
+                "versionCode: 43",
+                "This file already exists in the Google Play account; it cannot be uploaded again",
+                "Upload to Google Play failed"
         );
     }
 
@@ -289,6 +353,8 @@ public class ApkPublisherTest {
                         new FakePostEditsResponse().setEditId("the-edit-id"))
                 .withResponse("/edits/the-edit-id/apks",
                         new FakeListApksResponse().setEmptyApks())
+                .withResponse("/edits/the-edit-id/bundles",
+                        new FakeListBundlesResponse().setEmptyBundles())
                 .withResponse("/edits/the-edit-id/apks?uploadType=resumable",
                         new FakeUploadApkResponse().willContinue())
                 .withResponse("google.local/uploading/foo/apk",
@@ -304,6 +370,8 @@ public class ApkPublisherTest {
         transport
                 .withResponse("/edits",
                         new FakePostEditsResponse().setEditId("the-edit-id"))
+                .withResponse("/edits/the-edit-id/apks",
+                        new FakeListApksResponse().setEmptyApks())
                 .withResponse("/edits/the-edit-id/bundles",
                         new FakeListBundlesResponse().setEmptyBundles())
                 .withResponse("/edits/the-edit-id/bundles?uploadType=resumable",

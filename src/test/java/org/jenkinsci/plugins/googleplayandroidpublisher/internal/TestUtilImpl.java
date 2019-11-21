@@ -5,13 +5,20 @@ import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import java.io.File;
 
 import org.mockito.stubbing.Answer;
+
+import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestConstants.DEFAULT_APK_APP_ID;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestConstants.DEFAULT_APK_MIN_SDK_VERSION;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestConstants.DEFAULT_APK_VERSION_CODE;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestConstants.DEFAULT_BUNDLE_APP_ID;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestConstants.DEFAULT_BUNDLE_MIN_SDK_VERSION;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestConstants.DEFAULT_BUNDLE_VERSION_CODE;
 import static org.mockito.Mockito.mock;
 
 public class TestUtilImpl implements JenkinsUtil, AndroidUtil {
     public static final boolean DEBUG = true;
 
-    private String apkAppId = "org.jenkins.appId";
-    private String bundleAppId = "org.jenkins.bundleAppId";
+    private String apkAppId = DEFAULT_APK_APP_ID;
+    private String bundleAppId = DEFAULT_BUNDLE_APP_ID;
 
     @Override
     public String getPluginVersion() {
@@ -32,9 +39,9 @@ public class TestUtilImpl implements JenkinsUtil, AndroidUtil {
     @Override
     public AppFileMetadata getAppFileMetadata(File file) {
         if (file.getName().endsWith(".aab")) {
-            return new BundleFileMetadata(bundleAppId, 43, "29");
+            return new BundleFileMetadata(bundleAppId, DEFAULT_BUNDLE_VERSION_CODE, DEFAULT_BUNDLE_MIN_SDK_VERSION);
         }
-        return new ApkFileMetadata(apkAppId, 42, "16");
+        return new ApkFileMetadata(apkAppId, DEFAULT_APK_VERSION_CODE, DEFAULT_APK_MIN_SDK_VERSION);
     }
 
     public void setApkAppId(String apkAppId) {
