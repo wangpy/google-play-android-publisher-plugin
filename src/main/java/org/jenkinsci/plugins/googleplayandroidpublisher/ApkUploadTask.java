@@ -17,9 +17,13 @@ import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.AppFileFormat;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.UploadFile;
@@ -37,7 +41,7 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
     private final Map<Long, ExpansionFileSet> expansionFiles;
     private final boolean usePreviousExpansionFilesIfMissing;
     private final RecentChanges[] recentChangeList;
-    private final List<Integer> existingVersionCodes;
+    private final SortedSet<Integer> existingVersionCodes;
     private int latestMainExpansionFileVersionCode;
     private int latestPatchExpansionFileVersionCode;
 
@@ -52,7 +56,7 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
         this.expansionFiles = expansionFiles;
         this.usePreviousExpansionFilesIfMissing = usePreviousExpansionFilesIfMissing;
         this.recentChangeList = recentChangeList;
-        this.existingVersionCodes = new ArrayList<Integer>();
+        this.existingVersionCodes = new TreeSet<>((a, b) -> b - a);
     }
 
     protected Boolean execute() throws IOException, InterruptedException {
@@ -62,32 +66,26 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
                         "- Application ID: %s%n", getCredentialName(), applicationId));
         createEdit(applicationId);
 
-        // Figure out what we're going to upload
-        // TODO: The overall APK vs BUNDLE logic can probably be nicer
-        final AppFileFormat fileFormat = appFilesToUpload.get(0).getFileFormat();
-
         // Fetch information about the app files that already exist on Google Play
-        List<String> existingAppFileHashes = new ArrayList<>();
-        if (fileFormat == AppFileFormat.BUNDLE) {
-            List<Bundle> existingBundles = editService.bundles().list(applicationId, editId).execute().getBundles();
-            if (existingBundles != null) {
-                for (Bundle bundle : existingBundles) {
-                    existingVersionCodes.add(bundle.getVersionCode());
-                    existingAppFileHashes.add(bundle.getSha1());
-                }
+        Set<String> existingAppFileHashes = new HashSet<>();
+        List<Bundle> existingBundles = editService.bundles().list(applicationId, editId).execute().getBundles();
+        if (existingBundles != null) {
+            for (Bundle bundle : existingBundles) {
+                existingVersionCodes.add(bundle.getVersionCode());
+                existingAppFileHashes.add(bundle.getSha1());
             }
-        } else {
-            List<Apk> existingApks = editService.apks().list(applicationId, editId).execute().getApks();
-            if (existingApks != null) {
-                for (Apk apk : existingApks) {
-                    existingVersionCodes.add(apk.getVersionCode());
-                    existingAppFileHashes.add(apk.getBinary().getSha1());
-                }
+        }
+        List<Apk> existingApks = editService.apks().list(applicationId, editId).execute().getApks();
+        if (existingApks != null) {
+            for (Apk apk : existingApks) {
+                existingVersionCodes.add(apk.getVersionCode());
+                existingAppFileHashes.add(apk.getBinary().getSha1());
             }
         }
 
         // Upload each of the files
         logger.println(String.format("Uploading %d file(s) with application ID: %s%n", appFilesToUpload.size(), applicationId));
+        final AppFileFormat fileFormat = appFilesToUpload.get(0).getFileFormat();
         final ArrayList<Integer> uploadedVersionCodes = new ArrayList<>();
         for (UploadFile appFile : appFilesToUpload) {
             // Log some useful information about the file that will be uploaded
@@ -223,10 +221,6 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
         if (latestMainExpansionFileVersionCode != 0 && latestPatchExpansionFileVersionCode != 0) {
             return;
         }
-
-        // Sort the existing APKs so that the newest come first
-        Collections.sort(existingVersionCodes);
-        Collections.reverse(existingVersionCodes);
 
         // Find the latest APK with a main expansion file, and the latest with a patch expansion file
         latestMainExpansionFileVersionCode = fetchLatestExpansionFileVersionCode(OBB_FILE_TYPE_MAIN);
