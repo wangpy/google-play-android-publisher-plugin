@@ -42,8 +42,8 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
     private final boolean usePreviousExpansionFilesIfMissing;
     private final RecentChanges[] recentChangeList;
     private final List<Long> existingVersionCodes;
-    private int latestMainExpansionFileVersionCode;
-    private int latestPatchExpansionFileVersionCode;
+    private long latestMainExpansionFileVersionCode;
+    private long latestPatchExpansionFileVersionCode;
 
     // TODO: Could be renamed
     ApkUploadTask(TaskListener listener, GoogleRobotCredentials credentials, String applicationId,
@@ -86,7 +86,7 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
         // Upload each of the files
         logger.println(String.format("Uploading %d file(s) with application ID: %s%n", appFilesToUpload.size(), applicationId));
         final AppFileFormat fileFormat = appFilesToUpload.get(0).getFileFormat();
-        final ArrayList<Integer> uploadedVersionCodes = new ArrayList<>();
+        final ArrayList<Long> uploadedVersionCodes = new ArrayList<>();
         for (UploadFile appFile : appFilesToUpload) {
             // Log some useful information about the file that will be uploaded
             final String fileType = (fileFormat == AppFileFormat.BUNDLE) ? "AAB" : "APK";
@@ -107,7 +107,7 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
             // If not, we can upload the file
             File fileToUpload = new File(appFile.getFilePath().getRemote());
             FileContent fileContent = new FileContent("application/octet-stream", fileToUpload);
-            final int uploadedVersionCode;
+            final long uploadedVersionCode;
             if (fileFormat == AppFileFormat.BUNDLE) {
                 Bundle uploadedBundle = editService.bundles().upload(applicationId, editId, fileContent).execute();
                 uploadedVersionCode = uploadedBundle.getVersionCode();
@@ -131,7 +131,7 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
                     logger.println(String.format(" Uploading associated ProGuard mapping file: %s", relativeFileName));
                     FileContent mapping =
                             new FileContent("application/octet-stream", new File(mappingFile.getRemote()));
-                    editService.deobfuscationfiles().upload(applicationId, editId, uploadedVersionCode,
+                    editService.deobfuscationfiles().upload(applicationId, editId, Math.toIntExact(uploadedVersionCode),
                             DEOBFUSCATION_FILE_TYPE_PROGUARD, mapping).execute();
                 }
             }
@@ -140,15 +140,10 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
 
         // Upload the expansion files, or associate the previous ones, if configured
         if (!expansionFiles.isEmpty() || usePreviousExpansionFilesIfMissing) {
-            for (int versionCode : uploadedVersionCodes) {
-                ExpansionFileSet fileSet = expansionFiles.get((long) versionCode);
-                FilePath mainFile = fileSet == null ? null : fileSet.getMainFile();
-                FilePath patchFile = fileSet == null ? null : fileSet.getPatchFile();
-
-                logger.println(String.format("Handling expansion files for versionCode %d", versionCode));
-                applyExpansionFile(versionCode, OBB_FILE_TYPE_MAIN, mainFile, usePreviousExpansionFilesIfMissing);
-                applyExpansionFile(versionCode, OBB_FILE_TYPE_PATCH, patchFile, usePreviousExpansionFilesIfMissing);
-                logger.println();
+            if (fileFormat == AppFileFormat.APK) {
+                handleExpansionFiles(uploadedVersionCodes);
+            } else {
+                logger.println("Ignoring expansion file settings, as we are uploading AAB file(s)");
             }
         }
 
@@ -179,8 +174,22 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
         return true;
     }
 
+    /** Applies the appropriate expansion file to each given APK version. */
+    private void handleExpansionFiles(Collection<Long> uploadedVersionCodes) throws IOException {
+        for (long versionCode : uploadedVersionCodes) {
+            ExpansionFileSet fileSet = expansionFiles.get(versionCode);
+            FilePath mainFile = fileSet == null ? null : fileSet.getMainFile();
+            FilePath patchFile = fileSet == null ? null : fileSet.getPatchFile();
+
+            logger.println(String.format("Handling expansion files for versionCode %d", versionCode));
+            applyExpansionFile(versionCode, OBB_FILE_TYPE_MAIN, mainFile, usePreviousExpansionFilesIfMissing);
+            applyExpansionFile(versionCode, OBB_FILE_TYPE_PATCH, patchFile, usePreviousExpansionFilesIfMissing);
+            logger.println();
+        }
+    }
+
     /** Applies an expansion file to an APK, whether from a given file, or by using previously-uploaded file. */
-    private void applyExpansionFile(int versionCode, String type, FilePath filePath, boolean usePreviousIfMissing)
+    private void applyExpansionFile(long versionCode, String type, FilePath filePath, boolean usePreviousIfMissing)
             throws IOException {
         // If there was a file provided, simply upload it
         if (filePath != null) {
@@ -195,7 +204,7 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
             fetchLatestExpansionFileVersionCodes();
 
             // If there is no previous APK with this type of expansion file, there's nothing we can do
-            final int latestVersionCodeWithExpansion = type.equals(OBB_FILE_TYPE_MAIN) ?
+            final long latestVersionCodeWithExpansion = type.equals(OBB_FILE_TYPE_MAIN) ?
                     latestMainExpansionFileVersionCode : latestPatchExpansionFileVersionCode;
             if (latestVersionCodeWithExpansion == -1) {
                 logger.println(String.format("- No %1$s expansion file to apply, and no existing APK with a %1$s " +
@@ -206,8 +215,8 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
             // Otherwise, associate the latest expansion file of this type with the new APK
             logger.println(String.format("- Applying %s expansion file from previous APK: %d", type,
                     latestVersionCodeWithExpansion));
-            ExpansionFile fileRef = new ExpansionFile().setReferencesVersion(latestVersionCodeWithExpansion);
-            editService.expansionfiles().update(applicationId, editId, versionCode, type, fileRef).execute();
+            ExpansionFile fileRef = new ExpansionFile().setReferencesVersion(Math.toIntExact(latestVersionCodeWithExpansion));
+            editService.expansionfiles().update(applicationId, editId, Math.toIntExact(versionCode), type, fileRef).execute();
             return;
         }
 
@@ -250,9 +259,9 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
     }
 
     /** @return The expansion file API info for the given criteria, or {@code null} if no such file exists. */
-    private ExpansionFile getExpansionFile(int versionCode, String type) throws IOException {
+    private ExpansionFile getExpansionFile(long versionCode, String type) throws IOException {
         try {
-            return editService.expansionfiles().get(applicationId, editId, versionCode, type).execute();
+            return editService.expansionfiles().get(applicationId, editId, Math.toIntExact(versionCode), type).execute();
         } catch (GoogleJsonResponseException e) {
             // A 404 response from the API means that there is no such expansion file/reference
             if (e.getStatusCode() == 404) {
@@ -267,10 +276,10 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
      *
      * @return The expansion file API response.
      */
-    private ExpansionFilesUploadResponse uploadExpansionFile(int versionCode, String type, FilePath filePath)
+    private ExpansionFilesUploadResponse uploadExpansionFile(long versionCode, String type, FilePath filePath)
             throws IOException {
         FileContent file = new FileContent("application/octet-stream", new File(filePath.getRemote()));
-        return editService.expansionfiles().upload(applicationId, editId, versionCode, type, file).execute();
+        return editService.expansionfiles().upload(applicationId, editId, Math.toIntExact(versionCode), type, file).execute();
     }
 
     /**
@@ -279,17 +288,21 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
      * @param uploadedVersionCodes The list to be checked for existence.
      * @return {@code true} if the version codes in the list were found to now exist on Google Play.
      */
-    private boolean wereAppFilesUploaded(Collection<Integer> uploadedVersionCodes) throws IOException {
+    private boolean wereAppFilesUploaded(Collection<Long> uploadedVersionCodes) throws IOException {
         // Last edit is finished; create a new one to get the current state
         createEdit(applicationId);
 
-        // Get the current list of version codes
-        List<Integer> currentVersionCodes = new ArrayList<>();
-        // TODO: Also check for AABs
+        // Get the current list of version codes from Google Play
+        List<Long> currentVersionCodes = new ArrayList<>();
         List<Apk> currentApks = editService.apks().list(applicationId, editId).execute().getApks();
         if (currentApks == null) currentApks = Collections.emptyList();
         for (Apk apk : currentApks) {
-            currentVersionCodes.add(apk.getVersionCode());
+            currentVersionCodes.add(Long.valueOf(apk.getVersionCode()));
+        }
+        List<Bundle> currentBundles = editService.bundles().list(applicationId, editId).execute().getBundles();
+        if (currentBundles == null) currentBundles = Collections.emptyList();
+        for (Bundle bundle : currentBundles) {
+            currentVersionCodes.add(Long.valueOf(bundle.getVersionCode()));
         }
 
         // The upload succeeded if the current list of version codes intersects with the list we tried to upload
