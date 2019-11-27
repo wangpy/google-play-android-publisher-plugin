@@ -11,6 +11,7 @@ import hudson.model.TaskListener;
 import hudson.tasks.Builder;
 import net.dongliu.apk.parser.exception.ParserException;
 import org.jenkinsci.Symbol;
+import org.jenkinsci.plugins.googleplayandroidpublisher.internal.UploadFile;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 
@@ -19,19 +20,17 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.zip.ZipException;
+import java.util.stream.Collectors;
 
 import static hudson.Util.fixEmptyAndTrim;
 import static hudson.Util.tryParseNumber;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.PERCENTAGE_FORMATTER;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.fromConfigValue;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getPublisherErrorMessage;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getVersionCode;
 
 public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
 
@@ -123,7 +122,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
                 errors.add("No version codes were specified");
             }
         } else if (getExpandedApkFilesPattern() == null) {
-            errors.add("Path or pattern to APK file(s) was not specified");
+            errors.add("Path or pattern to AAB/APK file(s) was not specified");
         }
 
         // Track name is also required
@@ -158,14 +157,14 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
                         @Nonnull TaskListener listener) throws InterruptedException, IOException {
         super.perform(run, workspace, launcher, listener);
 
-        // Calling assignApk logs the reason when a failure occurs, so in that case we just need to throw here
-        if (!assignApk(run, workspace, listener)) {
-            throw new AbortException("APK assignment failed");
+        // Calling assignAppFiles logs the reason when a failure occurs, so in that case we just need to throw here
+        if (!assignAppFiles(run, workspace, listener)) {
+            throw new AbortException("Assignment failed");
         }
     }
 
     @SuppressFBWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
-    private boolean assignApk(@Nonnull Run<?, ?> run, @Nonnull FilePath workspace, @Nonnull TaskListener listener)
+    private boolean assignAppFiles(@Nonnull Run<?, ?> run, @Nonnull FilePath workspace, @Nonnull TaskListener listener)
             throws IOException, InterruptedException {
         final PrintStream logger = listener.getLogger();
 
@@ -174,19 +173,20 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
             return false;
         }
 
+        // Figure out the list of version codes to assign
         String applicationId;
-        Collection<Integer> versionCodeList = new TreeSet<>();
+        Collection<Long> versionCodeList = new TreeSet<>();
         if (isFromVersionCode()) {
             applicationId = getExpandedApplicationId();
             String codes = getExpandedVersionCodes();
             for (String s : codes.split("[,\\s]+")) {
-                int versionCode = tryParseNumber(s.trim(), -1).intValue();
+                long versionCode = tryParseNumber(s.trim(), -1).longValue();
                 if (versionCode != -1) {
                     versionCodeList.add(versionCode);
                 }
             }
         } else {
-            AppInfo info = getApplicationInfoForApks(workspace, logger, getExpandedApkFilesPattern());
+            AppInfo info = getApplicationInfoForAppFiles(workspace, logger, getExpandedApkFilesPattern());
             if (info == null) {
                 return false;
             }
@@ -200,44 +200,42 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
             return workspace.act(new TrackAssignmentTask(listener, credentials, applicationId, versionCodeList,
                             fromConfigValue(getCanonicalTrackName()), getRolloutPercentageValue()));
         } catch (UploadException e) {
-            logger.println(String.format("Upload failed: %s", getPublisherErrorMessage(e)));
-            logger.println("- No changes have been applied to the Google Play account");
+            logger.println(String.format("Assignment failed: %s", getPublisherErrorMessage(e)));
+            logger.println("No changes have been applied to the Google Play account");
         }
         return false;
     }
 
-    private AppInfo getApplicationInfoForApks(FilePath workspace, PrintStream logger, String apkFilesPattern)
+    private AppInfo getApplicationInfoForAppFiles(FilePath workspace, PrintStream logger, String appFilesPattern)
             throws IOException, InterruptedException {
-        // Find the APK filename(s) which match the pattern after variable expansion
-        List<String> relativePaths = workspace.act(new FindFilesTask(apkFilesPattern));
+        // Find the filename(s) which match the pattern after variable expansion
+        List<String> relativePaths = workspace.act(new FindFilesTask(appFilesPattern));
         if (relativePaths.isEmpty()) {
-            logger.println(String.format("No APK files matching the pattern '%s' could be found", apkFilesPattern));
+            logger.println(String.format("No AAB/APK files matching the pattern '%s' could be found", appFilesPattern));
             return null;
         }
 
-        // Read the metadata from each APK file
-        final Set<String> applicationIds = new HashSet<>();
-        final List<Integer> versionCodes = new ArrayList<>();
+        // Read the metadata from each file found
+        final List<UploadFile> appFilesToMove = new ArrayList<>();
         for (String path : relativePaths) {
-            FilePath apk = workspace.child(path);
-            final int versionCode;
+            FilePath file = workspace.child(path);
             try {
-                applicationIds.add(Util.getApplicationId(apk));
-                versionCode = getVersionCode(apk);
-                versionCodes.add(versionCode);
-            } catch (ZipException e) {
-                throw new IOException(String.format("File does not appear to be a valid APK: %s", apk.getRemote()), e);
-            } catch (ParserException e) {
-                logger.println(String.format("File does not appear to be a valid APK: %s%n- %s",
-                        apk.getRemote(), e.getMessage()));
-                throw e;
+                // Attempt to parse the file as an Android app
+                UploadFile appFile = new UploadFile(file);
+                appFilesToMove.add(appFile);
+                logger.println(String.format("Found %s file with version code %d: %s",
+                        appFile.getFileFormat(), appFile.getVersionCode(), path));
+            } catch (ParserException | IOException e) {
+                throw new IOException(String.format("File does not appear to be valid: %s", file.getRemote()), e);
             }
-            logger.println(String.format("Found APK file with version code %d: %s", versionCode, path));
         }
 
-        // If there are multiple APKs, ensure that all have the same application ID
+        // If there are multiple matches, ensure that all have the same application ID
+        final Set<String> applicationIds = appFilesToMove.stream()
+                .map(UploadFile::getApplicationId).collect(Collectors.toSet());
         if (applicationIds.size() != 1) {
-            logger.println("Multiple APKs were found but they have inconsistent application IDs:");
+            logger.println(String.format("Multiple files matched the pattern '%s', " +
+                    "but they have inconsistent application IDs:", appFilesPattern));
             for (String id : applicationIds) {
                 logger.print("- ");
                 logger.println(id);
@@ -245,14 +243,16 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
             return null;
         }
 
-        return new AppInfo(applicationIds.iterator().next(), versionCodes);
+        final Set<Long> versionCodes = appFilesToMove.stream()
+                .map(UploadFile::getVersionCode).collect(Collectors.toSet());
+        return new AppInfo(applicationIds.iterator().next(), new ArrayList<>(versionCodes));
     }
 
     private static final class AppInfo {
         final String applicationId;
-        final List<Integer> versionCodes;
+        final List<Long> versionCodes;
 
-        AppInfo(String applicationId, List<Integer> versionCodes) {
+        AppInfo(String applicationId, List<Long> versionCodes) {
             this.applicationId = applicationId;
             this.versionCodes = versionCodes;
         }

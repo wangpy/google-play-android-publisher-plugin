@@ -14,6 +14,7 @@ import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeAssignTrackResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeCommitResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeListApksResponse;
+import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeListBundlesResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakePostEditsResponse;
 import org.junit.After;
 import org.junit.Before;
@@ -61,6 +62,8 @@ public class ReleaseTrackAssignmentTest {
                         new FakePostEditsResponse().setEditId("the-edit-id"))
                 .withResponse("/edits/the-edit-id/apks",
                         new FakeListApksResponse().setEmptyApks())
+                .withResponse("/edits/the-edit-id/bundles",
+                        new FakeListBundlesResponse().setEmptyBundles())
         ;
 
         FreeStyleProject p = j.createFreeStyleProject("moveReleaseTrack");
@@ -70,7 +73,7 @@ public class ReleaseTrackAssignmentTest {
         p.getBuildersList().add(builder);
         QueueTaskFuture<FreeStyleBuild> scheduled = p.scheduleBuild2(0);
         j.assertBuildStatus(Result.FAILURE, scheduled);
-        j.assertLogContains("Could not assign APK(s) 42 to production, as these APKs do not exist: 42", scheduled.get());
+        j.assertLogContains("Assignment will fail, as these versions do not exist on Google Play: 42", scheduled.get());
     }
 
     @Test
@@ -80,6 +83,8 @@ public class ReleaseTrackAssignmentTest {
                         new FakePostEditsResponse().setEditId("the-edit-id"))
                 .withResponse("/edits/the-edit-id/apks",
                         new FakeListApksResponse().setApks(42))
+                .withResponse("/edits/the-edit-id/bundles",
+                        new FakeListBundlesResponse().setEmptyBundles())
                 .withResponse("/edits/the-edit-id/tracks/production",
                         new FakeAssignTrackResponse().success("production", 42))
                 .withResponse("/edits/the-edit-id:commit",
@@ -93,7 +98,7 @@ public class ReleaseTrackAssignmentTest {
         // Authenticating to Google Play API...
         // - Credential:     test-credentials
         // - Application ID: org.jenkins.appId
-        // Assigning 1 APK(s) with application ID org.jenkins.appId to production release track
+        // Assigning 1 version(s) with application ID org.jenkins.appId to production release track
         // Setting rollout to target 100% of production track users
         // The production release track will now contain the version code(s): 42
         //
@@ -106,7 +111,7 @@ public class ReleaseTrackAssignmentTest {
         j.assertBuildStatusSuccess(scheduled);
 
         TestsHelper.assertLogLines(j, scheduled,
-                "Assigning 1 APK(s) with application ID org.jenkins.appId to production release track",
+                "Assigning 1 version(s) with application ID org.jenkins.appId to production release track",
                 "Setting rollout to target 5% of production track users",
                 "The production release track will now contain the version code(s): 42",
                 "Changes were successfully applied to Google Play"
@@ -121,6 +126,8 @@ public class ReleaseTrackAssignmentTest {
                         new FakePostEditsResponse().setEditId("the-edit-id"))
                 .withResponse("/edits/the-edit-id/apks",
                         new FakeListApksResponse().setApks(42))
+                .withResponse("/edits/the-edit-id/bundles",
+                        new FakeListBundlesResponse().setEmptyBundles())
                 .withResponse("/edits/the-edit-id/tracks/production",
                         new FakeAssignTrackResponse().success("production", 42))
                 .withResponse("/edits/the-edit-id:commit",
@@ -136,7 +143,7 @@ public class ReleaseTrackAssignmentTest {
         // Authenticating to Google Play API...
         // - Credential:     test-credentials
         // - Application ID: org.jenkins.appId
-        // Assigning 1 APK(s) with application ID org.jenkins.appId to production release track
+        // Assigning 1 version(s) with application ID org.jenkins.appId to production release track
         // Setting rollout to target 100% of production track users
         // The production release track will now contain the version code(s): 42
         //
@@ -149,7 +156,7 @@ public class ReleaseTrackAssignmentTest {
         j.assertBuildStatusSuccess(scheduled);
 
         TestsHelper.assertLogLines(j, scheduled,
-                "Assigning 1 APK(s) with application ID org.jenkins.appId to production release track",
+                "Assigning 1 version(s) with application ID org.jenkins.appId to production release track",
                 "Setting rollout to target 5% of production track users",
                 "The production release track will now contain the version code(s): 42",
                 "Changes were successfully applied to Google Play"
