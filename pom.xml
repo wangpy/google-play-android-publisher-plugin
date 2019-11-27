@@ -40,7 +40,7 @@
     <dependency>
       <groupId>com.google.apis</groupId>
       <artifactId>google-api-services-androidpublisher</artifactId>
-      <version>v3-rev103-1.25.0</version>
+      <version>v3-rev130-1.25.0</version>
     </dependency>
 
     <!-- To parse the APK file format -->
