@@ -41,7 +41,7 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
     private final Map<Long, ExpansionFileSet> expansionFiles;
     private final boolean usePreviousExpansionFilesIfMissing;
     private final RecentChanges[] recentChangeList;
-    private final SortedSet<Integer> existingVersionCodes;
+    private final List<Long> existingVersionCodes;
     private int latestMainExpansionFileVersionCode;
     private int latestPatchExpansionFileVersionCode;
 
@@ -56,7 +56,7 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
         this.expansionFiles = expansionFiles;
         this.usePreviousExpansionFilesIfMissing = usePreviousExpansionFilesIfMissing;
         this.recentChangeList = recentChangeList;
-        this.existingVersionCodes = new TreeSet<>((a, b) -> b - a);
+        this.existingVersionCodes = new ArrayList<>();
     }
 
     protected Boolean execute() throws IOException, InterruptedException {
@@ -71,14 +71,14 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
         List<Bundle> existingBundles = editService.bundles().list(applicationId, editId).execute().getBundles();
         if (existingBundles != null) {
             for (Bundle bundle : existingBundles) {
-                existingVersionCodes.add(bundle.getVersionCode());
+                existingVersionCodes.add((long) bundle.getVersionCode());
                 existingAppFileHashes.add(bundle.getSha1());
             }
         }
         List<Apk> existingApks = editService.apks().list(applicationId, editId).execute().getApks();
         if (existingApks != null) {
             for (Apk apk : existingApks) {
-                existingVersionCodes.add(apk.getVersionCode());
+                existingVersionCodes.add((long) apk.getVersionCode());
                 existingAppFileHashes.add(apk.getBinary().getSha1());
             }
         }
@@ -228,9 +228,11 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
     }
 
     /** @return The version code of the newest APK which has an expansion file of this type, else {@code -1}. */
-    private int fetchLatestExpansionFileVersionCode(String type) throws IOException {
-        // Find the latest APK with a patch expansion file
-        for (int versionCode : existingVersionCodes) {
+    private long fetchLatestExpansionFileVersionCode(String type) throws IOException {
+        // Find the latest APK with a patch expansion file, i.e. sort version codes in descending order
+        SortedSet<Long> newestVersionCodes = new TreeSet<>((a, b) -> ((int) (b - a)));
+        newestVersionCodes.addAll(existingVersionCodes);
+        for (long versionCode : newestVersionCodes) {
             ExpansionFile file = getExpansionFile(versionCode, type);
             if (file == null) {
                 continue;
