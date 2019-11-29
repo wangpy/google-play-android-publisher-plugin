@@ -169,7 +169,7 @@ public class ReleaseTrackAssignmentTest {
         builder.setGoogleCredentialsId("test-credentials");
         builder.applicationId = "org.jenkins.appId";
         builder.versionCodes = "42";
-        builder.rolloutPercentage = "5";
+        builder.rolloutPercent = 5d;
         builder.trackName = "production";
         return builder;
     }

@@ -1,5 +1,6 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.AbortException;
@@ -34,57 +35,142 @@ import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getPublisher
 
 public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
 
-    @DataBoundSetter
-    private Boolean fromVersionCode;
+    @VisibleForTesting Boolean fromVersionCode;
+    @VisibleForTesting String applicationId;
+    @VisibleForTesting String versionCodes;
+    private String filesPattern;
+    @VisibleForTesting String trackName;
+    @VisibleForTesting Double rolloutPercent;
 
-    @DataBoundSetter
-    protected String applicationId;
-
-    @DataBoundSetter
-    protected String versionCodes;
-
-    @DataBoundSetter
-    private String apkFilesPattern;
-
-    @DataBoundSetter
-    protected String trackName;
-
-    @DataBoundSetter
-    protected String rolloutPercentage;
+    @Deprecated private transient String apkFilesPattern;
+    @Deprecated private transient String rolloutPercentage;
 
     @DataBoundConstructor
-    public ReleaseTrackAssignmentBuilder() {}
+    public ReleaseTrackAssignmentBuilder() {
+        // No parameters here are mandatory, though the credentials in the parent class are
+    }
+
+    @SuppressWarnings("unused")
+    protected Object readResolve() {
+        // Migrate from old `apkFilesPattern` to `filesPattern`
+        if (apkFilesPattern != null) {
+            setFilesPattern(apkFilesPattern);
+        }
+
+        // Migrate from `rolloutPercentage` string to numeric `rolloutPercent`
+        if (rolloutPercentage != null) {
+            setRolloutPercentage(rolloutPercentage);
+        }
+
+        return this;
+    }
+
+    @DataBoundSetter
+    public void setFromVersionCode(Boolean fromVersionCode) {
+        this.fromVersionCode = fromVersionCode;
+    }
+
+    public Boolean getFromVersionCode() {
+        return fromVersionCode;
+    }
 
     public boolean isFromVersionCode() {
         return fromVersionCode == null || fromVersionCode;
+    }
+
+    @DataBoundSetter
+    public void setApplicationId(String applicationId) {
+        this.applicationId = applicationId;
     }
 
     public String getApplicationId() {
         return applicationId;
     }
 
-    private String getExpandedApplicationId() throws IOException, InterruptedException {
-        return expand(getApplicationId());
+    @DataBoundSetter
+    public void setVersionCodes(String versionCodes) {
+        this.versionCodes = versionCodes;
     }
 
     public String getVersionCodes() {
         return versionCodes;
     }
 
+    // Required for Pipeline builds still using `apkFilesPattern`
+    @Deprecated
+    @DataBoundSetter
+    public void setApkFilesPattern(String value) {
+        setFilesPattern(value);
+    }
+
+    // Required for the Snippet Generator, since the field has a @DataBoundSetter
+    @Deprecated
+    public String getApkFilesPattern() {
+        return getFilesPattern();
+    }
+
+    @DataBoundSetter
+    public void setFilesPattern(@Nonnull String pattern) {
+        this.filesPattern = DescriptorImpl.defaultFilesPattern.equals(pattern) ? null : pattern;
+    }
+
+    @Nonnull
+    public String getFilesPattern() {
+        return fixEmptyAndTrim(filesPattern) == null ? DescriptorImpl.defaultFilesPattern : filesPattern;
+    }
+
+    // Required for Pipeline builds still using `rolloutPercentage`
+    @Deprecated
+    @DataBoundSetter
+    public void setRolloutPercentage(String percentage) {
+        String input = percentage.replace("%", "").trim();
+        double value;
+        try {
+            value = Double.parseDouble(input);
+        } catch (NumberFormatException ignore) {
+            value = DescriptorImpl.defaultRolloutPercent;
+        }
+        setRolloutPercent(value);
+    }
+
+    // Required for the Snippet Generator, since the field has a @DataBoundSetter
+    @Nonnull
+    @Deprecated
+    public String getRolloutPercentage() {
+        double value = rolloutPercent == null ? DescriptorImpl.defaultRolloutPercent : rolloutPercent;
+        return String.valueOf(value);
+    }
+
+    @DataBoundSetter
+    public void setRolloutPercent(Double percent) {
+        this.rolloutPercent = (percent == null || percent.intValue() == DescriptorImpl.defaultRolloutPercent) ? null : percent;
+    }
+
+    @Nonnull
+    public Double getRolloutPercent() {
+        return rolloutPercent == null ? DescriptorImpl.defaultRolloutPercent : rolloutPercent;
+    }
+
+    @DataBoundSetter
+    public void setTrackName(@Nonnull String trackName) {
+        this.trackName = DescriptorImpl.defaultTrackName.equalsIgnoreCase(trackName) ? null : trackName;
+    }
+
+    @Nonnull
+    public String getTrackName() {
+        return fixEmptyAndTrim(trackName) == null ? DescriptorImpl.defaultTrackName : trackName;
+    }
+
+    private String getExpandedApplicationId() throws IOException, InterruptedException {
+        return expand(getApplicationId());
+    }
+
     private String getExpandedVersionCodes() throws IOException, InterruptedException {
         return expand(getVersionCodes());
     }
 
-    public String getApkFilesPattern() {
-        return fixEmptyAndTrim(apkFilesPattern);
-    }
-
-    private String getExpandedApkFilesPattern() throws IOException, InterruptedException {
-        return expand(getApkFilesPattern());
-    }
-
-    public String getTrackName() {
-        return fixEmptyAndTrim(trackName);
+    private String getExpandedFilesPattern() throws IOException, InterruptedException {
+        return expand(getFilesPattern());
     }
 
     private String getCanonicalTrackName() throws IOException, InterruptedException {
@@ -93,21 +179,6 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
             return null;
         }
         return name.toLowerCase(Locale.ENGLISH);
-    }
-
-    public String getRolloutPercentage() {
-        return fixEmptyAndTrim(rolloutPercentage);
-    }
-
-    @SuppressFBWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
-    private double getRolloutPercentageValue() throws IOException, InterruptedException {
-        String pct = getRolloutPercentage();
-        if (pct != null) {
-            // Allow % characters in the config
-            pct = pct.replace("%", "");
-        }
-        // If no valid numeric value was set, we will roll out to 100%
-        return tryParseNumber(expand(pct), 100).doubleValue();
     }
 
     private boolean isConfigValid(PrintStream logger) throws IOException, InterruptedException {
@@ -121,7 +192,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
             if (getExpandedVersionCodes() == null) {
                 errors.add("No version codes were specified");
             }
-        } else if (getExpandedApkFilesPattern() == null) {
+        } else if (getExpandedFilesPattern() == null) {
             errors.add("Path or pattern to AAB/APK file(s) was not specified");
         }
 
@@ -134,7 +205,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
             errors.add(String.format("'%s' is not a valid release track", trackName));
         } else {
             // Check for valid rollout percentage
-            double pct = getRolloutPercentageValue();
+            double pct = getRolloutPercent();
             if (Double.compare(pct, 0) < 0 || Double.compare(pct, 100) > 0) {
                 errors.add(String.format("%s%% is not a valid rollout percentage", PERCENTAGE_FORMATTER.format(pct)));
             }
@@ -186,7 +257,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
                 }
             }
         } else {
-            AppInfo info = getApplicationInfoForAppFiles(workspace, logger, getExpandedApkFilesPattern());
+            AppInfo info = getApplicationInfoForAppFiles(workspace, logger, getExpandedFilesPattern());
             if (info == null) {
                 return false;
             }
@@ -198,7 +269,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
         try {
             GoogleRobotCredentials credentials = getCredentialsHandler().getServiceAccountCredentials();
             return workspace.act(new TrackAssignmentTask(listener, credentials, applicationId, versionCodeList,
-                            fromConfigValue(getCanonicalTrackName()), getRolloutPercentageValue()));
+                            fromConfigValue(getCanonicalTrackName()), getRolloutPercent()));
         } catch (UploadException e) {
             logger.println(String.format("Assignment failed: %s", getPublisherErrorMessage(e)));
             logger.println("No changes have been applied to the Google Play account");
@@ -261,9 +332,12 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
     @Symbol("androidApkMove")
     @Extension
     public static final class DescriptorImpl extends GooglePlayBuildStepDescriptor<Builder> {
+        public static final String defaultFilesPattern = "**/build/outputs/**/*.aab, **/build/outputs/**/*.apk";
+        public static final String defaultTrackName = ReleaseTrack.PRODUCTION.getApiValue();
+        public static final int defaultRolloutPercent = 100;
 
         public String getDisplayName() {
-            return "Move Android APKs to a different release track";
+            return "Move Android apps to a different release track";
         }
 
     }
