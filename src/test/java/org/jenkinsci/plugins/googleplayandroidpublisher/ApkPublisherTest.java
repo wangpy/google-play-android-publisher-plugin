@@ -88,11 +88,10 @@ public class ApkPublisherTest {
         publisher.trackName = "production";
         p.getPublishersList().add(publisher);
 
-        // Cannot upload to Google Play:
-        // - Path or pattern to APK file was not specified
         QueueTaskFuture<FreeStyleBuild> scheduled = p.scheduleBuild2(0);
         j.assertBuildStatus(Result.FAILURE, scheduled);
-        j.assertLogContains("Relative path, or pattern to locate AAB or APK file(s) was not specified", scheduled.get());
+        String error = "No AAB or APK files matching the pattern '**/build/outputs/**/*.aab, **/build/outputs/**/*.apk' could be found";
+        j.assertLogContains(error, scheduled.get());
     }
 
     @Test
@@ -108,7 +107,7 @@ public class ApkPublisherTest {
         FreeStyleProject p = j.createFreeStyleProject();
         ApkPublisher publisher = new ApkPublisher();
         publisher.setGoogleCredentialsId("test-credentials");
-        publisher.apkFilesPattern = "**/*.apk";
+        publisher.filesPattern = "**/*.apk";
         publisher.trackName = "production";
         p.getPublishersList().add(publisher);
 
@@ -136,7 +135,7 @@ public class ApkPublisherTest {
 
         ApkPublisher publisher = new ApkPublisher();
         publisher.setGoogleCredentialsId("test-credentials");
-        publisher.apkFilesPattern = "**/*.apk";
+        publisher.filesPattern = "**/*.apk";
         publisher.trackName = "production";
 
         p.getPublishersList().add(publisher);
@@ -181,7 +180,7 @@ public class ApkPublisherTest {
         FreeStyleProject p = j.createFreeStyleProject();
         ApkPublisher publisher = new ApkPublisher();
         publisher.setGoogleCredentialsId("test-credentials");
-        publisher.apkFilesPattern = "**/*.aab";
+        publisher.filesPattern = "**/*.aab";
         publisher.trackName = "production";
         p.getPublishersList().add(publisher);
 
@@ -209,7 +208,7 @@ public class ApkPublisherTest {
 
         ApkPublisher publisher = new ApkPublisher();
         publisher.setGoogleCredentialsId("test-credentials");
-        publisher.apkFilesPattern = "**/*.aab";
+        publisher.filesPattern = "**/*.aab";
         publisher.trackName = "production";
 
         p.getPublishersList().add(publisher);
@@ -248,7 +247,7 @@ public class ApkPublisherTest {
         FreeStyleProject p = j.createFreeStyleProject();
         ApkPublisher publisher = new ApkPublisher();
         publisher.setGoogleCredentialsId("test-credentials");
-        publisher.apkFilesPattern = "**/*";
+        publisher.filesPattern = "**/*";
         publisher.trackName = "production";
         p.getPublishersList().add(publisher);
 
@@ -315,7 +314,7 @@ public class ApkPublisherTest {
 
         ApkPublisher publisher = new ApkPublisher();
         publisher.setGoogleCredentialsId("test-credentials");
-        publisher.apkFilesPattern = "**/*.apk";
+        publisher.filesPattern = "**/*.apk";
         publisher.trackName = "production";
 
         p.getPublishersList().add(publisher);

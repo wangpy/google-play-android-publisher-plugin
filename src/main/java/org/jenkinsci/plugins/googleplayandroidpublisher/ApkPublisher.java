@@ -1,5 +1,6 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.AbortException;
@@ -39,7 +40,6 @@ import java.util.zip.ZipException;
 
 import static hudson.Util.fixEmptyAndTrim;
 import static hudson.Util.join;
-import static hudson.Util.tryParseNumber;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.OBB_FILE_REGEX;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.OBB_FILE_TYPE_MAIN;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.PERCENTAGE_FORMATTER;
@@ -52,63 +52,145 @@ import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getPublisher
 /** Uploads Android application files to the Google Play Developer Console. */
 public class ApkPublisher extends GooglePlayPublisher {
 
-    @DataBoundSetter
-    protected String apkFilesPattern;
-
-    @DataBoundSetter
+    @VisibleForTesting String filesPattern;
     private String deobfuscationFilesPattern;
-
-    @DataBoundSetter
     private String expansionFilesPattern;
-
-    @DataBoundSetter
     private boolean usePreviousExpansionFilesIfMissing;
-
-    @DataBoundSetter
-    protected String trackName;
-
-    @DataBoundSetter
-    private String rolloutPercentage;
-
-    @DataBoundSetter
+    @VisibleForTesting String trackName;
+    private Double rolloutPercent;
     private RecentChanges[] recentChangeList;
 
-    // TODO: Constructor injection
-    // TODO: Create new constructor with renamed params (e.g. filesPattern instead of apkFilesPattern)
+    @Deprecated private transient String apkFilesPattern;
+    @Deprecated private transient String rolloutPercentage;
 
     @DataBoundConstructor
-    public ApkPublisher() {}
-
-    public String getApkFilesPattern() {
-        return fixEmptyAndTrim(apkFilesPattern);
+    public ApkPublisher() {
+        // No parameters here are mandatory, though the credentials in the parent class are
     }
 
-    private String getExpandedApkFilesPattern() throws IOException, InterruptedException {
-        return expand(getApkFilesPattern());
+    @SuppressWarnings("unused")
+    protected Object readResolve() {
+        // Migrate from old `apkFilesPattern` to `filesPattern`
+        if (apkFilesPattern != null) {
+            setFilesPattern(apkFilesPattern);
+        }
+
+        // Migrate from `rolloutPercentage` string to numeric `rolloutPercent`
+        if (rolloutPercentage != null) {
+            setRolloutPercentage(rolloutPercentage);
+        }
+
+        return this;
+    }
+
+    // Required for Pipeline builds still using `apkFilesPattern`
+    @Deprecated
+    @DataBoundSetter
+    public void setApkFilesPattern(String value) {
+        setFilesPattern(value);
+    }
+
+    // Required for the Snippet Generator, since the field has a @DataBoundSetter
+    @Deprecated
+    public String getApkFilesPattern() {
+        return getFilesPattern();
+    }
+
+    @DataBoundSetter
+    public void setFilesPattern(@Nonnull String pattern) {
+        this.filesPattern = DescriptorImpl.defaultFilesPattern.equals(pattern) ? null : pattern;
+    }
+
+    @Nonnull
+    public String getFilesPattern() {
+        return fixEmptyAndTrim(filesPattern) == null ? DescriptorImpl.defaultFilesPattern : filesPattern;
+    }
+
+    // Required for Pipeline builds still using `rolloutPercentage`
+    @Deprecated
+    @DataBoundSetter
+    public void setRolloutPercentage(String percentage) {
+        String input = percentage.replace("%", "").trim();
+        double value;
+        try {
+            value = Double.parseDouble(input);
+        } catch (NumberFormatException ignore) {
+            value = DescriptorImpl.defaultRolloutPercent;
+        }
+        setRolloutPercent(value);
+    }
+
+    // Required for the Snippet Generator, since the field has a @DataBoundSetter
+    @Nonnull
+    @Deprecated
+    public String getRolloutPercentage() {
+        double value = rolloutPercent == null ? DescriptorImpl.defaultRolloutPercent : rolloutPercent;
+        return String.valueOf(value);
+    }
+
+    @DataBoundSetter
+    public void setRolloutPercent(Double percent) {
+        this.rolloutPercent = (percent == null || percent.intValue() == DescriptorImpl.defaultRolloutPercent) ? null : percent;
+    }
+
+    @Nonnull
+    public Double getRolloutPercent() {
+        return rolloutPercent == null ? DescriptorImpl.defaultRolloutPercent : rolloutPercent;
+    }
+
+    @DataBoundSetter
+    public void setTrackName(@Nonnull String trackName) {
+        this.trackName = DescriptorImpl.defaultTrackName.equalsIgnoreCase(trackName) ? null : trackName;
+    }
+
+    @Nonnull
+    public String getTrackName() {
+        return fixEmptyAndTrim(trackName) == null ? DescriptorImpl.defaultTrackName : trackName;
+    }
+
+    @DataBoundSetter
+    public void setDeobfuscationFilesPattern(String deobfuscationFilesPattern) {
+        this.deobfuscationFilesPattern = deobfuscationFilesPattern;
     }
 
     public String getDeobfuscationFilesPattern() {
         return fixEmptyAndTrim(deobfuscationFilesPattern);
     }
 
-    private String getExpandedDeobfuscationFilesPattern() throws IOException, InterruptedException {
-        return expand(getDeobfuscationFilesPattern());
+    @DataBoundSetter
+    public void setExpansionFilesPattern(String expansionFilesPattern) {
+        this.expansionFilesPattern = expansionFilesPattern;
     }
 
     public String getExpansionFilesPattern() {
         return fixEmptyAndTrim(expansionFilesPattern);
     }
 
-    private String getExpandedExpansionFilesPattern() throws IOException, InterruptedException {
-        return expand(getExpansionFilesPattern());
+    @DataBoundSetter
+    public void setUsePreviousExpansionFilesIfMissing(Boolean value) {
+        if (value == null) {
+            this.usePreviousExpansionFilesIfMissing = true;
+        } else {
+            this.usePreviousExpansionFilesIfMissing = value;
+        }
     }
 
     public boolean getUsePreviousExpansionFilesIfMissing() {
         return usePreviousExpansionFilesIfMissing;
     }
 
-    public String getTrackName() {
-        return fixEmptyAndTrim(trackName);
+    @DataBoundSetter
+    public void setRecentChangeList(RecentChanges[] recentChangeList) {
+        this.recentChangeList = recentChangeList;
+    }
+
+    @SuppressFBWarnings("EI_EXPOSE_REP")
+    public RecentChanges[] getRecentChangeList() {
+        return recentChangeList;
+    }
+
+    private String getExpandedFilesPattern() throws IOException, InterruptedException {
+        return expand(getFilesPattern());
     }
 
     private String getCanonicalTrackName() throws IOException, InterruptedException {
@@ -119,24 +201,12 @@ public class ApkPublisher extends GooglePlayPublisher {
         return name.toLowerCase(Locale.ENGLISH);
     }
 
-    public String getRolloutPercentage() {
-        return fixEmptyAndTrim(rolloutPercentage);
+    private String getExpandedDeobfuscationFilesPattern() throws IOException, InterruptedException {
+        return expand(getDeobfuscationFilesPattern());
     }
 
-    @SuppressFBWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
-    private double getRolloutPercentageValue() throws IOException, InterruptedException {
-        String pct = getRolloutPercentage();
-        if (pct != null) {
-            // Allow % characters in the config
-            pct = pct.replace("%", "");
-        }
-        // If no valid numeric value was set, we will roll out to 100%
-        return tryParseNumber(expand(pct), 100).doubleValue();
-    }
-
-    @SuppressFBWarnings("EI_EXPOSE_REP")
-    public RecentChanges[] getRecentChangeList() {
-        return recentChangeList;
+    private String getExpandedExpansionFilesPattern() throws IOException, InterruptedException {
+        return expand(getExpansionFilesPattern());
     }
 
     private RecentChanges[] getExpandedRecentChangesList() throws IOException, InterruptedException {
@@ -155,7 +225,7 @@ public class ApkPublisher extends GooglePlayPublisher {
         final List<String> errors = new ArrayList<>();
 
         // Check whether a file pattern was provided
-        if (getExpandedApkFilesPattern() == null) {
+        if (getExpandedFilesPattern() == null) {
             errors.add("Relative path, or pattern to locate AAB or APK file(s) was not specified");
         }
 
@@ -168,7 +238,7 @@ public class ApkPublisher extends GooglePlayPublisher {
             errors.add(String.format("'%s' is not a valid release track", trackName));
         } else {
             // Check for valid rollout percentage
-            double pct = getRolloutPercentageValue();
+            double pct = getRolloutPercent();
             if (Double.compare(pct, 0) < 0 || Double.compare(pct, 100) > 0) {
                 errors.add(String.format("%s%% is not a valid rollout percentage", PERCENTAGE_FORMATTER.format(pct)));
             }
@@ -214,7 +284,7 @@ public class ApkPublisher extends GooglePlayPublisher {
         }
 
         // Find the filename(s) which match the pattern after variable expansion
-        final String filesPattern = getExpandedApkFilesPattern();
+        final String filesPattern = getExpandedFilesPattern();
         List<String> relativePaths = workspace.act(new FindFilesTask(filesPattern));
         if (relativePaths.isEmpty()) {
             logger.println(String.format("No AAB or APK files matching the pattern '%s' could be found", filesPattern));
@@ -325,7 +395,6 @@ public class ApkPublisher extends GooglePlayPublisher {
         final String applicationId = applicationIds.iterator().next();
 
         // Find the expansion filename(s) which match the pattern after variable expansion
-        // TODO: Ignore / warn if used with AAB files, as they don't support expansion files
         final Map<Long, ExpansionFileSet> expansionFiles = new TreeMap<>();
         final String expansionPattern = getExpandedExpansionFilesPattern();
         if (expansionPattern != null) {
@@ -392,7 +461,7 @@ public class ApkPublisher extends GooglePlayPublisher {
             GoogleRobotCredentials credentials = getCredentialsHandler().getServiceAccountCredentials();
             return workspace.act(new ApkUploadTask(listener, credentials, applicationId, workspace, validFiles,
                     expansionFiles, usePreviousExpansionFilesIfMissing, fromConfigValue(getCanonicalTrackName()),
-                    getRolloutPercentageValue(), getExpandedRecentChangesList()));
+                    getRolloutPercent(), getExpandedRecentChangesList()));
         } catch (UploadException e) {
             logger.println(String.format("Upload failed: %s", getPublisherErrorMessage(e)));
             logger.println("No changes have been applied to the Google Play account");
@@ -476,9 +545,12 @@ public class ApkPublisher extends GooglePlayPublisher {
     @Symbol("androidApkUpload")
     @Extension
     public static final class DescriptorImpl extends GooglePlayBuildStepDescriptor<Publisher> {
+        public static final String defaultFilesPattern = "**/build/outputs/**/*.aab, **/build/outputs/**/*.apk";
+        public static final String defaultTrackName = ReleaseTrack.PRODUCTION.getApiValue();
+        public static final int defaultRolloutPercent = 100;
 
         public String getDisplayName() {
-            return "Upload Android APK to Google Play";
+            return "Upload Android AAB/APKs to Google Play";
         }
 
     }

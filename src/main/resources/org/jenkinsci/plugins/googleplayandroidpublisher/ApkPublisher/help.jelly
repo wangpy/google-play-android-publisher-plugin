@@ -1,7 +1,8 @@
 <?jelly escape-by-default="true"?>
 <j:jelly xmlns:j="jelly:core" xmlns:t="/lib/token-macro">
   <p>
-    This build step allows you to upload one or more Android APKs to Google Play.
+    This build step allows you to upload one or more Android app files to Google Play,
+    including Android App Bundles (AAB files), or APK files.
   </p>
   <p>
     All text fields in this section support expansion of environment variable values
