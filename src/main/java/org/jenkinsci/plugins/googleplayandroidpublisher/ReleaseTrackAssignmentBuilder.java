@@ -147,6 +147,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
     }
 
     @Nonnull
+    @SuppressFBWarnings("BX_UNBOXING_IMMEDIATELY_REBOXED")
     public Double getRolloutPercent() {
         return rolloutPercent == null ? DescriptorImpl.defaultRolloutPercent : rolloutPercent;
     }

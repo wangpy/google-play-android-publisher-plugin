@@ -134,6 +134,7 @@ public class ApkPublisher extends GooglePlayPublisher {
     }
 
     @Nonnull
+    @SuppressFBWarnings("BX_UNBOXING_IMMEDIATELY_REBOXED")
     public Double getRolloutPercent() {
         return rolloutPercent == null ? DescriptorImpl.defaultRolloutPercent : rolloutPercent;
     }
@@ -180,6 +181,7 @@ public class ApkPublisher extends GooglePlayPublisher {
     }
 
     @DataBoundSetter
+    @SuppressFBWarnings("EI_EXPOSE_REP2")
     public void setRecentChangeList(RecentChanges[] recentChangeList) {
         this.recentChangeList = recentChangeList;
     }
