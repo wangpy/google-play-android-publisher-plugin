@@ -6,14 +6,13 @@ import com.google.api.services.androidpublisher.model.TrackRelease;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
-import hudson.FilePath;
 import hudson.model.AbstractBuild;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.remoting.VirtualChannel;
 import jenkins.MasterToSlaveFileCallable;
-import net.dongliu.apk.parser.bean.ApkMeta;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.AndroidUtil;
+import org.jenkinsci.plugins.googleplayandroidpublisher.internal.AppFileMetadata;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.JenkinsUtil;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.UtilsImpl;
 import org.jenkinsci.plugins.tokenmacro.MacroEvaluationException;
@@ -25,7 +24,6 @@ import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static hudson.Util.fixEmptyAndTrim;
@@ -53,32 +51,10 @@ public class Util {
         return sJenkins.getPluginVersion();
     }
 
-    /** @return The application ID of the given APK file. */
-    public static String getApplicationId(FilePath apk) throws IOException, InterruptedException {
-        return apk.act(new GetApkPackageNameTask());
-    }
-
-    /** @return The version code of the given APK file. */
-    static int getVersionCode(FilePath apk) throws IOException, InterruptedException {
-        return apk.act(new GetApkVersionCodeTask());
-    }
-
-    /** @return The application metadata of the given APK file. */
-    static ApkMeta getApkMetadata(File apk) throws IOException {
-        return sAndroid.getApkMetadata(apk);
-    }
-
-    private static final class GetApkPackageNameTask extends MasterToSlaveFileCallable<String> {
+    public static final class GetAppFileMetadataTask extends MasterToSlaveFileCallable<AppFileMetadata> {
         @Override
-        public String invoke(File file, VirtualChannel virtualChannel) throws IOException {
-            return sAndroid.getApkPackageName(file);
-        }
-    }
-
-    private static final class GetApkVersionCodeTask extends MasterToSlaveFileCallable<Integer> {
-        @Override
-        public Integer invoke(File file, VirtualChannel virtualChannel) throws IOException {
-            return sAndroid.getApkVersionCode(file);
+        public AppFileMetadata invoke(File file, VirtualChannel virtualChannel) throws IOException {
+            return sAndroid.getAppFileMetadata(file);
         }
     }
 
@@ -145,12 +121,7 @@ public class Util {
         return null;
     }
 
-    static TrackRelease buildRelease(List<Integer> versionCodes, double userFraction, @Nullable List<LocalizedText> releaseNotes) {
-        List<Long> longVersionCodes = versionCodes.stream().map(integer -> {
-            if (integer == null) return null;
-            return integer.longValue();
-        }).collect(Collectors.toList());
-
+    static TrackRelease buildRelease(List<Long> versionCodes, double userFraction, @Nullable List<LocalizedText> releaseNotes) {
         // We need to explicitly set the fraction to null if it's not 0 < x < 1.
         // If so, then we also mark the rollout as done, rather than in-progress:
         // https://developers.google.com/android-publisher/api-ref/edits/tracks#resource
@@ -159,7 +130,7 @@ public class Util {
         String status = hasValidFraction ? "inProgress" : "completed";
 
         TrackRelease release = new TrackRelease()
-                .setVersionCodes(longVersionCodes)
+                .setVersionCodes(versionCodes)
                 .setUserFraction(fraction)
                 .setStatus(status);
 
@@ -168,12 +139,12 @@ public class Util {
     }
 
     @VisibleForTesting
-    public static void setJenkinsUtil(JenkinsUtil util) {
-        sJenkins = Objects.requireNonNull(util);
+    static void setJenkinsUtil(JenkinsUtil util) {
+        sJenkins = util;
     }
 
     @VisibleForTesting
-    public static void setAndroidUtil(AndroidUtil util) {
-        sAndroid = Objects.requireNonNull(util);
+    static void setAndroidUtil(AndroidUtil util) {
+        sAndroid = util;
     }
 }

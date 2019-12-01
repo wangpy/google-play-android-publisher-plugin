@@ -15,18 +15,21 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.Arrays;
-import org.jenkinsci.plugins.googleplayandroidpublisher.internal.AndroidUtil;
+import java.util.Collections;
+
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.JenkinsUtil;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestHttpTransport;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestUtilImpl;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeAssignTrackResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeCommitResponse;
-import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeHttpResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeListApksResponse;
+import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeListBundlesResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakePostEditsResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakePutApkResponse;
+import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakePutBundleResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeUploadApkResponse;
+import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeUploadBundleResponse;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -38,6 +41,8 @@ import static hudson.Util.join;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestConstants.DEFAULT_APK;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestConstants.DEFAULT_BUNDLE;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThat;
@@ -50,24 +55,29 @@ public class ApkPublisherTest {
     @Rule
     public JenkinsRule j = new JenkinsRule();
 
-    private AndroidUtil androidUtil = spy(TestUtilImpl.class);
-    private JenkinsUtil jenkinsUtil = spy(TestUtilImpl.class);
+    private TestUtilImpl androidUtil;
 
-    private TestHttpTransport transport = new TestHttpTransport();
+    private TestHttpTransport transport;
 
     @Before
     public void setUp() throws Exception {
+        androidUtil = new TestUtilImpl();
+        Util.setAndroidUtil(androidUtil);
+
+        JenkinsUtil jenkinsUtil = spy(TestUtilImpl.class);
+        Util.setJenkinsUtil(jenkinsUtil);
+
         // Create fake AndroidPublisher client
+        transport = new TestHttpTransport();
         AndroidPublisher androidClient = TestsHelper.createAndroidPublisher(transport);
         when(jenkinsUtil.createPublisherClient(any(), anyString())).thenReturn(androidClient);
-
-        Util.setAndroidUtil(androidUtil);
-        Util.setJenkinsUtil(jenkinsUtil);
     }
 
     @After
     public void tearDown() {
         transport.dumpRequests();
+        Util.setAndroidUtil(null);
+        Util.setJenkinsUtil(null);
     }
 
     @Test
@@ -78,29 +88,45 @@ public class ApkPublisherTest {
         publisher.trackName = "production";
         p.getPublishersList().add(publisher);
 
-        // Cannot upload to Google Play:
-        // - Path or pattern to APK file was not specified
         QueueTaskFuture<FreeStyleBuild> scheduled = p.scheduleBuild2(0);
         j.assertBuildStatus(Result.FAILURE, scheduled);
-        j.assertLogContains("Path or pattern to APK file was not specified", scheduled.get());
+        String error = "No AAB or APK files matching the pattern '**/build/outputs/**/*.aab, **/build/outputs/**/*.apk' could be found";
+        j.assertLogContains(error, scheduled.get());
+    }
+
+    @Test
+    public void uploadingExistingApkFails() throws Exception {
+        // Given that some version codes already exist on Google Play
+        setUpTransportForApk();
+        transport.withResponse("/edits/the-edit-id/apks",
+                        new FakeListApksResponse().setApks(Collections.singletonList(DEFAULT_APK)));
+        transport.withResponse("/edits/the-edit-id/bundles",
+                new FakeListBundlesResponse().setBundles(Collections.singletonList(DEFAULT_BUNDLE)));
+
+        // And we have a freestyle job which will attempt to upload an existing APK
+        FreeStyleProject p = j.createFreeStyleProject();
+        ApkPublisher publisher = new ApkPublisher();
+        publisher.setGoogleCredentialsId("test-credentials");
+        publisher.filesPattern = "**/*.apk";
+        publisher.trackName = "production";
+        p.getPublishersList().add(publisher);
+
+        TestsHelper.setUpCredentials("test-credentials");
+        setUpApkFile(p);
+
+        // When a build occurs, it should fail as the APK file already exists
+        TestsHelper.assertResultWithLogLines(j, p, Result.FAILURE,
+                "Uploading 1 file(s) with application ID: org.jenkins.appId",
+                "APK file: " + join(Arrays.asList("build", "outputs", "apk", "app.apk"), File.separator),
+                "versionCode: 42",
+                "This file already exists in the Google Play account; it cannot be uploaded again",
+                "Upload to Google Play failed"
+        );
     }
 
     @Test
     public void uploadSingleApk_succeeds() throws Exception {
-        transport
-                .withResponse("/edits",
-                        new FakePostEditsResponse().setEditId("the-edit-id"))
-                .withResponse("/edits/the-edit-id/apks",
-                        new FakeListApksResponse().setEmptyApks())
-                .withResponse("/edits/the-edit-id/apks?uploadType=resumable",
-                        new FakeUploadApkResponse().willContinue())
-                .withResponse("google.local/uploading/foo/apk",
-                        new FakePutApkResponse().success(42, "the:sha"))
-                .withResponse("/edits/the-edit-id/tracks/production",
-                        new FakeAssignTrackResponse().success("production", 42))
-                .withResponse("/edits/the-edit-id:commit",
-                        new FakeCommitResponse().success())
-        ;
+        setUpTransportForApk();
 
         FreeStyleProject p = j.createFreeStyleProject("uploadApks");
 
@@ -109,7 +135,7 @@ public class ApkPublisherTest {
 
         ApkPublisher publisher = new ApkPublisher();
         publisher.setGoogleCredentialsId("test-credentials");
-        publisher.apkFilesPattern = "**/*.apk";
+        publisher.filesPattern = "**/*.apk";
         publisher.trackName = "production";
 
         p.getPublishersList().add(publisher);
@@ -118,7 +144,7 @@ public class ApkPublisherTest {
         // - Credential:     test-credentials
         // - Application ID: org.jenkins.appId
         //
-        // Uploading 1 APK(s) with application ID: org.jenkins.appId
+        // Uploading 1 file(s) with application ID: org.jenkins.appId
         //
         //       APK file: build/outputs/apk/app.apk
         //     SHA-1 hash: da39a3ee5e6b4b0d3255bfef95601890afd80709
@@ -126,18 +152,124 @@ public class ApkPublisherTest {
         //  minSdkVersion: 16
         //
         // Setting rollout to target 100% of production track users
-        // The production release track will now contain APK(s) with version code(s): 42
+        // The production release track will now contain the version code(s): 42
         //
         // Applying changes to Google Play...
         // Changes were successfully applied to Google Play
 
         TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS,
-                "Uploading 1 APK(s) with application ID: org.jenkins.appId",
+                "Uploading 1 file(s) with application ID: org.jenkins.appId",
                 "APK file: " + join(Arrays.asList("build", "outputs", "apk", "app.apk"), File.separator),
                 "versionCode: 42",
                 "Setting rollout to target 100% of production track users",
-                "The production release track will now contain APK(s) with version code(s): 42",
+                "The production release track will now contain the version code(s): 42",
                 "Changes were successfully applied to Google Play"
+        );
+    }
+
+    @Test
+    public void uploadingExistingBundleFails() throws Exception {
+        // Given that some version codes already exist on Google Play
+        setUpTransportForApk();
+        transport.withResponse("/edits/the-edit-id/apks",
+                new FakeListApksResponse().setApks(Collections.singletonList(DEFAULT_APK)));
+        transport.withResponse("/edits/the-edit-id/bundles",
+                new FakeListBundlesResponse().setBundles(Collections.singletonList(DEFAULT_BUNDLE)));
+
+        // And we have a freestyle job which will attempt to upload an existing bundle
+        FreeStyleProject p = j.createFreeStyleProject();
+        ApkPublisher publisher = new ApkPublisher();
+        publisher.setGoogleCredentialsId("test-credentials");
+        publisher.filesPattern = "**/*.aab";
+        publisher.trackName = "production";
+        p.getPublishersList().add(publisher);
+
+        TestsHelper.setUpCredentials("test-credentials");
+        setUpBundleFile(p);
+
+        // When a build occurs, it should fail as the bundle file already exists
+        TestsHelper.assertResultWithLogLines(j, p, Result.FAILURE,
+                "Uploading 1 file(s) with application ID: org.jenkins.bundleAppId",
+                "AAB file: " + join(Arrays.asList("build", "outputs", "bundle", "release", "bundle.aab"), File.separator),
+                "versionCode: 43",
+                "This file already exists in the Google Play account; it cannot be uploaded again",
+                "Upload to Google Play failed"
+        );
+    }
+
+    @Test
+    public void uploadSingleBundle_succeeds() throws Exception {
+        setUpTransportForBundle();
+
+        FreeStyleProject p = j.createFreeStyleProject("uploadBundles");
+
+        TestsHelper.setUpCredentials("test-credentials");
+        setUpBundleFile(p);
+
+        ApkPublisher publisher = new ApkPublisher();
+        publisher.setGoogleCredentialsId("test-credentials");
+        publisher.filesPattern = "**/*.aab";
+        publisher.trackName = "production";
+
+        p.getPublishersList().add(publisher);
+
+        // Authenticating to Google Play API...
+        // - Credential:     test-credentials
+        // - Application ID: org.jenkins.bundleAppId
+        //
+        // Uploading 1 file(s) with application ID: org.jenkins.bundleAppId
+        //
+        //       AAB file: build/outputs/bundle/release/bundle.aab
+        //     SHA-1 hash: da39a3ee5e6b4b0d3255bfef95601890afd80709
+        //    versionCode: 43
+        //  minSdkVersion: 29
+        //
+        // Setting rollout to target 100% of production track users
+        // The production release track will now contain the version code(s): 43
+        //
+        // Applying changes to Google Play...
+        // Changes were successfully applied to Google Play
+
+        TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS,
+                "Uploading 1 file(s) with application ID: org.jenkins.bundleAppId",
+                "AAB file: " + join(Arrays.asList("build", "outputs", "bundle", "release", "bundle.aab"), File.separator),
+                "versionCode: 43",
+                "minSdkVersion: 29",
+                "Setting rollout to target 100% of production track users",
+                "The production release track will now contain the version code(s): 43",
+                "Changes were successfully applied to Google Play"
+        );
+    }
+
+    @Test
+    public void givenMultipleFileTypesBundlesArePreferred() throws Exception {
+        // Given a freestyle job which will attempt to upload all files in the workspace
+        FreeStyleProject p = j.createFreeStyleProject();
+        ApkPublisher publisher = new ApkPublisher();
+        publisher.setGoogleCredentialsId("test-credentials");
+        publisher.filesPattern = "**/*";
+        publisher.trackName = "production";
+        p.getPublishersList().add(publisher);
+
+        TestsHelper.setUpCredentials("test-credentials");
+        setUpTransportForBundle();
+
+        // And there are both AAB and APK files in the workspace
+        setUpBundleFile(p);
+        setUpApkFile(p);
+
+        // And both have the same application ID
+        String appId = "com.example.test";
+        androidUtil.setApkAppId(appId);
+        androidUtil.setBundleAppId(appId);
+
+        // When a build occurs, then we should see a warning about multiple files
+        // And the AAB upload should succeed, without uploading the APK
+        TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS,
+            "Both AAB and APK files were found; only the AAB files will be uploaded",
+            "Uploading 1 file(s) with application ID: com.example.test",
+            "AAB file: " + join(Arrays.asList("build", "outputs", "bundle", "release", "bundle.aab"), File.separator),
+            "The production release track will now contain the version code(s): 43"
         );
     }
 
@@ -171,20 +303,7 @@ public class ApkPublisherTest {
     @Test
     @Ignore("AndroidUtil override from test does not carry over to the DumbSlave")
     public void uploadSingleApk_fromSlave_succeeds() throws Exception {
-        transport
-                .withResponse("/edits",
-                        new FakePostEditsResponse().setEditId("the-edit-id"))
-                .withResponse("/edits/the-edit-id/apks",
-                        new FakeListApksResponse().setEmptyApks())
-                .withResponse("/edits/the-edit-id/apks?uploadType=resumable",
-                        new FakeUploadApkResponse().willContinue())
-                .withResponse("google.local/uploading/foo/apk",
-                        new FakePutApkResponse().success(42, "the:sha"))
-                .withResponse("/edits/the-edit-id/tracks/production",
-                        new FakeAssignTrackResponse().success("production", 42))
-                .withResponse("/edits/the-edit-id:commit",
-                        new FakeCommitResponse().success())
-        ;
+        setUpTransportForApk();
 
         DumbSlave agent = j.createOnlineSlave();
         FreeStyleProject p = j.createFreeStyleProject("uploadApks");
@@ -195,7 +314,7 @@ public class ApkPublisherTest {
 
         ApkPublisher publisher = new ApkPublisher();
         publisher.setGoogleCredentialsId("test-credentials");
-        publisher.apkFilesPattern = "**/*.apk";
+        publisher.filesPattern = "**/*.apk";
         publisher.trackName = "production";
 
         p.getPublishersList().add(publisher);
@@ -204,7 +323,7 @@ public class ApkPublisherTest {
         // - Credential:     test-credentials
         // - Application ID: org.jenkins.appId
         //
-        // Uploading 1 APK(s) with application ID: org.jenkins.appId
+        // Uploading 1 file(s) with application ID: org.jenkins.appId
         //
         //       APK file: build/outputs/apk/app.apk
         //     SHA-1 hash: da39a3ee5e6b4b0d3255bfef95601890afd80709
@@ -212,26 +331,65 @@ public class ApkPublisherTest {
         //  minSdkVersion: 16
         //
         // Setting rollout to target 100% of production track users
-        // The production release track will now contain APK(s) with version code(s): 42
+        // The production release track will now contain the version code(s): 42
         //
         // Applying changes to Google Play...
         // Changes were successfully applied to Google Play
 
         TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS,
-                "Uploading 1 APK(s) with application ID: org.jenkins.appId",
+                "Uploading 1 file(s) with application ID: org.jenkins.appId",
                 "APK file: " + join(Arrays.asList("build", "outputs", "apk", "app.apk"), File.separator),
                 "versionCode: 42",
                 "Setting rollout to target 100% of production track users",
-                "The production release track will now contain APK(s) with version code(s): 42",
+                "The production release track will now contain the version code(s): 42",
                 "Changes were successfully applied to Google Play"
         );
     }
 
+    private void setUpTransportForApk() {
+        transport
+                .withResponse("/edits",
+                        new FakePostEditsResponse().setEditId("the-edit-id"))
+                .withResponse("/edits/the-edit-id/apks",
+                        new FakeListApksResponse().setEmptyApks())
+                .withResponse("/edits/the-edit-id/bundles",
+                        new FakeListBundlesResponse().setEmptyBundles())
+                .withResponse("/edits/the-edit-id/apks?uploadType=resumable",
+                        new FakeUploadApkResponse().willContinue())
+                .withResponse("google.local/uploading/foo/apk",
+                        new FakePutApkResponse().success(42, "the:sha"))
+                .withResponse("/edits/the-edit-id/tracks/production",
+                        new FakeAssignTrackResponse().success("production", 42))
+                .withResponse("/edits/the-edit-id:commit",
+                        new FakeCommitResponse().success())
+        ;
+    }
+
+    private void setUpTransportForBundle() {
+        transport
+                .withResponse("/edits",
+                        new FakePostEditsResponse().setEditId("the-edit-id"))
+                .withResponse("/edits/the-edit-id/apks",
+                        new FakeListApksResponse().setEmptyApks())
+                .withResponse("/edits/the-edit-id/bundles",
+                        new FakeListBundlesResponse().setEmptyBundles())
+                .withResponse("/edits/the-edit-id/bundles?uploadType=resumable",
+                        new FakeUploadBundleResponse().willContinue())
+                .withResponse("google.local/uploading/foo/bundle",
+                        new FakePutBundleResponse().success(43, "the:sha"))
+                .withResponse("/edits/the-edit-id/tracks/production",
+                        new FakeAssignTrackResponse().success("production", 43))
+                .withResponse("/edits/the-edit-id:commit",
+                        new FakeCommitResponse().success())
+        ;
+    }
+
     private void setUpApkFile(FreeStyleProject p) throws Exception {
         FilePath workspace = j.jenkins.getWorkspaceFor(p);
-        FilePath apkDir = workspace.child("build").child("outputs").child("apk");
-        FilePath apk = apkDir.child("app.apk");
-        apk.copyFrom(getClass().getResourceAsStream("/foo.apk"));
+        FilePath dir = workspace.child("build/outputs/apk");
+        dir.mkdirs();
+        FilePath file = dir.child("app.apk");
+        file.touch(0);
     }
 
     private void setUpApkFileOnSlave(FreeStyleProject p, Slave agent) throws Exception {
@@ -239,5 +397,13 @@ public class ApkPublisherTest {
         FilePath apkDir = workspace.child("build").child("outputs").child("apk");
         FilePath apk = apkDir.child("app.apk");
         apk.copyFrom(getClass().getResourceAsStream("/foo.apk"));
+    }
+
+    private void setUpBundleFile(FreeStyleProject p) throws Exception {
+        FilePath workspace = j.jenkins.getWorkspaceFor(p);
+        FilePath dir = workspace.child("build/outputs/bundle/release");
+        dir.mkdirs();
+        FilePath file = dir.child("bundle.aab");
+        file.touch(0);
     }
 }

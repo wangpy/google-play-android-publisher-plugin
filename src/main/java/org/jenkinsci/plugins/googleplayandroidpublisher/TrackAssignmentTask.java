@@ -1,6 +1,7 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
 import com.google.api.services.androidpublisher.model.Apk;
+import com.google.api.services.androidpublisher.model.Bundle;
 import com.google.api.services.androidpublisher.model.TrackRelease;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import hudson.model.TaskListener;
@@ -16,10 +17,10 @@ import static hudson.Util.join;
 
 class TrackAssignmentTask extends TrackPublisherTask<Boolean> {
 
-    private final List<Integer> versionCodes;
+    private final List<Long> versionCodes;
 
     TrackAssignmentTask(TaskListener listener, GoogleRobotCredentials credentials, String applicationId,
-                        Collection<Integer> versionCodes, ReleaseTrack track, double rolloutPercentage) {
+                        Collection<Long> versionCodes, ReleaseTrack track, double rolloutPercentage) {
         super(listener, credentials, applicationId, track, rolloutPercentage);
         this.versionCodes = new ArrayList<>(versionCodes);
     }
@@ -31,25 +32,32 @@ class TrackAssignmentTask extends TrackPublisherTask<Boolean> {
         createEdit(applicationId);
 
         // Log some useful information
-        logger.println(String.format("Assigning %d APK(s) with application ID %s to %s release track",
+        logger.println(String.format("Assigning %d version(s) with application ID %s to %s release track",
                 versionCodes.size(), applicationId, track));
 
         // Check that all version codes to assign actually exist already on the server
-        ArrayList<Integer> missingVersionCodes = new ArrayList<Integer>(versionCodes);
+        // (We could remove this block since Google Play does this check nowadays, but its error messages are
+        //  slightly misleading, as they always refer to APK files, even if we're trying to assign AAB files)
+        ArrayList<Long> missingVersionCodes = new ArrayList<>(versionCodes);
         List<Apk> existingApks = editService.apks().list(applicationId, editId).execute().getApks();
         if (existingApks == null) existingApks = Collections.emptyList();
         for (Apk apk : existingApks) {
-            missingVersionCodes.remove(apk.getVersionCode());
+            missingVersionCodes.remove(Long.valueOf(apk.getVersionCode()));
+        }
+        List<Bundle> existingBundles = editService.bundles().list(applicationId, editId).execute().getBundles();
+        if (existingBundles == null) existingBundles = Collections.emptyList();
+        for (Bundle bundle : existingBundles) {
+            missingVersionCodes.remove(Long.valueOf(bundle.getVersionCode()));
         }
         if (!missingVersionCodes.isEmpty()) {
-            logger.println(String.format("Could not assign APK(s) %s to %s, as these APKs do not exist: %s",
-                    join(versionCodes, ", "), track, join(missingVersionCodes, ", ")));
+            logger.println(String.format("Assignment will fail, as these versions do not exist on Google Play: %s",
+                    join(missingVersionCodes, ", ")));
             return false;
         }
 
         // Assign the version codes to the configured track
         TrackRelease release = Util.buildRelease(versionCodes, rolloutFraction, null);
-        assignApksToTrack(track, rolloutFraction, release);
+        assignAppFilesToTrack(track, rolloutFraction, release);
 
         // Commit the changes
         try {

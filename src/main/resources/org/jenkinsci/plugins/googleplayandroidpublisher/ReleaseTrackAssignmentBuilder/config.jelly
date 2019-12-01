@@ -19,23 +19,23 @@
 
   </f:radioBlock>
 
-  <f:radioBlock title="${%Read version codes to be assigned from APK files}" name="fromVersionCode" value="false"
+  <f:radioBlock title="${%Read version codes to be assigned from AAB/APK files}" name="fromVersionCode" value="false"
       checked="${!fromVersionCode}" inline="true">
 
-    <f:entry title="${%APK files}" field="apkFilesPattern"
+    <f:entry title="${%AAB or APK files}" field="filesPattern"
         description="${%Comma-separated list of filenames or patterns}">
-      <f:textbox />
+      <f:textbox default="${descriptor.defaultFilesPattern}" />
     </f:entry>
 
   </f:radioBlock>
 
   <f:entry title="${%Release track}" field="trackName">
-    <f:combobox style="width:15em" />
+    <f:combobox style="width:15em" default="${descriptor.defaultTrackName}" />
   </f:entry>
 
-  <f:entry title="${%Rollout %}" field="rolloutPercentage"
+  <f:entry title="${%Rollout %}" field="rolloutPercent"
       description="${%Defaults to 100% if not set}">
-    <f:combobox style="width:15em" />
+    <f:combobox style="width:15em" default="${descriptor.defaultRolloutPercent}" />
   </f:entry>
 
 </j:jelly>

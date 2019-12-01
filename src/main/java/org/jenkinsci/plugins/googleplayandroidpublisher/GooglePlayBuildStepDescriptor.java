@@ -87,7 +87,7 @@ public abstract class GooglePlayBuildStepDescriptor<T extends BuildStep & Descri
     }
 
     @SuppressFBWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
-    public FormValidation doCheckRolloutPercentage(@QueryParameter String value) {
+    public FormValidation doCheckRolloutPercent(@QueryParameter String value) {
         value = fixEmptyAndTrim(value);
         if (value == null || value.matches(REGEX_VARIABLE)) {
             return FormValidation.ok();
@@ -104,7 +104,7 @@ public abstract class GooglePlayBuildStepDescriptor<T extends BuildStep & Descri
         return new ComboBoxModel(getConfigValues());
     }
 
-    public ComboBoxModel doFillRolloutPercentageItems() {
+    public ComboBoxModel doFillRolloutPercentItems() {
         return null;
     }
 

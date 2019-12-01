@@ -3,12 +3,22 @@ package org.jenkinsci.plugins.googleplayandroidpublisher.internal;
 import com.google.api.services.androidpublisher.AndroidPublisher;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import java.io.File;
-import net.dongliu.apk.parser.bean.ApkMeta;
+
 import org.mockito.stubbing.Answer;
+
+import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestConstants.DEFAULT_APK_APP_ID;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestConstants.DEFAULT_APK_MIN_SDK_VERSION;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestConstants.DEFAULT_APK_VERSION_CODE;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestConstants.DEFAULT_BUNDLE_APP_ID;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestConstants.DEFAULT_BUNDLE_MIN_SDK_VERSION;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestConstants.DEFAULT_BUNDLE_VERSION_CODE;
 import static org.mockito.Mockito.mock;
 
 public class TestUtilImpl implements JenkinsUtil, AndroidUtil {
     public static final boolean DEBUG = true;
+
+    private String apkAppId = DEFAULT_APK_APP_ID;
+    private String bundleAppId = DEFAULT_BUNDLE_APP_ID;
 
     @Override
     public String getPluginVersion() {
@@ -27,21 +37,19 @@ public class TestUtilImpl implements JenkinsUtil, AndroidUtil {
     }
 
     @Override
-    public int getApkVersionCode(File apk) {
-        return 42;
+    public AppFileMetadata getAppFileMetadata(File file) {
+        if (file.getName().endsWith(".aab")) {
+            return new BundleFileMetadata(bundleAppId, DEFAULT_BUNDLE_VERSION_CODE, DEFAULT_BUNDLE_MIN_SDK_VERSION);
+        }
+        return new ApkFileMetadata(apkAppId, DEFAULT_APK_VERSION_CODE, DEFAULT_APK_MIN_SDK_VERSION);
     }
 
-    @Override
-    public String getApkPackageName(File apk) {
-        return "org.jenkins.appId";
+    public void setApkAppId(String apkAppId) {
+        this.apkAppId = apkAppId;
     }
 
-    @Override
-    public ApkMeta getApkMetadata(File apk) {
-        return ApkMeta.newBuilder()
-                .setPackageName("org.jenkins.appId")
-                .setVersionCode(42L)
-                .setMinSdkVersion("16")
-                .build();
+    public void setBundleAppId(String bundleAppId) {
+        this.bundleAppId = bundleAppId;
     }
+
 }

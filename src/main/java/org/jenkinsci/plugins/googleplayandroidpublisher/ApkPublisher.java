@@ -1,5 +1,6 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.AbortException;
@@ -16,6 +17,8 @@ import hudson.util.ComboBoxModel;
 import hudson.util.FormValidation;
 import net.dongliu.apk.parser.exception.ParserException;
 import org.jenkinsci.Symbol;
+import org.jenkinsci.plugins.googleplayandroidpublisher.internal.AppFileFormat;
+import org.jenkinsci.plugins.googleplayandroidpublisher.internal.UploadFile;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
@@ -26,20 +29,17 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.TreeSet;
 import java.util.regex.Matcher;
+import java.util.stream.Collectors;
 import java.util.zip.ZipException;
 
 import static hudson.Util.fixEmptyAndTrim;
 import static hudson.Util.join;
-import static hudson.Util.tryParseNumber;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.OBB_FILE_REGEX;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.OBB_FILE_TYPE_MAIN;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.PERCENTAGE_FORMATTER;
@@ -47,67 +47,152 @@ import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.from
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.REGEX_LANGUAGE;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.REGEX_VARIABLE;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.SUPPORTED_LANGUAGES;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getApplicationId;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getPublisherErrorMessage;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getVersionCode;
 
 /** Uploads Android application files to the Google Play Developer Console. */
 public class ApkPublisher extends GooglePlayPublisher {
 
-    @DataBoundSetter
-    protected String apkFilesPattern;
-
-    @DataBoundSetter
+    @VisibleForTesting String filesPattern;
     private String deobfuscationFilesPattern;
-
-    @DataBoundSetter
     private String expansionFilesPattern;
-
-    @DataBoundSetter
     private boolean usePreviousExpansionFilesIfMissing;
-
-    @DataBoundSetter
-    protected String trackName;
-
-    @DataBoundSetter
-    private String rolloutPercentage;
-
-    @DataBoundSetter
+    @VisibleForTesting String trackName;
+    private Double rolloutPercent;
     private RecentChanges[] recentChangeList;
 
-    @DataBoundConstructor
-    public ApkPublisher() {}
+    @Deprecated private transient String apkFilesPattern;
+    @Deprecated private transient String rolloutPercentage;
 
-    public String getApkFilesPattern() {
-        return fixEmptyAndTrim(apkFilesPattern);
+    @DataBoundConstructor
+    public ApkPublisher() {
+        // No parameters here are mandatory, though the credentials in the parent class are
     }
 
-    private String getExpandedApkFilesPattern() throws IOException, InterruptedException {
-        return expand(getApkFilesPattern());
+    @SuppressWarnings("unused")
+    protected Object readResolve() {
+        // Migrate from old `apkFilesPattern` to `filesPattern`
+        if (apkFilesPattern != null) {
+            setFilesPattern(apkFilesPattern);
+        }
+
+        // Migrate from `rolloutPercentage` string to numeric `rolloutPercent`
+        if (rolloutPercentage != null) {
+            setRolloutPercentage(rolloutPercentage);
+        }
+
+        return this;
+    }
+
+    // Required for Pipeline builds still using `apkFilesPattern`
+    @Deprecated
+    @DataBoundSetter
+    public void setApkFilesPattern(String value) {
+        setFilesPattern(value);
+    }
+
+    // Required for the Snippet Generator, since the field has a @DataBoundSetter
+    @Deprecated
+    public String getApkFilesPattern() {
+        return getFilesPattern();
+    }
+
+    @DataBoundSetter
+    public void setFilesPattern(@Nonnull String pattern) {
+        this.filesPattern = DescriptorImpl.defaultFilesPattern.equals(pattern) ? null : pattern;
+    }
+
+    @Nonnull
+    public String getFilesPattern() {
+        return fixEmptyAndTrim(filesPattern) == null ? DescriptorImpl.defaultFilesPattern : filesPattern;
+    }
+
+    // Required for Pipeline builds still using `rolloutPercentage`
+    @Deprecated
+    @DataBoundSetter
+    public void setRolloutPercentage(String percentage) {
+        String input = percentage.replace("%", "").trim();
+        double value;
+        try {
+            value = Double.parseDouble(input);
+        } catch (NumberFormatException ignore) {
+            value = DescriptorImpl.defaultRolloutPercent;
+        }
+        setRolloutPercent(value);
+    }
+
+    // Required for the Snippet Generator, since the field has a @DataBoundSetter
+    @Nonnull
+    @Deprecated
+    public String getRolloutPercentage() {
+        double value = rolloutPercent == null ? DescriptorImpl.defaultRolloutPercent : rolloutPercent;
+        return String.valueOf(value);
+    }
+
+    @DataBoundSetter
+    public void setRolloutPercent(Double percent) {
+        this.rolloutPercent = (percent == null || percent.intValue() == DescriptorImpl.defaultRolloutPercent) ? null : percent;
+    }
+
+    @Nonnull
+    @SuppressFBWarnings("BX_UNBOXING_IMMEDIATELY_REBOXED")
+    public Double getRolloutPercent() {
+        return rolloutPercent == null ? DescriptorImpl.defaultRolloutPercent : rolloutPercent;
+    }
+
+    @DataBoundSetter
+    public void setTrackName(@Nonnull String trackName) {
+        this.trackName = DescriptorImpl.defaultTrackName.equalsIgnoreCase(trackName) ? null : trackName;
+    }
+
+    @Nonnull
+    public String getTrackName() {
+        return fixEmptyAndTrim(trackName) == null ? DescriptorImpl.defaultTrackName : trackName;
+    }
+
+    @DataBoundSetter
+    public void setDeobfuscationFilesPattern(String deobfuscationFilesPattern) {
+        this.deobfuscationFilesPattern = deobfuscationFilesPattern;
     }
 
     public String getDeobfuscationFilesPattern() {
         return fixEmptyAndTrim(deobfuscationFilesPattern);
     }
 
-    private String getExpandedDeobfuscationFilesPattern() throws IOException, InterruptedException {
-        return expand(getDeobfuscationFilesPattern());
+    @DataBoundSetter
+    public void setExpansionFilesPattern(String expansionFilesPattern) {
+        this.expansionFilesPattern = expansionFilesPattern;
     }
 
     public String getExpansionFilesPattern() {
         return fixEmptyAndTrim(expansionFilesPattern);
     }
 
-    private String getExpandedExpansionFilesPattern() throws IOException, InterruptedException {
-        return expand(getExpansionFilesPattern());
+    @DataBoundSetter
+    public void setUsePreviousExpansionFilesIfMissing(Boolean value) {
+        if (value == null) {
+            this.usePreviousExpansionFilesIfMissing = true;
+        } else {
+            this.usePreviousExpansionFilesIfMissing = value;
+        }
     }
 
     public boolean getUsePreviousExpansionFilesIfMissing() {
         return usePreviousExpansionFilesIfMissing;
     }
 
-    public String getTrackName() {
-        return fixEmptyAndTrim(trackName);
+    @DataBoundSetter
+    @SuppressFBWarnings("EI_EXPOSE_REP2")
+    public void setRecentChangeList(RecentChanges[] recentChangeList) {
+        this.recentChangeList = recentChangeList;
+    }
+
+    @SuppressFBWarnings("EI_EXPOSE_REP")
+    public RecentChanges[] getRecentChangeList() {
+        return recentChangeList;
+    }
+
+    private String getExpandedFilesPattern() throws IOException, InterruptedException {
+        return expand(getFilesPattern());
     }
 
     private String getCanonicalTrackName() throws IOException, InterruptedException {
@@ -118,24 +203,12 @@ public class ApkPublisher extends GooglePlayPublisher {
         return name.toLowerCase(Locale.ENGLISH);
     }
 
-    public String getRolloutPercentage() {
-        return fixEmptyAndTrim(rolloutPercentage);
+    private String getExpandedDeobfuscationFilesPattern() throws IOException, InterruptedException {
+        return expand(getDeobfuscationFilesPattern());
     }
 
-    @SuppressFBWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
-    private double getRolloutPercentageValue() throws IOException, InterruptedException {
-        String pct = getRolloutPercentage();
-        if (pct != null) {
-            // Allow % characters in the config
-            pct = pct.replace("%", "");
-        }
-        // If no valid numeric value was set, we will roll out to 100%
-        return tryParseNumber(expand(pct), 100).doubleValue();
-    }
-
-    @SuppressFBWarnings("EI_EXPOSE_REP")
-    public RecentChanges[] getRecentChangeList() {
-        return recentChangeList;
+    private String getExpandedExpansionFilesPattern() throws IOException, InterruptedException {
+        return expand(getExpansionFilesPattern());
     }
 
     private RecentChanges[] getExpandedRecentChangesList() throws IOException, InterruptedException {
@@ -154,8 +227,8 @@ public class ApkPublisher extends GooglePlayPublisher {
         final List<String> errors = new ArrayList<>();
 
         // Check whether a file pattern was provided
-        if (getExpandedApkFilesPattern() == null) {
-            errors.add("Path or pattern to APK file was not specified");
+        if (getExpandedFilesPattern() == null) {
+            errors.add("Relative path, or pattern to locate AAB or APK file(s) was not specified");
         }
 
         // Track name is also required
@@ -167,7 +240,7 @@ public class ApkPublisher extends GooglePlayPublisher {
             errors.add(String.format("'%s' is not a valid release track", trackName));
         } else {
             // Check for valid rollout percentage
-            double pct = getRolloutPercentageValue();
+            double pct = getRolloutPercent();
             if (Double.compare(pct, 0) < 0 || Double.compare(pct, 100) > 0) {
                 errors.add(String.format("%s%% is not a valid rollout percentage", PERCENTAGE_FORMATTER.format(pct)));
             }
@@ -192,7 +265,7 @@ public class ApkPublisher extends GooglePlayPublisher {
 
         // Calling publishApk logs the reason when a failure occurs, so in that case we just need to throw here
         if (!publishApk(run, workspace, listener)) {
-            throw new AbortException("APK upload failed");
+            throw new AbortException("Upload to Google Play failed");
         }
     }
 
@@ -212,43 +285,43 @@ public class ApkPublisher extends GooglePlayPublisher {
             return false;
         }
 
-        // Find the APK filename(s) which match the pattern after variable expansion
-        final String filesPattern = getExpandedApkFilesPattern();
+        // Find the filename(s) which match the pattern after variable expansion
+        final String filesPattern = getExpandedFilesPattern();
         List<String> relativePaths = workspace.act(new FindFilesTask(filesPattern));
         if (relativePaths.isEmpty()) {
-            logger.println(String.format("No APK files matching the pattern '%s' could be found", filesPattern));
+            logger.println(String.format("No AAB or APK files matching the pattern '%s' could be found", filesPattern));
             return false;
         }
 
         // Get the full remote path in the workspace for each filename
-        final List<FilePath> apkFiles = new ArrayList<>();
-        final Set<String> applicationIds = new HashSet<>();
-        final Set<Integer> versionCodes = new TreeSet<>();
+        final List<UploadFile> validFiles = new ArrayList<>();
         for (String path : relativePaths) {
-            FilePath apk = workspace.child(path);
+            FilePath file = workspace.child(path);
             try {
-                applicationIds.add(getApplicationId(apk));
-                versionCodes.add(getVersionCode(apk));
+                // Attempt to parse the file as an Android app
+                UploadFile uploadFile = new UploadFile(file);
+                validFiles.add(uploadFile);
             } catch (ZipException e) {
                 // If the file is empty or not a zip file, we don't need to dump the whole stacktrace
-                logger.println(String.format("File does not appear to be a valid APK: %s", apk.getRemote()));
+                logger.println(String.format("File does not appear to be a valid AAB or APK: %s", file.getRemote()));
                 return false;
             } catch (ParserException e) {
                 // Show a bit more information for APK parse exceptions
                 logger.println(String.format("File does not appear to be a valid APK: %s%n- %s",
-                        apk.getRemote(), e.getMessage()));
+                        file.getRemote(), e.getMessage()));
                 return false;
             } catch (IOException e) {
                 // Otherwise, it's something more esoteric, so rethrow, dumping the stacktrace to the log
-                logger.println(String.format("File does not appear to be a valid APK: %s", apk.getRemote()));
+                logger.println(String.format("File does not appear to be a valid AAB or APK: %s", file.getRemote()));
                 throw e;
             }
-            apkFiles.add(apk);
         }
 
-        // If there are multiple APKs, ensure that all have the same application ID
+        // If there are multiple matches, ensure that all have the same application ID
+        final Set<String> applicationIds = validFiles.stream()
+                .map(UploadFile::getApplicationId).collect(Collectors.toSet());
         if (applicationIds.size() != 1) {
-            logger.println(String.format("Multiple APKs matched the pattern '%s', " +
+            logger.println(String.format("Multiple files matched the pattern '%s', " +
                             "but they have inconsistent application IDs:", filesPattern));
             for (String id : applicationIds) {
                 logger.print("- ");
@@ -257,8 +330,22 @@ public class ApkPublisher extends GooglePlayPublisher {
             return false;
         }
 
+        // If both APKs and bundles were found, then prefer the bundles.
+        // e.g. a release job may build a bundle for upload, but also build a fat APK for archiving,
+        // or testing, etc. (though really the user should configure `apkFilesPattern` more sensibly)
+        boolean hasMultipleFileTypes = validFiles.stream()
+                .map(UploadFile::getFileFormat)
+                .collect(Collectors.toSet())
+                .size() > 1;
+        if (hasMultipleFileTypes) {
+            logger.println("Both AAB and APK files were found; only the AAB files will be uploaded");
+            List<UploadFile> nonBundleFiles = validFiles.stream()
+                    .filter(f -> f.getFileFormat() != AppFileFormat.BUNDLE)
+                    .collect(Collectors.toList());
+            validFiles.removeAll(nonBundleFiles);
+        }
+
         // Find the obfuscation mapping filename(s) which match the pattern after variable expansion
-        final Map<FilePath, FilePath> apkFilesToMappingFiles = new HashMap<>();
         final String mappingFilesPattern = getExpandedDeobfuscationFilesPattern();
         if (getExpandedDeobfuscationFilesPattern() != null) {
             List<String> relativeMappingPaths = workspace.act(new FindFilesTask(mappingFilesPattern));
@@ -268,34 +355,35 @@ public class ApkPublisher extends GooglePlayPublisher {
                 return false;
             }
 
-            // Create a mapping of APK files to their obfuscation mapping file
+            // Create a mapping of app files to their obfuscation mapping file
             if (relativeMappingPaths.size() == 1) {
-                // If there is only one mapping file, associate it with each of the APKs
+                // If there is only one mapping file, associate it with each of the app files
                 FilePath mappingFile = workspace.child(relativeMappingPaths.get(0));
-                for (FilePath apk : apkFiles) {
-                    apkFilesToMappingFiles.put(apk, mappingFile);
+                for (UploadFile appFile : validFiles) {
+                    appFile.setMappingFile(mappingFile);
                 }
-            } else if (relativeMappingPaths.size() == apkFiles.size()) {
+            } else if (relativeMappingPaths.size() == validFiles.size()) {
                 // If there are multiple mapping files, this usually means that there is one per dimension;
-                // the folder structure will typically look like this for the APKs and their mapping files:
+                // the folder structure will typically look like this for the app files and their mapping files:
                 //
                 // - build/outputs/apk/dimension_one/release/app-release.apk
                 // - build/outputs/apk/dimension_two/release/app-release.apk
                 // - build/outputs/mapping/dimension_one/release/mapping.txt
                 // - build/outputs/mapping/dimension_two/release/mapping.txt
                 //
-                // i.e. an APK and its mapping file don't share the same path prefix, but as the directories are named
+                // i.e. an app file and its mapping file don't share the same path prefix, but as the directories are named
                 // by dimension, we assume that the order of the output of both FindFileTasks here will be the same
                 //
-                // We use this assumption here to associate the individual mapping files with the discovered APK files
-                for (int i = 0, n = apkFiles.size(); i < n; i++) {
-                    apkFilesToMappingFiles.put(apkFiles.get(i), workspace.child(relativeMappingPaths.get(i)));
+                // We use this assumption here to associate the individual mapping files with the discovered app files
+                for (int i = 0, n = validFiles.size(); i < n; i++) {
+                    FilePath mappingFile = workspace.child(relativeMappingPaths.get(i));
+                    validFiles.get(i).setMappingFile(mappingFile);
                 }
             } else {
-                // If, for some reason, the number of APK files don't match, we won't deal with this situation
-                logger.println(String.format("There are %d APKs to be uploaded, but only %d obfuscation mapping " +
+                // If, for some reason, the number of app files don't match, we won't deal with this situation
+                logger.println(String.format("There are %d AAB/APKs to be uploaded, but only %d obfuscation mapping " +
                         "files were found matching the pattern '%s':",
-                        apkFiles.size(), relativeMappingPaths.size(), mappingFilesPattern));
+                        validFiles.size(), relativeMappingPaths.size(), mappingFilesPattern));
                 for (String path : relativePaths) {
                     logger.println(String.format("- %s", path));
                 }
@@ -309,12 +397,12 @@ public class ApkPublisher extends GooglePlayPublisher {
         final String applicationId = applicationIds.iterator().next();
 
         // Find the expansion filename(s) which match the pattern after variable expansion
-        final Map<Integer, ExpansionFileSet> expansionFiles = new TreeMap<>();
+        final Map<Long, ExpansionFileSet> expansionFiles = new TreeMap<>();
         final String expansionPattern = getExpandedExpansionFilesPattern();
         if (expansionPattern != null) {
             List<String> expansionPaths = workspace.act(new FindFilesTask(expansionPattern));
 
-            // Check that the expansion files found apply to the APKs to be uploaded
+            // Check that the expansion files found apply to the app files to be uploaded
             for (String path : expansionPaths) {
                 FilePath file = workspace.child(path);
 
@@ -334,7 +422,9 @@ public class ApkPublisher extends GooglePlayPublisher {
                 }
 
                 // We can only associate expansion files with version codes we're going to upload
-                final int versionCode = Integer.parseInt(matcher.group(2));
+                final long versionCode = Long.parseLong(matcher.group(2));
+                final Set<Long> versionCodes = validFiles.stream()
+                        .map(UploadFile::getVersionCode).collect(Collectors.toSet());
                 if (!versionCodes.contains(versionCode)) {
                     logger.println(String.format("Expansion filename '%s' doesn't match the versionCode of any of "
                             + "APK(s) to be uploaded: %s", path, join(versionCodes, ", ")));
@@ -371,13 +461,12 @@ public class ApkPublisher extends GooglePlayPublisher {
         // Upload the file(s) from the workspace
         try {
             GoogleRobotCredentials credentials = getCredentialsHandler().getServiceAccountCredentials();
-            return workspace.act(new ApkUploadTask(listener, credentials, applicationId, workspace, apkFiles,
-                    apkFilesToMappingFiles, expansionFiles, usePreviousExpansionFilesIfMissing,
-                    fromConfigValue(getCanonicalTrackName()), getRolloutPercentageValue(),
-                    getExpandedRecentChangesList()));
+            return workspace.act(new ApkUploadTask(listener, credentials, applicationId, workspace, validFiles,
+                    expansionFiles, usePreviousExpansionFilesIfMissing, fromConfigValue(getCanonicalTrackName()),
+                    getRolloutPercent(), getExpandedRecentChangesList()));
         } catch (UploadException e) {
             logger.println(String.format("Upload failed: %s", getPublisherErrorMessage(e)));
-            logger.println("- No changes have been applied to the Google Play account");
+            logger.println("No changes have been applied to the Google Play account");
         }
         return false;
     }
@@ -458,9 +547,12 @@ public class ApkPublisher extends GooglePlayPublisher {
     @Symbol("androidApkUpload")
     @Extension
     public static final class DescriptorImpl extends GooglePlayBuildStepDescriptor<Publisher> {
+        public static final String defaultFilesPattern = "**/build/outputs/**/*.aab, **/build/outputs/**/*.apk";
+        public static final String defaultTrackName = ReleaseTrack.PRODUCTION.getApiValue();
+        public static final int defaultRolloutPercent = 100;
 
         public String getDisplayName() {
-            return "Upload Android APK to Google Play";
+            return "Upload Android AAB/APKs to Google Play";
         }
 
     }

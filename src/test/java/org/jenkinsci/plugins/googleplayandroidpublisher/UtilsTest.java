@@ -29,7 +29,7 @@ public class UtilsTest {
 
     @Test
     public void buildRelease_basicInputs() {
-        List<Integer> versionCodes = Arrays.asList(1, 2, 3);
+        List<Long> versionCodes = Arrays.asList(1L, 2L, 3L);
         double fraction = 0.05;
         TrackRelease track = Util.buildRelease(versionCodes, fraction, null);
 
@@ -41,7 +41,7 @@ public class UtilsTest {
 
     @Test
     public void buildRelease_withInvalidFraction_releaseIsComplete() {
-        List<Integer> versionCodes = Arrays.asList(1, 2, 3);
+        List<Long> versionCodes = Arrays.asList(1L, 2L, 3L);
         double fraction = 0.0;
         TrackRelease track = Util.buildRelease(versionCodes, fraction, null);
 
