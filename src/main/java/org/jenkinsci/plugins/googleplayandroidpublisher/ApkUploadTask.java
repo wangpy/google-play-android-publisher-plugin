@@ -176,7 +176,17 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
 
     /** Applies the appropriate expansion file to each given APK version. */
     private void handleExpansionFiles(Collection<Long> uploadedVersionCodes) throws IOException {
-        for (long versionCode : uploadedVersionCodes) {
+        // Ensure that the version codes are sorted in ascending order, as this allows us to
+        // upload an expansion file with the lowest version, and re-use it for subsequent APKs
+        SortedSet<Long> sortedVersionCodes = new TreeSet<>(uploadedVersionCodes);
+
+        // If we want to re-use existing expansion files, figure out what the latest values are
+        if (usePreviousExpansionFilesIfMissing) {
+            fetchLatestExpansionFileVersionCodes();
+        }
+
+        // Upload or apply the expansion files for each APK we've uploaded
+        for (long versionCode : sortedVersionCodes) {
             ExpansionFileSet fileSet = expansionFiles.get(versionCode);
             FilePath mainFile = fileSet == null ? null : fileSet.getMainFile();
             FilePath patchFile = fileSet == null ? null : fileSet.getPatchFile();
@@ -200,9 +210,6 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
 
         // Otherwise, check whether we should reuse an existing expansion file
         if (usePreviousIfMissing) {
-            // Ensure we know what the latest expansion files versions are
-            fetchLatestExpansionFileVersionCodes();
-
             // If there is no previous APK with this type of expansion file, there's nothing we can do
             final long latestVersionCodeWithExpansion = type.equals(OBB_FILE_TYPE_MAIN) ?
                     latestMainExpansionFileVersionCode : latestPatchExpansionFileVersionCode;
@@ -226,11 +233,6 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
 
     /** Determines whether there are already-existing APKs for this app which have expansion files associated. */
     private void fetchLatestExpansionFileVersionCodes() throws IOException {
-        // Don't do this again if we've already attempted to find the expansion files
-        if (latestMainExpansionFileVersionCode != 0 && latestPatchExpansionFileVersionCode != 0) {
-            return;
-        }
-
         // Find the latest APK with a main expansion file, and the latest with a patch expansion file
         latestMainExpansionFileVersionCode = fetchLatestExpansionFileVersionCode(OBB_FILE_TYPE_MAIN);
         latestPatchExpansionFileVersionCode = fetchLatestExpansionFileVersionCode(OBB_FILE_TYPE_PATCH);
@@ -238,7 +240,7 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
 
     /** @return The version code of the newest APK which has an expansion file of this type, else {@code -1}. */
     private long fetchLatestExpansionFileVersionCode(String type) throws IOException {
-        // Find the latest APK with a patch expansion file, i.e. sort version codes in descending order
+        // Find the latest APK with an expansion file, i.e. sort version codes in descending order
         SortedSet<Long> newestVersionCodes = new TreeSet<>((a, b) -> ((int) (b - a)));
         newestVersionCodes.addAll(existingVersionCodes);
         for (long versionCode : newestVersionCodes) {
@@ -278,8 +280,20 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
      */
     private ExpansionFilesUploadResponse uploadExpansionFile(long versionCode, String type, FilePath filePath)
             throws IOException {
+        // Upload the file
         FileContent file = new FileContent("application/octet-stream", new File(filePath.getRemote()));
-        return editService.expansionfiles().upload(applicationId, editId, Math.toIntExact(versionCode), type, file).execute();
+        ExpansionFilesUploadResponse response = editService.expansionfiles()
+                .upload(applicationId, editId, Math.toIntExact(versionCode), type, file).execute();
+
+        // Keep track of the now-latest APK with an expansion file, so we can associate the
+        // same expansion file with subsequent APKs that were uploaded in this session
+        if (type.equals(OBB_FILE_TYPE_MAIN)) {
+            latestMainExpansionFileVersionCode = versionCode;
+        } else {
+            latestPatchExpansionFileVersionCode = versionCode;
+        }
+
+        return response;
     }
 
     /**
