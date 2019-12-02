@@ -1,5 +1,13 @@
 # Version history
 
+## 3.0
+December 2, 2019
+
+- Android App Bundles (AAB files) are now supported by the existing build steps (thanks to [andrewjapar](https://github.com/andrewjapar) and [Joe Hansche](https://github.com/jhansche))
+- Expansion files uploaded during a build can be applied to other APKs uploaded in the same build (thanks to [Mikhail Korotetsky](https://github.com/mkorotetsky))
+- Increased minimum Jenkins version to 2.138.4
+- Migrated documentation and changelog to GitHub, as the Jenkins wiki is deprecated
+
 ## 2.0
 July 17, 2019
 

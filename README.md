@@ -8,8 +8,8 @@ Enables Jenkins to manage and upload Android app files (AAB or APK) to Google Pl
 
 ## Features
 - Uploading Android App Bundle (AAB) or APK files to Google Play
-  -   This includes apps which use Multiple APK support
-  -   ProGuard `mapping.txt` files can also be associated with each app file, for deobfuscating stacktraces
+  - This includes apps which use Multiple APK support
+  - ProGuard `mapping.txt` files can also be associated with each app file, for deobfuscating stacktraces
 -  Uploading APK expansion (.obb) files
    - With the option to re-use expansion files from existing APKs, e.g. for patch releases
 - Assigning apps to internal, alpha, beta or production release tracks
@@ -26,7 +26,7 @@ Enables Jenkins to manage and upload Android app files (AAB or APK) to Google Pl
 
 ## Requirements
 ### Jenkins
-Jenkins [version 2.60.3](https://jenkins.io/changelog-stable#v2.60.3) or newer is required.
+Jenkins [version 2.138.4](https://jenkins.io/changelog-stable#v2.138.4) or newer is required.
 
 ### Google Play publisher account
 For the initial setup only, you must have access to the Google account
@@ -128,10 +128,14 @@ The following job setup process is demonstrated in this video:
 
 ###### APK expansion files
 You can optionally add up to two [expansion
-files](https://developer.android.com/google/play/expansion-files.html)
+files](https://developer.android.com/google/play/expansion-files.html) (main + patch)
 for each APK being uploaded.
 
-A list of expansion files can be specified in the same way as APKs, though note that they must be named in the format `[main|patch]``.<expansion-version>.<package-name>.obb`.
+A list of expansion files can be specified in the same way as APKs, though note that they must be named in the format `[main|patch]``.<apk-version>.<package-name>.obb`.
+
+You can also enable the "Re-use expansion files from existing APKs where necessary" option, which will automatically the most-recent expansion files to newly uploaded APKs.
+
+Similarly, if you want to apply the same expansion file(s) to multiple APKs being uploaded, you can do so.  Name the expansion file(s) according to the _lowest_ version code being uploaded: the expansion file will then be uploaded, and applied to the remaining APKs with higher version codes.
 
 See the inline help for more details.
 
