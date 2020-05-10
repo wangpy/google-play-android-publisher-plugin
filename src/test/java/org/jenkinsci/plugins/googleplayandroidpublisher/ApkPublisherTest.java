@@ -1,5 +1,6 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
+import com.cloudbees.hudson.plugins.folder.Folder;
 import com.google.api.services.androidpublisher.AndroidPublisher;
 import hudson.FilePath;
 import hudson.model.FreeStyleBuild;
@@ -37,12 +38,14 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.WithoutJenkins;
+
 import static hudson.Util.join;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestConstants.DEFAULT_APK;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestConstants.DEFAULT_BUNDLE;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper.setUpCredentials;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThat;
@@ -157,6 +160,34 @@ public class ApkPublisherTest {
         // Applying changes to Google Play...
         // Changes were successfully applied to Google Play
 
+        TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS,
+                "Uploading 1 file(s) with application ID: org.jenkins.appId",
+                "APK file: " + join(Arrays.asList("build", "outputs", "apk", "app.apk"), File.separator),
+                "versionCode: 42",
+                "Setting rollout to target 100% of production track users",
+                "The production release track will now contain the version code(s): 42",
+                "Changes were successfully applied to Google Play"
+        );
+    }
+
+    @Test
+    public void uploadSingleApk_inFolder_succeeds() throws Exception {
+        setUpTransportForApk();
+
+        // Given a folder, which has Google Play credentials attached
+        Folder folder = j.createProject(Folder.class, "some-folder");
+        TestsHelper.setUpCredentials("folder-credentials", folder);
+
+        // And given there's a job in the folder which wants to use those credentials
+        FreeStyleProject p = folder.createProject(FreeStyleProject.class, "some-job-in-a-folder");
+        ApkPublisher publisher = new ApkPublisher();
+        publisher.setGoogleCredentialsId("folder-credentials");
+        publisher.filesPattern = "**/*.apk";
+        publisher.trackName = "production";
+        p.getPublishersList().add(publisher);
+        setUpApkFile(p);
+
+        // When a build occurs, it should succeed
         TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS,
                 "Uploading 1 file(s) with application ID: org.jenkins.appId",
                 "APK file: " + join(Arrays.asList("build", "outputs", "apk", "app.apk"), File.separator),

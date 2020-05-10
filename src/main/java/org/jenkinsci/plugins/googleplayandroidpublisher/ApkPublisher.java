@@ -460,7 +460,7 @@ public class ApkPublisher extends GooglePlayPublisher {
 
         // Upload the file(s) from the workspace
         try {
-            GoogleRobotCredentials credentials = getCredentialsHandler().getServiceAccountCredentials();
+            GoogleRobotCredentials credentials = getCredentialsHandler().getServiceAccountCredentials(run.getParent());
             return workspace.act(new ApkUploadTask(listener, credentials, applicationId, workspace, validFiles,
                     expansionFiles, usePreviousExpansionFilesIfMissing, fromConfigValue(getCanonicalTrackName()),
                     getRolloutPercent(), getExpandedRecentChangesList()));
