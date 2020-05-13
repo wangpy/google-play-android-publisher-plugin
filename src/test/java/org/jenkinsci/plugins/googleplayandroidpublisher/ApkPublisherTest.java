@@ -81,6 +81,38 @@ public class ApkPublisherTest {
     }
 
     @Test
+    public void configRoundtripWorks() throws Exception {
+        // Given that a few credentials have been set up
+        TestsHelper.setUpCredentials("credential-a");
+        TestsHelper.setUpCredentials("credential-b");
+        TestsHelper.setUpCredentials("credential-c");
+
+        // And we have a job configured with the APK publisher, which includes all possible configuration options
+        FreeStyleProject project = j.createFreeStyleProject();
+        ApkPublisher publisher = new ApkPublisher();
+        // Choose the second credential, so that when the config page loads, we can differentiate between the dropdown
+        // working as expected vs just appearing to work because the first credential would be selected by default
+        publisher.setGoogleCredentialsId("credential-b");
+        publisher.setFilesPattern("**/builds/*.apk, *.aab");
+        publisher.setDeobfuscationFilesPattern("**/proguard/*.txt");
+        publisher.setExpansionFilesPattern("**/exp/*.obb");
+        publisher.setUsePreviousExpansionFilesIfMissing(true);
+        publisher.setTrackName("alpha");
+        publisher.setRolloutPercentage("${ROLLOUT}");
+        publisher.setRecentChangeList(new ApkPublisher.RecentChanges[] {
+            new ApkPublisher.RecentChanges("en", "Hello!"),
+            new ApkPublisher.RecentChanges("de", "Hallo!"),
+        });
+        project.getPublishersList().add(publisher);
+
+        // When we open and save the configuration page for this job
+        project = j.configRoundtrip(project);
+
+        // Then the publisher object should have been serialised and deserialised, without any changes
+        j.assertEqualDataBoundBeans(publisher, project.getPublishersList().get(0));
+    }
+
+    @Test
     public void whenApkFileMissing_buildFails() throws Exception {
         FreeStyleProject p = j.createFreeStyleProject("uploadApks");
 
