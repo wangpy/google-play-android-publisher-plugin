@@ -351,7 +351,7 @@ public class ApkPublisher extends GooglePlayPublisher {
             List<String> relativeMappingPaths = workspace.act(new FindFilesTask(mappingFilesPattern));
             if (relativeMappingPaths.isEmpty()) {
                 logger.println(String.format("No obfuscation mapping files matching the pattern '%s' could be found; " +
-                        "no files will be uploaded", filesPattern));
+                        "no files will be uploaded", mappingFilesPattern));
                 return false;
             }
 
