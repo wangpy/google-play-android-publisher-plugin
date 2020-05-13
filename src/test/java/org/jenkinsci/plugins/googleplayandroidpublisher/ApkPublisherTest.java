@@ -1,22 +1,17 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
+import com.cloudbees.plugins.credentials.CredentialsParameterDefinition;
 import com.google.api.services.androidpublisher.AndroidPublisher;
+import com.google.jenkins.plugins.credentials.oauth.GoogleRobotPrivateKeyCredentials;
 import hudson.FilePath;
 import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
+import hudson.model.ParametersDefinitionProperty;
 import hudson.model.Result;
 import hudson.model.Slave;
+import hudson.model.StringParameterDefinition;
 import hudson.model.queue.QueueTaskFuture;
 import hudson.slaves.DumbSlave;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.util.Arrays;
-import java.util.Collections;
-
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.JenkinsUtil;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestHttpTransport;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestUtilImpl;
@@ -37,6 +32,16 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.WithoutJenkins;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.util.Arrays;
+import java.util.Collections;
+
 import static hudson.Util.join;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasKey;
@@ -196,6 +201,43 @@ public class ApkPublisherTest {
                 "Setting rollout to target 100% of production track users",
                 "The production release track will now contain the version code(s): 42",
                 "Changes were successfully applied to Google Play"
+        );
+    }
+
+    @Test
+    public void uploadingApkWithParametersSucceeds() throws Exception {
+        // Given a job with various parameters
+        FreeStyleProject p = j.createFreeStyleProject();
+
+        ParametersDefinitionProperty pdp = new ParametersDefinitionProperty(
+            new CredentialsParameterDefinition(
+                "GP_CREDENTIAL", null, "test-credentials",
+                    GoogleRobotPrivateKeyCredentials.class.getName(), true
+            ),
+            new StringParameterDefinition("APK_PATTERN", "**/app.apk"),
+            new StringParameterDefinition("TRACK_NAME", "production"),
+            new StringParameterDefinition("ROLLOUT_PCT", "12.5%")
+        );
+        p.addProperty(pdp);
+
+        // And a publisher which uses those parameters
+        ApkPublisher publisher = new ApkPublisher();
+        publisher.setGoogleCredentialsId("${GP_CREDENTIAL}");
+        publisher.setFilesPattern("${APK_PATTERN}");
+        publisher.setTrackName("${TRACK_NAME}");
+        publisher.setRolloutPercentage("${ROLLOUT_PCT}");
+        p.getPublishersList().add(publisher);
+
+        // And the prerequisites are in place
+        TestsHelper.setUpCredentials("test-credentials");
+        setUpTransportForApk();
+        setUpApkFile(p);
+
+        // When a build occurs, it should apply the default parameter values
+        TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS,
+            "- Credential:     test-credentials",
+            "Setting rollout to target 12.5% of production track users",
+            "Changes were successfully applied to Google Play"
         );
     }
 
