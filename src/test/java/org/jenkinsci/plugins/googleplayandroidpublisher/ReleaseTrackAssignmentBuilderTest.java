@@ -28,7 +28,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
-public class ReleaseTrackAssignmentTest {
+public class ReleaseTrackAssignmentBuilderTest {
     @Rule
     public JenkinsRule j = new JenkinsRule();
 
