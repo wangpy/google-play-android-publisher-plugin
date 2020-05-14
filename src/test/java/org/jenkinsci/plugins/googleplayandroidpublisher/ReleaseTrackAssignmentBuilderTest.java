@@ -56,6 +56,35 @@ public class ReleaseTrackAssignmentBuilderTest {
     }
 
     @Test
+    public void configRoundtripWorks() throws Exception {
+        // Given that a few credentials have been set up
+        TestsHelper.setUpCredentials("credential-a");
+        TestsHelper.setUpCredentials("credential-b");
+        TestsHelper.setUpCredentials("credential-c");
+
+        // And we have a job configured with the builder, which includes all possible configuration options
+        FreeStyleProject project = j.createFreeStyleProject();
+
+        ReleaseTrackAssignmentBuilder builder = new ReleaseTrackAssignmentBuilder();
+        // Choose the second credential, so that when the config page loads, we can differentiate between the dropdown
+        // working as expected vs just appearing to work because the first credential would be selected by default
+        builder.setGoogleCredentialsId("credential-b");
+        builder.fromVersionCode = false;
+        builder.applicationId = "org.jenkins.appId";
+        builder.versionCodes = "42";
+        builder.filesPattern = "**/*.apk";
+        builder.trackName = "production";
+        builder.rolloutPercentage = "5";
+        project.getBuildersList().add(builder);
+
+        // When we open and save the configuration page for this job
+        project = j.configRoundtrip(project);
+
+        // Then the publisher object should have been serialised and deserialised, without any changes
+        j.assertEqualDataBoundBeans(builder, project.getBuildersList().get(0));
+    }
+
+    @Test
     public void moveApkTrack_whenVersionCodeDoesNotExist_buildFails() throws Exception {
         transport
                 .withResponse("/edits",
@@ -169,7 +198,7 @@ public class ReleaseTrackAssignmentBuilderTest {
         builder.setGoogleCredentialsId("test-credentials");
         builder.applicationId = "org.jenkins.appId";
         builder.versionCodes = "42";
-        builder.rolloutPercent = 5d;
+        builder.rolloutPercentage = "5%";
         builder.trackName = "production";
         return builder;
     }
