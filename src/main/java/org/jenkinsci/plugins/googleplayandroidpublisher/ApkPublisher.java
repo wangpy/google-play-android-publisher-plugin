@@ -1,6 +1,5 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.AbortException;
@@ -54,13 +53,12 @@ import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getPublisher
 /** Uploads Android application files to the Google Play Developer Console. */
 public class ApkPublisher extends GooglePlayPublisher {
 
-    @VisibleForTesting String filesPattern;
+    private String filesPattern;
     private String deobfuscationFilesPattern;
     private String expansionFilesPattern;
     private boolean usePreviousExpansionFilesIfMissing;
-    @VisibleForTesting String trackName;
-    @VisibleForTesting String rolloutPercentage;
-
+    private String trackName;
+    private String rolloutPercentage;
     private RecentChanges[] recentChangeList;
 
     // This field was used before AAB support was introduced; it will be migrated to `filesPattern` for Freestyle jobs
