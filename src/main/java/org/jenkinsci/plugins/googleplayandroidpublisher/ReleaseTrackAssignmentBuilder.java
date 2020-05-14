@@ -1,6 +1,5 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.AbortException;
@@ -35,12 +34,12 @@ import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getPublisher
 
 public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
 
-    @VisibleForTesting Boolean fromVersionCode;
-    @VisibleForTesting String applicationId;
-    @VisibleForTesting String versionCodes;
-    @VisibleForTesting String filesPattern;
-    @VisibleForTesting String trackName;
-    @VisibleForTesting String rolloutPercentage;
+    private Boolean fromVersionCode;
+    private String applicationId;
+    private String versionCodes;
+    private String filesPattern;
+    private String trackName;
+    private String rolloutPercentage;
 
     // This field was used before AAB support was introduced; it will be migrated to `filesPattern` for Freestyle jobs
     @Deprecated private transient String apkFilesPattern;

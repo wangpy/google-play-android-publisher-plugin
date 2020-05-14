@@ -69,12 +69,12 @@ public class ReleaseTrackAssignmentBuilderTest {
         // Choose the second credential, so that when the config page loads, we can differentiate between the dropdown
         // working as expected vs just appearing to work because the first credential would be selected by default
         builder.setGoogleCredentialsId("credential-b");
-        builder.fromVersionCode = false;
-        builder.applicationId = "org.jenkins.appId";
-        builder.versionCodes = "42";
-        builder.filesPattern = "**/*.apk";
-        builder.trackName = "production";
-        builder.rolloutPercentage = "5";
+        builder.setFromVersionCode(false);
+        builder.setApplicationId("org.jenkins.appId");
+        builder.setVersionCodes("42");
+        builder.setFilesPattern("**/*.apk");
+        builder.setTrackName("production");
+        builder.setRolloutPercentage("5");
         project.getBuildersList().add(builder);
 
         // When we open and save the configuration page for this job
@@ -196,10 +196,10 @@ public class ReleaseTrackAssignmentBuilderTest {
         ReleaseTrackAssignmentBuilder builder = new ReleaseTrackAssignmentBuilder();
         TestsHelper.setUpCredentials("test-credentials");
         builder.setGoogleCredentialsId("test-credentials");
-        builder.applicationId = "org.jenkins.appId";
-        builder.versionCodes = "42";
-        builder.rolloutPercentage = "5%";
-        builder.trackName = "production";
+        builder.setApplicationId("org.jenkins.appId");
+        builder.setVersionCodes("42");
+        builder.setRolloutPercentage("5%");
+        builder.setTrackName("production");
         return builder;
     }
 }
