@@ -20,8 +20,7 @@ Enables Jenkins to manage and upload Android app files (AAB or APK) to Google Pl
 - Assigning release notes to uploaded files, for various languages
 - Changing the Jenkins build result to failed if the configuration is bad, or uploading or moving app files fails for some reason
 -  Every configuration field supports variable and [token](https://wiki.jenkins.io/display/JENKINS/Token+Macro+Plugin) expansion, allowing release notes to be dynamically generated, for example
-- Integration with the [Google OAuth
-    Plugin](https://wiki.jenkins.io/display/JENKINS/Google+OAuth+Plugin), so that Google Play credentials can be entered once globally, stored securely, and shared between jobs
+- Integration with the [Google OAuth Plugin](https://wiki.jenkins.io/display/JENKINS/Google+OAuth+Plugin), so that Google Play credentials can be entered once globally, stored securely, and shared between jobs
   - Multiple Google Play accounts are also supported via this mechanism
 
 ## Requirements
@@ -29,15 +28,11 @@ Enables Jenkins to manage and upload Android app files (AAB or APK) to Google Pl
 Jenkins [version 2.138.4](https://jenkins.io/changelog-stable#v2.138.4) or newer is required.
 
 ### Google Play publisher account
-For the initial setup only, you must have access to the Google account
-which owns the [Google Play publisher
-account](https://developer.android.com/distribute/googleplay/start.html).
+For the initial setup only, you must have access to the Google account which owns the [Google Play publisher account](https://developer.android.com/distribute/googleplay/start.html).
 
 This is required to enable API access from Jenkins to your Google Play account.
 
-Note that having admin access is not enough; you need the account owner.  
-You can see who the account owner is under [Settings → User accounts &
-rights](https://play.google.com/apps/publish/#AdminPlace) in the Google Play developer console.
+Note that having admin access is not enough; you need the account owner. You can see who the account owner is under [Settings → User accounts & rights](https://play.google.com/apps/publish/#AdminPlace) in the Google Play developer console.
 
 ### Please note
 - Any APKs uploaded will be published by Google Play immediately; they will not be held in a draft or pending state
@@ -56,8 +51,7 @@ prerequisite [Google OAuth Plugin](https://wiki.jenkins.io/display/JENKINS/Googl
 #### Create Google service account
 To enable automated access to your Google Play account, you must create a service account:
 
-1.  Sign in to the [Google Play developer console](https://play.google.com/apps/publish/) as
-    the account owner
+1.  Sign in to the [Google Play developer console](https://play.google.com/apps/publish/) as the account owner
 2.  Select Settings → Developer account → API access
 3.  Under Service Accounts, click "Create Service Account"
 4.  Follow the link to the Google API Console
@@ -131,7 +125,7 @@ You can optionally add up to two [expansion
 files](https://developer.android.com/google/play/expansion-files.html) (main + patch)
 for each APK being uploaded.
 
-A list of expansion files can be specified in the same way as APKs, though note that they must be named in the format `[main|patch]``.<apk-version>.<package-name>.obb`.
+A list of expansion files can be specified in the same way as APKs, though note that they must be named in the format `[main|patch].<apk-version>.<package-name>.obb`.
 
 You can also enable the "Re-use expansion files from existing APKs where necessary" option, which will automatically the most-recent expansion files to newly uploaded APKs.
 
