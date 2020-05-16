@@ -43,6 +43,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.stream.Stream;
 
 import static hudson.Util.join;
 import static org.hamcrest.Matchers.equalTo;
@@ -246,26 +247,72 @@ public class ApkPublisherTest {
     @Test
     public void uploadSingleApkWithPipeline_succeeds() throws Exception {
         // Given a Pipeline with only the required parameters
+        String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials'";
+
+        uploadApkWithPipelineAndAssertSuccess(
+            stepDefinition, "Setting rollout to target 100% of production track users"
+        );
+    }
+
+    @Test
+    public void uploadSingleApkWithPipeline_withRolloutPercentage() throws Exception {
+        // Given a step with a `rolloutPercentage` value
+        String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
+                "  rolloutPercentage: '56.789'";
+
+        // When a build occurs, it should roll out to that percentage
+        uploadApkWithPipelineAndAssertSuccess(
+            stepDefinition, "Setting rollout to target 56.789% of production track users"
+        );
+    }
+
+    @Test
+    public void uploadSingleApkWithPipeline_withRolloutPercent() throws Exception {
+        // Given a step with a deprecated `rolloutPercent` value
+        String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
+                "  rolloutPercent: 12.34";
+
+        // When a build occurs, it should roll out to that percentage
+        uploadApkWithPipelineAndAssertSuccess(
+            stepDefinition, "Setting rollout to target 12.34% of production track users"
+        );
+    }
+
+    @Test
+    public void uploadSingleApkWithPipeline_withBothRolloutFormats_usesRolloutPercentage() throws Exception {
+        // Given a step with both the deprecated `rolloutPercent`, and a verbose `rolloutPercentage` value
+        String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
+                "  rolloutPercent: 12.3456,\n" +
+                "  rolloutPercentage: '56.789%'";
+
+        // When a build occurs, it should prefer the string `rolloutPercentage` value
+        uploadApkWithPipelineAndAssertSuccess(
+            stepDefinition, "Setting rollout to target 56.789% of production track users"
+        );
+    }
+
+    private void uploadApkWithPipelineAndAssertSuccess(String stepDefinition, String... expectedLines) throws Exception {
         WorkflowJob p = j.createProject(WorkflowJob.class);
         p.setDefinition(new CpsFlowDefinition("" +
                 "node {\n" +
                 "  writeFile text: 'this-is-a-dummy-apk', file: 'build/outputs/apk/app.apk'\n" +
-                "  androidApkUpload googleCredentialsId: 'test-credentials'\n" +
+                "  " + stepDefinition + "\n" +
                 "}", true
         ));
 
         TestsHelper.setUpCredentials("test-credentials");
         setUpTransportForApk();
 
-        // When a build occurs, it should succeed
-        TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS,
-                "Uploading 1 file(s) with application ID: org.jenkins.appId",
-                "APK file: " + join(Arrays.asList("build", "outputs", "apk", "app.apk"), File.separator),
-                "versionCode: 42",
-                "Setting rollout to target 100% of production track users",
-                "The production release track will now contain the version code(s): 42",
-                "Changes were successfully applied to Google Play"
-        );
+        String[] commonLines = {
+            "Uploading 1 file(s) with application ID: org.jenkins.appId",
+            "APK file: " + join(Arrays.asList("build", "outputs", "apk", "app.apk"), File.separator),
+            "versionCode: 42",
+            "The production release track will now contain the version code(s): 42",
+            "Changes were successfully applied to Google Play"
+        };
+        String[] allExpectedLogLines = Stream.concat(Arrays.stream(commonLines), Arrays.stream(expectedLines))
+                .toArray(String[]::new);
+        TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS, allExpectedLogLines);
     }
 
     @Test
