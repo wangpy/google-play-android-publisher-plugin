@@ -116,11 +116,11 @@ The following job setup process is demonstrated in this video:
 4. Select the credential name from the drop-down list
    - The credential must belong to the Google Play account which owns the app to be uploaded
 5. Enter paths and/or patterns pointing to the AAB or APKs to be uploaded
-   - This can be a glob pattern, e.g. `build/**/*-release.apk`, or a filename, both relative to the root of the workspace
+   - This can be a glob pattern, e.g. `'build/**/*-release.apk'`, or a filename, both relative to the root of the workspace
    - Multiple patterns or filenames can be entered, if separated by commas
-   - If nothing is entered, the default is `**/build/outputs/**/*.aab, **/build/outputs/**/*.apk`
+   - If nothing is entered, the default is `'**/build/outputs/**/*.aab, **/build/outputs/**/*.apk'`
 6. Choose the track to which the APKs should be deployed
-   - If nothing is entered, the default is `production`
+   - If nothing is entered, the default is `'production'`
 7. Optionally specify a [rollout percentage](https://support.google.com/googleplay/android-developer/answer/3131213)
    - If nothing is entered, the default is to roll out to 100% of users
 8. Optionally choose "Add language" to associate release notes with the uploaded APK(s)
@@ -156,16 +156,17 @@ Note that you should avoid using these steps in a `parallel` block, as the Googl
 ##### Uploading an AAB or APK
 The `androidApkUpload` build step lets you upload Android App Bundle (AAB) or APK files.
 
-| Parameter                          | Type    | Example                           | Default                                                | Description                                                                                                            |
-|------------------------------------|---------|-----------------------------------|--------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
-| googlePlayCredentialsId            | string  | My Google Play account            | (none)                                                 | Name of the Google Service Account credential created in Jenkins                                                       |
-| filesPattern                       | string  | `release/my-app.aab`              | `**/build/outputs/**/*.aab, **/build/outputs/**/*.apk` | Comma-separated glob patterns or filenames pointing to the app files to upload, relative to the root of the workspace  |
-| trackName                          | string  | `internal`                        | `production`                                           | Google Play track to which the app files should be published                                                           |
-| rolloutPercent                     | number  | `0.01`                            | `100.0`                                                | The rollout percentage to set on the track                                                                             |
-| deobfuscationFiles<br>Pattern          | string  | `**/build/outputs/**/mapping.txt` | (none)                                                 | Comma-separated glob patterns or filenames pointing to ProGuard mapping files to associate with the uploaded app files |
-| expansionFilesPattern              | string  | `**/*.obb`                        | (none)                                                 | Comma-separated glob patterns or filenames pointing to expansion files to associate with the uploaded app files        |
-| usePreviousExpansion<br>FilesIfMissing | boolean | `false`                           | `true`                                                 | Whether to re-use the existing expansion files that have already been uploaded to Google Play for this app, if any expansion files are missing |
-| recentChangeList                   | list    | (see below)                       | (empty)                                                | List of recent change texts to associate with the upload app files                                                     |
+| Parameter                          | Type    | Example                           | Default                                                  | Description                                                                                                            |
+|------------------------------------|---------|-----------------------------------|----------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
+| googlePlayCredentialsId            | string  | My Google Play account            | (none)                                                   | Name of the Google Service Account credential created in Jenkins                                                       |
+| filesPattern                       | string  | `'release/my-app.aab'`            | `'**/build/outputs/**/*.aab, **/build/outputs/**/*.apk'` | Comma-separated glob patterns or filenames pointing to the app files to upload, relative to the root of the workspace  |
+| trackName                          | string  | `'internal'`                      | `'production'`                                           | Google Play track to which the app files should be published                                                           |
+| rolloutPercentage                  | string  | `'1.5'`                           | `'100.0'`                                                | The rollout percentage to set on the track                                                                             |
+| ~rolloutPercent~                   | number  | `0.01`                            | `100.0`                                                  | (deprecated, but still supported; use `rolloutPercent` instead — it takes priority if both are defined)                |
+| deobfuscationFiles<br>Pattern      | string  | `**/build/outputs/**/mapping.txt` | (none)                                                   | Comma-separated glob patterns or filenames pointing to ProGuard mapping files to associate with the uploaded app files |
+| expansionFilesPattern              | string  | `**/*.obb`                        | (none)                                                   | Comma-separated glob patterns or filenames pointing to expansion files to associate with the uploaded app files        |
+| usePreviousExpansion<br>FilesIfMissing | boolean | `false`                       | `true`                                                   | Whether to re-use the existing expansion files that have already been uploaded to Google Play for this app, if any expansion files are missing |
+| recentChangeList                   | list    | (see below)                       | (empty)                                                  | List of recent change texts to associate with the upload app files                                                     |
 
 The only mandatory parameter is `googlePlayCredentialId`:
 ```groovy
@@ -198,15 +199,16 @@ androidApkUpload googleCredentialsId: 'My Google Play account',
 ##### Updating release tracks with existing app versions
 The `androidApkMove` build step lets you move existing Android app versions to another release track, and/or update the rollout percentage.
 
-| Parameter               | Type    | Example              | Default                                                | Description                                                                                                                     |
-|-------------------------|---------|----------------------|--------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------|
-| googlePlayCredentialsId | string  | My Google Play account | (none)                                                 | Name of the Google Service Account credential created in Jenkins                                                                |
-| trackName               | string  | `internal`             | `production`                                           | Google Play release track to update with the given app versions                                                                 |
-| rolloutPercent          | number  | `0.01`                 | `100.0`                                                | The rollout percentage to set on the given release track                                                                        |
-| fromVersionCode         | boolean | `true`                 | `false`                                                | If true, the `applicationId` and `versionCodes` parameters will be used. Otherwise the `filesPattern` parameter will be used    |
-| applicationId           | string  | `com.example.app`      | (none)                                                 | The application ID of the app to update                                                                                         |
-| versionCodes            | string  | `1281, 1282, 1283`     | (none)                                                 | The version codes to set on the given release track                                                                             |
-| filesPattern            | string  | `release/my-app.aab`   | `**/build/outputs/**/*.aab, **/build/outputs/**/*.apk` | Comma-separated glob patterns or filenames pointing to the files from which the application ID and version codes should be read |
+| Parameter               | Type    | Example                | Default                                                  | Description                                                                                                                     |
+|-------------------------|---------|------------------------|----------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------|
+| googlePlayCredentialsId | string  | My Google Play account | (none)                                                   | Name of the Google Service Account credential created in Jenkins                                                                |
+| trackName               | string  | `'internal'`           | `'production'`                                           | Google Play release track to update with the given app versions                                                                 |
+| rolloutPercentage       | number  | `'1.5'`                | `'100.0'`                                                | The rollout percentage to set on the given release track                                                                        |
+| ~rolloutPercent~        | number  | `0.01`                 | `100.0`                                                  | (deprecated, but still supported; use `rolloutPercent` instead — it takes priority if both are defined)                         |
+| fromVersionCode         | boolean | `true`                 | `false`                                                  | If true, the `applicationId` and `versionCodes` parameters will be used. Otherwise the `filesPattern` parameter will be used    |
+| applicationId           | string  | `'com.example.app'`    | (none)                                                   | The application ID of the app to update                                                                                         |
+| versionCodes            | string  | `'1281, 1282, 1283'`   | (none)                                                   | The version codes to set on the given release track                                                                             |
+| filesPattern            | string  | `'release/my-app.aab'` | `'**/build/outputs/**/*.aab, **/build/outputs/**/*.apk'` | Comma-separated glob patterns or filenames pointing to the files from which the application ID and version codes should be read |
 
 The `googlePlayCredentialId` parameter is mandatory, plus either an application ID and version code(s), or AAB or APK file(s) to read this information from.
 
@@ -214,7 +216,7 @@ For example, this would move the given versions to the production track, and mak
 ```groovy
 androidApkMove googleCredentialsId: 'My Google Play account',
                applicationId: 'com.example.app',
-               versionCodes: '1281, 1282, 1283',  
+               versionCodes: '1281, 1282, 1283'
 ```
 
 Or moving versions from alpha (for example), to 50% of beta users, reading the application ID and version codes from APK files in the workspace:
@@ -229,7 +231,6 @@ androidApkMove googleCredentialsId: 'My Google Play account',
 ##### Backwards-compatibility
 Version 3.0 of the plugin deprecated some parameters used by the build steps, but they will remain supported for the foreseeable future:
 - `apkFilesPattern` is deprecated — `filesPattern` should be used instead
-- `rolloutPercentage` is deprecated; it required a string rather than a number, which was not ideal — `rolloutPercent` should be used instead
 
 In addition, version 3.0 introduced the default values shown in the tables above, so those parameters can optionally now be omitted.
 
@@ -305,6 +306,3 @@ See [CHANGELOG.md](https://github.com/jenkinsci/google-play-android-publisher-pl
 
 [jira]:https://issues.jenkins-ci.org/issues/?jql=project%20%3D%20JENKINS%20AND%20status%20in%20(Open%2C%20%22In%20Progress%22%2C%20Reopened)%20AND%20component%20%3D%20google-play-android-publisher-plugin
 [report]:http://jenkins.io/redirect/report-an-issue
-
-
-
