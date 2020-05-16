@@ -25,6 +25,8 @@ import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeP
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakePutBundleResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeUploadApkResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeUploadBundleResponse;
+import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
+import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -242,6 +244,31 @@ public class ApkPublisherTest {
     }
 
     @Test
+    public void uploadSingleApkWithPipeline_succeeds() throws Exception {
+        // Given a Pipeline with only the required parameters
+        WorkflowJob p = j.createProject(WorkflowJob.class);
+        p.setDefinition(new CpsFlowDefinition("" +
+                "node {\n" +
+                "  writeFile text: 'this-is-a-dummy-apk', file: 'build/outputs/apk/app.apk'\n" +
+                "  androidApkUpload googleCredentialsId: 'test-credentials'\n" +
+                "}", true
+        ));
+
+        TestsHelper.setUpCredentials("test-credentials");
+        setUpTransportForApk();
+
+        // When a build occurs, it should succeed
+        TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS,
+                "Uploading 1 file(s) with application ID: org.jenkins.appId",
+                "APK file: " + join(Arrays.asList("build", "outputs", "apk", "app.apk"), File.separator),
+                "versionCode: 42",
+                "Setting rollout to target 100% of production track users",
+                "The production release track will now contain the version code(s): 42",
+                "Changes were successfully applied to Google Play"
+        );
+    }
+
+    @Test
     public void uploadingExistingBundleFails() throws Exception {
         // Given that some version codes already exist on Google Play
         setUpTransportForApk();
@@ -272,7 +299,7 @@ public class ApkPublisherTest {
     }
 
     @Test
-    public void uploadSingleBundle_succeeds() throws Exception {
+    public void uploadBundle_succeeds() throws Exception {
         setUpTransportForBundle();
 
         FreeStyleProject p = j.createFreeStyleProject("uploadBundles");
@@ -344,6 +371,31 @@ public class ApkPublisherTest {
             "Uploading 1 file(s) with application ID: com.example.test",
             "AAB file: " + join(Arrays.asList("build", "outputs", "bundle", "release", "bundle.aab"), File.separator),
             "The production release track will now contain the version code(s): 43"
+        );
+    }
+
+    @Test
+    public void uploadBundleWithPipeline_succeeds() throws Exception {
+        // Given a Pipeline with only the required parameters
+        WorkflowJob p = j.createProject(WorkflowJob.class);
+        p.setDefinition(new CpsFlowDefinition("" +
+                "node {\n" +
+                "  writeFile text: 'this-is-a-dummy-bundle', file: 'build/outputs/bundle/release/bundle.aab'\n" +
+                "  androidApkUpload googleCredentialsId: 'test-credentials'\n" +
+                "}", true
+        ));
+
+        TestsHelper.setUpCredentials("test-credentials");
+        setUpTransportForBundle();
+
+        // When a build occurs, it should succeed
+        TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS,
+                "Uploading 1 file(s) with application ID: org.jenkins.bundleAppId",
+                "AAB file: " + join(Arrays.asList("build", "outputs", "bundle", "release", "bundle.aab"), File.separator),
+                "versionCode: 43",
+                "Setting rollout to target 100% of production track users",
+                "The production release track will now contain the version code(s): 43",
+                "Changes were successfully applied to Google Play"
         );
     }
 
