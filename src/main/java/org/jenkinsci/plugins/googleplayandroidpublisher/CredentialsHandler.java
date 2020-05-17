@@ -1,15 +1,28 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
+import com.cloudbees.plugins.credentials.CredentialsProvider;
+import com.google.common.collect.ImmutableList;
+import com.google.jenkins.plugins.credentials.domains.DomainRequirementProvider;
 import com.google.jenkins.plugins.credentials.oauth.GoogleOAuth2ScopeRequirement;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotPrivateKeyCredentials.AccountIdNotSetException;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotPrivateKeyCredentials.PrivateKeyNotSetException;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import hudson.model.Item;
+import hudson.model.Queue;
+import hudson.model.queue.Tasks;
+import hudson.security.ACL;
+import jenkins.model.Jenkins;
+import org.acegisecurity.Authentication;
 import org.apache.commons.lang.exception.ExceptionUtils;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
+import java.util.Collections;
+import java.util.List;
 
 import static hudson.Util.fixEmptyAndTrim;
 
@@ -28,10 +41,10 @@ public class CredentialsHandler {
 
     /** @return The Google API credentials configured for this job. */
     @SuppressFBWarnings("VA_FORMAT_STRING_USES_NEWLINE")
-    public final GoogleRobotCredentials getServiceAccountCredentials() throws UploadException {
+    public final GoogleRobotCredentials getServiceAccountCredentials(Item item) throws UploadException {
         try {
             GoogleOAuth2ScopeRequirement req = new AndroidPublisherScopeRequirement();
-            GoogleRobotCredentials credentials = GoogleRobotCredentials.getById(googleCredentialsId);
+            GoogleRobotCredentials credentials = getById(googleCredentialsId, item);
             if (credentials == null) {
                 throw new CredentialsException(String.format("The Google Service Account credential '%s' "
                         + "could not be found.%n\tIf you renamed the credential since configuring this job, you must "
@@ -64,6 +77,32 @@ public class CredentialsHandler {
             }
             throw new UploadException(e);
         }
+    }
+
+    /** @return A list of Google Play-compatible credentials visible to the given item. */
+    @Nonnull
+    static List<GoogleRobotCredentials> getCredentials(Item item) {
+        GoogleOAuth2ScopeRequirement requirement = DomainRequirementProvider.of(
+            GooglePlayPublisher.class, GoogleOAuth2ScopeRequirement.class
+        );
+        if (requirement == null) {
+            return Collections.emptyList();
+        }
+
+        // As per the Credentials Plugin docs: https://git.io/JfW7R
+        Authentication auth = item instanceof Queue.Task ? Tasks.getAuthenticationOf((Queue.Task) item) : ACL.SYSTEM;
+        return CredentialsProvider.lookupCredentials(
+            GoogleRobotCredentials.class, item, auth, ImmutableList.of(requirement)
+        );
+    }
+
+    /** @return The Google Play-compatible credentials matching the given ID, if any, visible to the given item. */
+    @Nullable
+    private static GoogleRobotCredentials getById(String id, Item item) {
+        return getCredentials(item).stream()
+            .filter(it -> it.getId().equals(id))
+            .findFirst()
+            .orElse(null);
     }
 
 }

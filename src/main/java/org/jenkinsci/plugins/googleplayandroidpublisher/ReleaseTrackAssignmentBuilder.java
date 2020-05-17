@@ -268,7 +268,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
 
         // Assign the APKs to the desired track
         try {
-            GoogleRobotCredentials credentials = getCredentialsHandler().getServiceAccountCredentials();
+            GoogleRobotCredentials credentials = getCredentialsHandler().getServiceAccountCredentials(run.getParent());
             return workspace.act(new TrackAssignmentTask(listener, credentials, applicationId, versionCodeList,
                             fromConfigValue(getCanonicalTrackName()), getRolloutPercent()));
         } catch (UploadException e) {
