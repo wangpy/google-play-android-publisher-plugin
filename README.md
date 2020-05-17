@@ -83,6 +83,7 @@ To enable automated access to your Google Play account, you must create a servic
 7.  You can now log out of the Google Play publisher account
 
 #### Add the service account credentials to Jenkins
+##### Manually
 1. Navigate to your Jenkins instance
 2. Select "Credentials" from the Jenkins sidebar, at the top-level, or from within the folder where the credential should live
 3. Choose a credentials domain and click "Add Credentials"
@@ -92,7 +93,26 @@ To enable automated access to your Google Play account, you must create a servic
 7. Upload the .json file that was downloaded by the Google API Console
 8. Click "OK" to create the credential
 
-Jenkins now has the required credentials and permissions in order to publish to Google Play.
+##### Using Configuration as Code
+If you're using the [Configuration as Code plugin][plugin-jcasc] to set up your credentials automatically, you can do something like this, e.g.:
+```yaml
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - googleRobotPrivateKey:
+              projectId: 'Google Play'
+              serviceAccountConfig:
+                json:
+                  # Optional
+                  filename: 'my-gp-account.json'
+                  # The contents of your .json file from Google Play, encoded as base 64, e.g.:
+                  #   $ cat api-xxxxxxxxx-xxxxx-xxxx.json | base64 -
+                  # You can also provide an environment variable with the same content, to avoid having it in this file
+                  secretJsonKey: 'eyJjbGllbnRfZW1haWwiOiJqZW5raW5z […]'
+```
+
+Whether done manually or automatically, Jenkins now has the required credentials and permissions in order to publish to Google Play.
 
 Once you've set up a job (see the next section) and confirmed that uploading works, either delete the downloaded JSON file or ensure that it's stored somewhere secure.
 
@@ -307,6 +327,7 @@ See [CHANGELOG.md][changelog].
 [jenkins-behind-proxy]:https://wiki.jenkins.io/display/JENKINS/JenkinsBehindProxy#JenkinsBehindProxy-HowJenkinshandlesProxyServers
 [lts-changelog]:https://jenkins.io/changelog-stable#v2.138.4
 [plugin-google-oauth]:https://plugins.jenkins.io/google-oauth-plugin
+[plugin-jcasc]:https://plugins.jenkins.io/configuration-as-code
 [plugin-token-macro]:https://plugins.jenkins.io/token-macro
 [plugin-pipeline]:https://plugins.jenkins.io/workflow-aggregator
 [snippets-blog]:https://jenkins.io/blog/2016/05/31/pipeline-snippetizer/
