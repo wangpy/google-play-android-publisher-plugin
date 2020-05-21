@@ -11,6 +11,9 @@ import com.google.api.services.androidpublisher.model.TrackRelease;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import hudson.FilePath;
 import hudson.model.TaskListener;
+import org.jenkinsci.plugins.googleplayandroidpublisher.internal.AppFileFormat;
+import org.jenkinsci.plugins.googleplayandroidpublisher.internal.UploadFile;
+
 import java.io.File;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
@@ -25,9 +28,7 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
-import org.jenkinsci.plugins.googleplayandroidpublisher.internal.AppFileFormat;
-import org.jenkinsci.plugins.googleplayandroidpublisher.internal.UploadFile;
-
+import static hudson.Functions.humanReadableByteSize;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.ApkPublisher.ExpansionFileSet;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.ApkPublisher.RecentChanges;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.DEOBFUSCATION_FILE_TYPE_PROGUARD;
@@ -91,6 +92,7 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
             // Log some useful information about the file that will be uploaded
             final String fileType = (fileFormat == AppFileFormat.BUNDLE) ? "AAB" : "APK";
             logger.println(String.format("      %s file: %s", fileType, getRelativeFileName(appFile.getFilePath())));
+            logger.println(String.format("     File size: %s", humanReadableByteSize(appFile.getFilePath().length())));
             logger.println(String.format("    SHA-1 hash: %s", appFile.getSha1Hash()));
             logger.println(String.format("   versionCode: %d", appFile.getVersionCode()));
             logger.println(String.format(" minSdkVersion: %s", appFile.getMinSdkVersion()));
@@ -109,7 +111,10 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
             FileContent fileContent = new FileContent("application/octet-stream", fileToUpload);
             final long uploadedVersionCode;
             if (fileFormat == AppFileFormat.BUNDLE) {
-                Bundle uploadedBundle = editService.bundles().upload(applicationId, editId, fileContent).execute();
+                Bundle uploadedBundle = editService.bundles().upload(applicationId, editId, fileContent)
+                        // Prevent Google Play error when uploading large bundles
+                        .setAckBundleInstallationWarning(true)
+                        .execute();
                 uploadedVersionCode = uploadedBundle.getVersionCode();
                 uploadedVersionCodes.add(uploadedVersionCode);
             } else {

@@ -38,6 +38,15 @@ You can see who the account owner is under [Settings → User accounts & rights]
 ### Please note
 - The app being uploaded must already exist in Google Play; you cannot use the API to upload brand new apps
 
+#### Bundle size warnings
+If you try to upload an AAB file to Google Play (including manually via the Google Play Developer Console), and its size is perhaps 100MB+, it may give you a warning:
+> The installation of the app bundle may be too large and trigger user warning on some devices […] this needs to be explicitly acknowledged
+
+Unfortunately, this "user warning" that may be shown, presumably when a user installs your app from Google Play, does not appear to be documented.  
+This plugin automatically "acknowledges" that warning on Google Play on your behalf when uploading any AAB files, regardless of their size, so you should not see any errors.
+
+If you _do_ see see any unexpected behaviour related to uploading bundles, or warnings appearing for end users, please [let us know](#feedback).
+
 ## Setup
 ### One-time: Set up Google Play credentials
 The following initial setup process is demonstrated in this video: [https://www.youtube.com/watch?v=txdPSJF94RM][demo-video-creds] (note that Google has changed the Google API Console (at least twice) since this video was recorded; steps 3–13 in the "Create Google service account" section below have the updated info)
