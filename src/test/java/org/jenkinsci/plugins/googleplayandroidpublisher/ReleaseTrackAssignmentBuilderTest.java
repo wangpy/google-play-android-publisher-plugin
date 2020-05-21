@@ -1,6 +1,7 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
 import com.google.api.services.androidpublisher.AndroidPublisher;
+import com.google.api.services.androidpublisher.model.LocalizedText;
 import com.google.api.services.androidpublisher.model.Track;
 import com.google.api.services.androidpublisher.model.TrackRelease;
 import hudson.model.FreeStyleBuild;
@@ -17,6 +18,7 @@ import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeA
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeCommitResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeListApksResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeListBundlesResponse;
+import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeListTracksResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakePostEditsResponse;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
@@ -27,11 +29,17 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.JenkinsRule;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.stream.Stream;
 
 import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper.getRequestBodyForUrl;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper.release;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper.track;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
@@ -145,6 +153,16 @@ public class ReleaseTrackAssignmentBuilderTest {
                 "The production release track will now contain the version code(s): 42",
                 "Changes were successfully applied to Google Play"
         );
+
+        // And we should have included the existing release notes when updating the new track
+        Track track = getRequestBodyForUrl(
+            transport, "/org.jenkins.appId/edits/the-edit-id/tracks/production", Track.class
+        );
+        List<LocalizedText> releaseNotes = track.getReleases().get(0).getReleaseNotes();
+        assertNotNull(releaseNotes);
+        assertEquals(2, releaseNotes.size());
+        assertEquals("Notes: en_GB", releaseNotes.get(0).getText());
+        assertEquals("Notes: de_DE", releaseNotes.get(1).getText());
     }
 
     @Test
@@ -334,6 +352,13 @@ public class ReleaseTrackAssignmentBuilderTest {
                     new FakeListApksResponse().setApks(42))
             .withResponse("/edits/the-edit-id/bundles",
                     new FakeListBundlesResponse().setEmptyBundles())
+            .withResponse("/edits/the-edit-id/tracks",
+                    new FakeListTracksResponse().setTracks(
+                        new ArrayList<Track>() {{
+                            add(track("production"));
+                            add(track("beta", release(42, "en_GB", "de_DE")));
+                        }}
+                    ))
             .withResponse("/edits/the-edit-id/tracks/production",
                     new FakeAssignTrackResponse().success("production", 42))
             .withResponse("/edits/the-edit-id:commit",
