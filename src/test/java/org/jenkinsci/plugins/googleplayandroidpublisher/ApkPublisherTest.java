@@ -3,6 +3,8 @@ package org.jenkinsci.plugins.googleplayandroidpublisher;
 import com.cloudbees.hudson.plugins.folder.Folder;
 import com.cloudbees.plugins.credentials.CredentialsParameterDefinition;
 import com.google.api.services.androidpublisher.AndroidPublisher;
+import com.google.api.services.androidpublisher.model.Track;
+import com.google.api.services.androidpublisher.model.TrackRelease;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotPrivateKeyCredentials;
 import hudson.FilePath;
 import hudson.model.FreeStyleBuild;
@@ -52,8 +54,10 @@ import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestConstants.DEFAULT_APK;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestConstants.DEFAULT_BUNDLE;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper.getRequestBodyForUrl;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
@@ -166,7 +170,7 @@ public class ApkPublisherTest {
     }
 
     @Test
-    public void uploadSingleApk_succeeds() throws Exception {
+    public void uploadingApkSucceeds() throws Exception {
         setUpTransportForApk();
 
         FreeStyleProject p = j.createFreeStyleProject("uploadApks");
@@ -205,6 +209,36 @@ public class ApkPublisherTest {
                 "Setting rollout to target 100% of production track users",
                 "The production release track will now contain the version code(s): 42",
                 "Changes were successfully applied to Google Play"
+        );
+
+        // And we should have set completed status when updating the track
+        Track track = getRequestBodyForUrl(
+                transport, "/org.jenkins.appId/edits/the-edit-id/tracks/production", Track.class
+        );
+        TrackRelease release = track.getReleases().get(0);
+        assertEquals("completed", release.getStatus());
+        assertNull(release.getUserFraction());
+    }
+
+    @Test
+    public void uploadingApkWithoutConfigurationUsesDefaults() throws Exception {
+        // Given a job, whose publisher has a credential, but no other configuration
+        FreeStyleProject p = j.createFreeStyleProject();
+        ApkPublisher publisher = new ApkPublisher();
+        publisher.setGoogleCredentialsId("test-credentials");
+        p.getPublishersList().add(publisher);
+
+        // And the prerequisites are in place
+        TestsHelper.setUpCredentials("test-credentials");
+        setUpTransportForApk();
+        setUpApkFile(p);
+
+        // When a build occurs, it should find the APK, and upload to 100% of the production track.
+        // TODO: Probably we want to change this behaviour in future…
+        TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS,
+            "Setting rollout to target 100% of production track users",
+            "The production release track will now contain the version code(s): 42",
+            "Changes were successfully applied to Google Play"
         );
     }
 
@@ -271,44 +305,89 @@ public class ApkPublisherTest {
             "Setting rollout to target 12.5% of production track users",
             "Changes were successfully applied to Google Play"
         );
+
+        // And we should have set in-progress status when updating the track
+        Track track = getRequestBodyForUrl(
+                transport, "/org.jenkins.appId/edits/the-edit-id/tracks/production", Track.class
+        );
+        TrackRelease release = track.getReleases().get(0);
+        assertEquals("inProgress", release.getStatus());
+        assertEquals(0.125, release.getUserFraction(), 0.0001);
     }
 
     @Test
-    public void uploadSingleApkWithPipeline_succeeds() throws Exception {
+    public void uploadingApkAsDraftSucceeds() throws Exception {
+        // Given a job, configured to upload as a draft
+        FreeStyleProject p = j.createFreeStyleProject();
+        ApkPublisher publisher = new ApkPublisher();
+        publisher.setGoogleCredentialsId("test-credentials");
+        publisher.setFilesPattern("**/*.apk");
+        publisher.setTrackName("production");
+        publisher.setRolloutPercentage("0%");
+        p.getPublishersList().add(publisher);
+
+        // And the prerequisites are in place
+        TestsHelper.setUpCredentials("test-credentials");
+        setUpTransportForApk();
+        setUpApkFile(p);
+
+        // When a build occurs, it should upload as a draft
+        TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS,
+            "New production draft release created, with the version code(s): 42",
+            "Changes were successfully applied to Google Play"
+        );
+
+        // And we should have set draft status when updating the track
+        Track track = getRequestBodyForUrl(
+            transport, "/org.jenkins.appId/edits/the-edit-id/tracks/production", Track.class
+        );
+        TrackRelease release = track.getReleases().get(0);
+        assertEquals("draft", release.getStatus());
+        assertNull(release.getUserFraction());
+    }
+
+    @Test
+    public void uploadingApkWithPipelineSucceeds() throws Exception {
         // Given a Pipeline with only the required parameters
         String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials'";
 
         uploadApkWithPipelineAndAssertSuccess(
-            stepDefinition, "Setting rollout to target 100% of production track users"
+            stepDefinition,
+            "Setting rollout to target 100% of production track users",
+            "The production release track will now contain the version code(s): 42"
         );
     }
 
     @Test
-    public void uploadSingleApkWithPipeline_withRolloutPercentage() throws Exception {
+    public void uploadingApkWithPipelineWithRolloutPercentageSucceeds() throws Exception {
         // Given a step with a `rolloutPercentage` value
         String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
                 "  rolloutPercentage: '56.789'";
 
         // When a build occurs, it should roll out to that percentage
         uploadApkWithPipelineAndAssertSuccess(
-            stepDefinition, "Setting rollout to target 56.789% of production track users"
+            stepDefinition,
+            "Setting rollout to target 56.789% of production track users",
+            "The production release track will now contain the version code(s): 42"
         );
     }
 
     @Test
-    public void uploadSingleApkWithPipeline_withRolloutPercent() throws Exception {
+    public void uploadingApkWithPipelineWithRolloutPercentSucceeds() throws Exception {
         // Given a step with a deprecated `rolloutPercent` value
         String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
                 "  rolloutPercent: 12.34";
 
         // When a build occurs, it should roll out to that percentage
         uploadApkWithPipelineAndAssertSuccess(
-            stepDefinition, "Setting rollout to target 12.34% of production track users"
+            stepDefinition,
+            "Setting rollout to target 12.34% of production track users",
+            "The production release track will now contain the version code(s): 42"
         );
     }
 
     @Test
-    public void uploadSingleApkWithPipeline_withBothRolloutFormats_usesRolloutPercentage() throws Exception {
+    public void uploadingApkWithPipelineWithBothRolloutFormatsUsesRolloutPercentage() throws Exception {
         // Given a step with both the deprecated `rolloutPercent`, and a verbose `rolloutPercentage` value
         String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
                 "  rolloutPercent: 12.3456,\n" +
@@ -316,8 +395,31 @@ public class ApkPublisherTest {
 
         // When a build occurs, it should prefer the string `rolloutPercentage` value
         uploadApkWithPipelineAndAssertSuccess(
-            stepDefinition, "Setting rollout to target 56.789% of production track users"
+            stepDefinition,
+            "Setting rollout to target 56.789% of production track users",
+            "The production release track will now contain the version code(s): 42"
         );
+    }
+
+    @Test
+    public void uploadingApkWithPipelineAsDraftSucceeds() throws Exception {
+        // Given a step with the rollout percentage set to zero
+        String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
+                "  rolloutPercentage: '0.0'";
+
+        // When a build occurs, it should upload as a draft
+        uploadApkWithPipelineAndAssertSuccess(
+            stepDefinition,
+            "New production draft release created, with the version code(s): 42"
+        );
+
+        // And we should have set draft status when updating the track
+        Track track = getRequestBodyForUrl(
+            transport, "/org.jenkins.appId/edits/the-edit-id/tracks/production", Track.class
+        );
+        TrackRelease release = track.getReleases().get(0);
+        assertEquals("draft", release.getStatus());
+        assertNull(release.getUserFraction());
     }
 
     private void uploadApkWithPipelineAndAssertSuccess(String stepDefinition, String... expectedLines) throws Exception {
@@ -336,7 +438,6 @@ public class ApkPublisherTest {
             "Uploading 1 file(s) with application ID: org.jenkins.appId",
             "APK file: " + join(Arrays.asList("build", "outputs", "apk", "app.apk"), File.separator),
             "versionCode: 42",
-            "The production release track will now contain the version code(s): 42",
             "Changes were successfully applied to Google Play"
         };
         String[] allExpectedLogLines = Stream.concat(Arrays.stream(commonLines), Arrays.stream(expectedLines))
@@ -586,6 +687,7 @@ public class ApkPublisherTest {
         ;
     }
 
+    /** Places a dummy file APK into the job's workspace under the typical Gradle output path: build/outputs/apk/ */
     private void setUpApkFile(FreeStyleProject p) throws Exception {
         FilePath workspace = j.jenkins.getWorkspaceFor(p);
         FilePath dir = workspace.child("build/outputs/apk");
@@ -594,6 +696,7 @@ public class ApkPublisherTest {
         file.touch(0);
     }
 
+    /** Places a dummy APK file into the jobs' workspace under the typical Gradle output path: build/outputs/apk/ */
     private void setUpApkFileOnSlave(FreeStyleProject p, Slave agent) throws Exception {
         FilePath workspace = agent.getWorkspaceFor(p);
         FilePath apkDir = workspace.child("build").child("outputs").child("apk");
@@ -601,6 +704,7 @@ public class ApkPublisherTest {
         apk.copyFrom(getClass().getResourceAsStream("/foo.apk"));
     }
 
+    /** Places a dummy AAB file into the job's workspace under the typical Gradle output path: build/outputs/bundle/ */
     private void setUpBundleFile(FreeStyleProject p) throws Exception {
         FilePath workspace = j.jenkins.getWorkspaceFor(p);
         FilePath dir = workspace.child("build/outputs/bundle/release");

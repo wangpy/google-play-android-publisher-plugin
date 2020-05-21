@@ -7,12 +7,14 @@ import com.cloudbees.plugins.credentials.CredentialsStore;
 import com.cloudbees.plugins.credentials.SystemCredentialsProvider;
 import com.cloudbees.plugins.credentials.domains.Domain;
 import com.google.api.client.googleapis.testing.auth.oauth2.MockGoogleCredential;
+import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.androidpublisher.AndroidPublisher;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import hudson.model.Result;
 import hudson.model.Run;
 import hudson.model.queue.QueueTaskFuture;
 import jenkins.model.ParameterizedJobMixIn;
+import junit.framework.AssertionFailedError;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.oauth.TestCredentials;
 import org.jvnet.hudson.test.JenkinsRule;
 
@@ -52,6 +54,23 @@ public class TestsHelper {
                 .setApplicationName("Jenkins-GooglePlayAndroidPublisher-tests")
                 .setSuppressAllChecks(true)
                 .build();
+    }
+
+    /**
+     * Attempts to return the body of an HTTP request that was made.
+     *
+     * @param urlSuffix Suffix of the URL whose body should be returned.
+     * @param <T> Type of the body.
+     * @return The HTTP request body as an instance of type T; throws if the request was not made.
+     */
+    public static <T> T getRequestBodyForUrl(TestHttpTransport transport, String urlSuffix, Class<T> cls) throws IOException {
+        String json = transport.getRemoteCalls().stream()
+            .filter(remoteCall -> remoteCall.url.endsWith(urlSuffix))
+            .findFirst()
+            .orElseThrow(() -> new AssertionFailedError("Expected call to URL: " + urlSuffix))
+            .request
+            .getContentAsString();
+        return JacksonFactory.getDefaultInstance().createJsonParser(json).parse(cls);
     }
 
     /**
