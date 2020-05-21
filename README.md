@@ -14,9 +14,9 @@ Enables Jenkins to manage and upload Android app files (AAB or APK) to Google Pl
    - With the option to re-use expansion files from existing APKs, e.g. for patch releases
 - Assigning apps to internal, alpha, beta or production release tracks
   - This includes a build step for moving existing versions to a different track, or updating the rollout percentage   
-    e.g. You can upload an alpha in one job, then later have another
-        job promote it to beta
+    e.g. You can upload an alpha in one job, then later have another job promote it to beta
 - Staged rollout of apps to any release track
+- Uploading files without yet rolling out, creating a draft release
 - Assigning release notes to uploaded files, for various languages
 - Changing the Jenkins build result to failed if the configuration is bad, or uploading or moving app files fails for some reason
 -  Every configuration field supports variable and [token][plugin-token-macro] expansion, allowing release notes to be dynamically generated, for example
@@ -36,7 +36,6 @@ Note that having admin access is not enough; you need the account owner.
 You can see who the account owner is under [Settings → User accounts & rights][gp-console-admin] in the Google Play developer console.
 
 ### Please note
-- Any APKs uploaded will be published by Google Play immediately; they will not be held in a draft or pending state
 - The app being uploaded must already exist in Google Play; you cannot use the API to upload brand new apps
 
 ## Setup
@@ -135,6 +134,7 @@ The following job setup process is demonstrated in this video:
    - If nothing is entered, the default is `'production'`
 7. Optionally specify a [rollout percentage][gp-docs-rollout]
    - If nothing is entered, the default is to roll out to 100% of users
+   - If 0% is entered, the given file(s) will be uploaded as a draft release, leaving any existing rollout unaffected
 8. Optionally choose "Add language" to associate release notes with the uploaded APK(s)
    - You add entries for as many or as few of your supported language as you wish, but each language must already have been added to your app, under the "Store Listing" section in the Google Play Developer Console.
 
@@ -153,6 +153,7 @@ See the inline help for more details.
 If you have already uploaded an app to the alpha track (for example), you can later use Jenkins to re-assign that version to the beta or production release track.
 
 Under the "Build" section of the job configuration, add the "Move Android apps to a different release track" build step and configure the new release track.
+By setting the rollout percentage to 0%, you have the option of creating a draft release — i.e. the app files are assigned to a new release track, but not yet made available to users.
 
 You can tell Jenkins **which** version codes should be moved by either entering the values directly, or by providing AAB or APK files, from which the plugin will read the application ID and version codes for you.
 
