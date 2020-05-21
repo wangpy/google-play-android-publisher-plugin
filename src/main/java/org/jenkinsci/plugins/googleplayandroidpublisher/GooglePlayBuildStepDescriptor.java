@@ -99,14 +99,14 @@ public abstract class GooglePlayBuildStepDescriptor<T extends BuildStep & Descri
     }
 
     @SuppressFBWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
-    public FormValidation doCheckRolloutPercent(@QueryParameter String value) {
+    public FormValidation doCheckRolloutPercentage(@QueryParameter String value) {
         value = fixEmptyAndTrim(value);
         if (value == null || value.matches(REGEX_VARIABLE)) {
             return FormValidation.ok();
         }
 
-        double pct = tryParseNumber(value.replace("%", ""), 100).doubleValue();
-        if (Double.compare(pct, 0) < 0 || Double.compare(pct, 100) > 0) {
+        double pct = tryParseNumber(value.replace("%", "").trim(), Double.NaN).doubleValue();
+        if (Double.isNaN(pct) || Double.compare(pct, 0) < 0 || Double.compare(pct, 100) > 0) {
             return FormValidation.error("Percentage value must be between 0 and 100%");
         }
         return FormValidation.ok();
@@ -116,7 +116,7 @@ public abstract class GooglePlayBuildStepDescriptor<T extends BuildStep & Descri
         return new ComboBoxModel(getConfigValues());
     }
 
-    public ComboBoxModel doFillRolloutPercentItems() {
+    public ComboBoxModel doFillRolloutPercentageItems() {
         return null;
     }
 

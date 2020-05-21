@@ -9,15 +9,16 @@ import com.cloudbees.plugins.credentials.domains.Domain;
 import com.google.api.client.googleapis.testing.auth.oauth2.MockGoogleCredential;
 import com.google.api.services.androidpublisher.AndroidPublisher;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
-import hudson.model.FreeStyleBuild;
-import hudson.model.FreeStyleProject;
 import hudson.model.Result;
+import hudson.model.Run;
 import hudson.model.queue.QueueTaskFuture;
+import jenkins.model.ParameterizedJobMixIn;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.oauth.TestCredentials;
 import org.jvnet.hudson.test.JenkinsRule;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
+
+import static org.junit.Assert.assertNotNull;
 
 public class TestsHelper {
     public static void setUpCredentials(String name) {
@@ -34,17 +35,6 @@ public class TestsHelper {
                 GoogleRobotCredentials fakeCredentials = new TestCredentials(name);
                 store.addCredentials(Domain.global(), fakeCredentials);
                 return;
-            }
-        }
-        throw new IllegalStateException("Credentials store does not exist for folder: " + folder.getFullName());
-    }
-
-    @Nonnull
-    private static CredentialsStore getFolderCredentialsStore(Folder folder) {
-        Iterable<CredentialsStore> stores = CredentialsProvider.lookupStores(folder);
-        for (CredentialsStore store : stores) {
-            if (store.getProvider() instanceof FolderCredentialsProvider && store.getContext() == folder) {
-                return store;
             }
         }
         throw new IllegalStateException("Credentials store does not exist for folder: " + folder.getFullName());
@@ -73,11 +63,10 @@ public class TestsHelper {
      */
     public static void assertLogLines(
             JenkinsRule jenkinsRule,
-            QueueTaskFuture<FreeStyleBuild> scheduledBuild,
+            QueueTaskFuture<? extends Run> scheduledBuild,
             String... lines) throws Exception {
-        FreeStyleBuild build = scheduledBuild.get();
         for (String line : lines) {
-            jenkinsRule.assertLogContains(line, build);
+            jenkinsRule.assertLogContains(line, scheduledBuild.get());
         }
     }
 
@@ -92,10 +81,11 @@ public class TestsHelper {
      */
     public static void assertResultWithLogLines(
             JenkinsRule jenkinsRule,
-            FreeStyleProject project,
+            ParameterizedJobMixIn.ParameterizedJob<?, ? extends Run> project,
             Result result,
             String... lines) throws Exception {
-        QueueTaskFuture<FreeStyleBuild> future = project.scheduleBuild2(0);
+        QueueTaskFuture<? extends Run> future = project.scheduleBuild2(0);
+        assertNotNull(future);
         jenkinsRule.assertBuildStatus(result, future);
         assertLogLines(jenkinsRule, future, lines);
     }

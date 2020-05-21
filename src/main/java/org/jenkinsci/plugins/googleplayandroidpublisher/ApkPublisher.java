@@ -1,6 +1,5 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.AbortException;
@@ -16,6 +15,8 @@ import hudson.tasks.Publisher;
 import hudson.util.ComboBoxModel;
 import hudson.util.FormValidation;
 import net.dongliu.apk.parser.exception.ParserException;
+import org.apache.commons.lang.builder.EqualsBuilder;
+import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.AppFileFormat;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.UploadFile;
@@ -40,9 +41,9 @@ import java.util.zip.ZipException;
 
 import static hudson.Util.fixEmptyAndTrim;
 import static hudson.Util.join;
+import static hudson.Util.tryParseNumber;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.OBB_FILE_REGEX;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.OBB_FILE_TYPE_MAIN;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.PERCENTAGE_FORMATTER;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.fromConfigValue;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.REGEX_LANGUAGE;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.REGEX_VARIABLE;
@@ -52,16 +53,19 @@ import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getPublisher
 /** Uploads Android application files to the Google Play Developer Console. */
 public class ApkPublisher extends GooglePlayPublisher {
 
-    @VisibleForTesting String filesPattern;
+    private String filesPattern;
     private String deobfuscationFilesPattern;
     private String expansionFilesPattern;
     private boolean usePreviousExpansionFilesIfMissing;
-    @VisibleForTesting String trackName;
-    private Double rolloutPercent;
+    private String trackName;
+    private String rolloutPercentage;
     private RecentChanges[] recentChangeList;
 
+    // This field was used before AAB support was introduced; it will be migrated to `filesPattern` for Freestyle jobs
     @Deprecated private transient String apkFilesPattern;
-    @Deprecated private transient String rolloutPercentage;
+    // This can still be used in Pipeline jobs as a convenience (i.e. defining rollout as a number instead of a string);
+    // but the `rolloutPercentage` field will take precedence, if defined
+    @Deprecated private transient Double rolloutPercent;
 
     @DataBoundConstructor
     public ApkPublisher() {
@@ -70,30 +74,34 @@ public class ApkPublisher extends GooglePlayPublisher {
 
     @SuppressWarnings("unused")
     protected Object readResolve() {
-        // Migrate from old `apkFilesPattern` to `filesPattern`
+        // Migrate Freestyle jobs from old `apkFilesPattern` field to `filesPattern`
         if (apkFilesPattern != null) {
             setFilesPattern(apkFilesPattern);
+            apkFilesPattern = null;
         }
 
-        // Migrate from `rolloutPercentage` string to numeric `rolloutPercent`
-        if (rolloutPercentage != null) {
-            setRolloutPercentage(rolloutPercentage);
+        // Migrate Freestyle jobs back from `rolloutPercent` number to `rolloutPercentage` string
+        if (rolloutPercent != null) {
+            // Call the old setter, which updates `rolloutPercentage` if necessary
+            setRolloutPercent(rolloutPercent);
+            rolloutPercent = null;
         }
 
         return this;
     }
 
-    // Required for Pipeline builds still using `apkFilesPattern`
+    // Required for Pipeline builds using the deprecated `apkFilesPattern` option
     @Deprecated
     @DataBoundSetter
     public void setApkFilesPattern(String value) {
         setFilesPattern(value);
     }
 
-    // Required for the Snippet Generator, since the field has a @DataBoundSetter
+    // Since the `apkFilesPattern` field has a @DataBoundSetter, this method needs to exist in order
+    // for the Snippet Generator to work for this publisher, even although this method is otherwise unused
     @Deprecated
     public String getApkFilesPattern() {
-        return getFilesPattern();
+        return null;
     }
 
     @DataBoundSetter
@@ -106,37 +114,53 @@ public class ApkPublisher extends GooglePlayPublisher {
         return fixEmptyAndTrim(filesPattern) == null ? DescriptorImpl.defaultFilesPattern : filesPattern;
     }
 
-    // Required for Pipeline builds still using `rolloutPercentage`
-    @Deprecated
     @DataBoundSetter
-    public void setRolloutPercentage(String percentage) {
-        String input = percentage.replace("%", "").trim();
-        double value;
-        try {
-            value = Double.parseDouble(input);
-        } catch (NumberFormatException ignore) {
-            value = DescriptorImpl.defaultRolloutPercent;
+    @SuppressWarnings("ConstantConditions")
+    @SuppressFBWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
+    public void setRolloutPercentage(@Nonnull String percentage) {
+        // If the value is an expression, just store it directly
+        if (percentage.matches(REGEX_VARIABLE)) {
+            this.rolloutPercentage = percentage;
+            return;
         }
-        setRolloutPercent(value);
+
+        // Otherwise try and parse it as a number
+        String pctStr = percentage.replace("%", "").trim();
+        Number pct = tryParseNumber(pctStr, Double.NaN);
+
+        // If it can't be parsed, save it, and we'll show an error at build time
+        if (Double.isNaN(pct.doubleValue())) {
+            this.rolloutPercentage = percentage;
+            return;
+        }
+        this.rolloutPercentage = pct.intValue() == DescriptorImpl.defaultRolloutPercent ? null : pctStr;
     }
 
-    // Required for the Snippet Generator, since the field has a @DataBoundSetter
     @Nonnull
-    @Deprecated
     public String getRolloutPercentage() {
-        double value = rolloutPercent == null ? DescriptorImpl.defaultRolloutPercent : rolloutPercent;
-        return String.valueOf(value);
+        if (fixEmptyAndTrim(rolloutPercentage) == null) {
+            return String.valueOf(DescriptorImpl.defaultRolloutPercent);
+        }
+        return rolloutPercentage;
     }
 
+    // Required for Pipeline builds using the deprecated `rolloutPercent` option
+    @Deprecated
     @DataBoundSetter
     public void setRolloutPercent(Double percent) {
-        this.rolloutPercent = (percent == null || percent.intValue() == DescriptorImpl.defaultRolloutPercent) ? null : percent;
+        // If a job somehow has both `rolloutPercent` and `rolloutPercentage` defined,
+        // let the latter, non-deprecated field take precedence, i.e. don't overwrite it
+        if (rolloutPercentage != null || percent == null) {
+            return;
+        }
+        setRolloutPercentage(percent.toString());
     }
 
-    @Nonnull
-    @SuppressFBWarnings("BX_UNBOXING_IMMEDIATELY_REBOXED")
+    // Since the `rolloutPercent` field has a @DataBoundSetter, this method needs to exist in order
+    // for the Snippet Generator to work for this publisher, even although this method is otherwise unused
+    @Deprecated
     public Double getRolloutPercent() {
-        return rolloutPercent == null ? DescriptorImpl.defaultRolloutPercent : rolloutPercent;
+        return null;
     }
 
     @DataBoundSetter
@@ -211,6 +235,19 @@ public class ApkPublisher extends GooglePlayPublisher {
         return expand(getExpansionFilesPattern());
     }
 
+    private String getExpandedRolloutPercentageString() throws IOException, InterruptedException {
+        return expand(getRolloutPercentage());
+    }
+
+    private double getExpandedRolloutPercentage() throws IOException, InterruptedException {
+        try {
+            String value = getExpandedRolloutPercentageString().replace("%", "").trim();
+            return Double.parseDouble(value);
+        } catch (NumberFormatException e) {
+            return Double.NaN;
+        }
+    }
+
     private RecentChanges[] getExpandedRecentChangesList() throws IOException, InterruptedException {
         if (recentChangeList == null) {
             return null;
@@ -240,9 +277,9 @@ public class ApkPublisher extends GooglePlayPublisher {
             errors.add(String.format("'%s' is not a valid release track", trackName));
         } else {
             // Check for valid rollout percentage
-            double pct = getRolloutPercent();
-            if (Double.compare(pct, 0) < 0 || Double.compare(pct, 100) > 0) {
-                errors.add(String.format("%s%% is not a valid rollout percentage", PERCENTAGE_FORMATTER.format(pct)));
+            double pct = getExpandedRolloutPercentage();
+            if (Double.isNaN(pct) || Double.compare(pct, 0) < 0 || Double.compare(pct, 100) > 0) {
+                errors.add(String.format("'%s' is not a valid rollout percentage", getExpandedRolloutPercentageString()));
             }
         }
 
@@ -351,7 +388,7 @@ public class ApkPublisher extends GooglePlayPublisher {
             List<String> relativeMappingPaths = workspace.act(new FindFilesTask(mappingFilesPattern));
             if (relativeMappingPaths.isEmpty()) {
                 logger.println(String.format("No obfuscation mapping files matching the pattern '%s' could be found; " +
-                        "no files will be uploaded", filesPattern));
+                        "no files will be uploaded", mappingFilesPattern));
                 return false;
             }
 
@@ -463,7 +500,7 @@ public class ApkPublisher extends GooglePlayPublisher {
             GoogleRobotCredentials credentials = getCredentialsHandler().getServiceAccountCredentials(run.getParent());
             return workspace.act(new ApkUploadTask(listener, credentials, applicationId, workspace, validFiles,
                     expansionFiles, usePreviousExpansionFilesIfMissing, fromConfigValue(getCanonicalTrackName()),
-                    getRolloutPercent(), getExpandedRecentChangesList()));
+                    getExpandedRolloutPercentage(), getExpandedRecentChangesList()));
         } catch (UploadException e) {
             logger.println(String.format("Upload failed: %s", getPublisherErrorMessage(e)));
             logger.println("No changes have been applied to the Google Play account");
@@ -510,6 +547,30 @@ public class ApkPublisher extends GooglePlayPublisher {
         public RecentChanges(String language, String text) {
             this.language = language;
             this.text = text;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            RecentChanges that = (RecentChanges) o;
+            return new EqualsBuilder()
+                .append(language, that.language)
+                .append(text, that.text)
+                .isEquals();
+        }
+
+        @Override
+        public int hashCode() {
+            return new HashCodeBuilder(17, 37)
+                .append(language)
+                .append(text)
+                .toHashCode();
+        }
+
+        @Override
+        public String toString() {
+            return String.format("RecentChanges[language='%s', text='%s']", language, text);
         }
 
         @Extension

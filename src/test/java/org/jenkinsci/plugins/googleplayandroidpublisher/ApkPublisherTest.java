@@ -1,23 +1,18 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
 import com.cloudbees.hudson.plugins.folder.Folder;
+import com.cloudbees.plugins.credentials.CredentialsParameterDefinition;
 import com.google.api.services.androidpublisher.AndroidPublisher;
+import com.google.jenkins.plugins.credentials.oauth.GoogleRobotPrivateKeyCredentials;
 import hudson.FilePath;
 import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
+import hudson.model.ParametersDefinitionProperty;
 import hudson.model.Result;
 import hudson.model.Slave;
+import hudson.model.StringParameterDefinition;
 import hudson.model.queue.QueueTaskFuture;
 import hudson.slaves.DumbSlave;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.util.Arrays;
-import java.util.Collections;
-
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.JenkinsUtil;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestHttpTransport;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestUtilImpl;
@@ -31,6 +26,8 @@ import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeP
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakePutBundleResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeUploadApkResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeUploadBundleResponse;
+import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
+import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -39,13 +36,22 @@ import org.junit.Test;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.WithoutJenkins;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.stream.Stream;
+
 import static hudson.Util.join;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestConstants.DEFAULT_APK;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestConstants.DEFAULT_BUNDLE;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper.setUpCredentials;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThat;
@@ -84,11 +90,43 @@ public class ApkPublisherTest {
     }
 
     @Test
+    public void configRoundtripWorks() throws Exception {
+        // Given that a few credentials have been set up
+        TestsHelper.setUpCredentials("credential-a");
+        TestsHelper.setUpCredentials("credential-b");
+        TestsHelper.setUpCredentials("credential-c");
+
+        // And we have a job configured with the APK publisher, which includes all possible configuration options
+        FreeStyleProject project = j.createFreeStyleProject();
+        ApkPublisher publisher = new ApkPublisher();
+        // Choose the second credential, so that when the config page loads, we can differentiate between the dropdown
+        // working as expected vs just appearing to work because the first credential would be selected by default
+        publisher.setGoogleCredentialsId("credential-b");
+        publisher.setFilesPattern("**/builds/*.apk, *.aab");
+        publisher.setDeobfuscationFilesPattern("**/proguard/*.txt");
+        publisher.setExpansionFilesPattern("**/exp/*.obb");
+        publisher.setUsePreviousExpansionFilesIfMissing(true);
+        publisher.setTrackName("alpha");
+        publisher.setRolloutPercentage("${ROLLOUT}");
+        publisher.setRecentChangeList(new ApkPublisher.RecentChanges[] {
+            new ApkPublisher.RecentChanges("en", "Hello!"),
+            new ApkPublisher.RecentChanges("de", "Hallo!"),
+        });
+        project.getPublishersList().add(publisher);
+
+        // When we open and save the configuration page for this job
+        project = j.configRoundtrip(project);
+
+        // Then the publisher object should have been serialised and deserialised, without any changes
+        j.assertEqualDataBoundBeans(publisher, project.getPublishersList().get(0));
+    }
+
+    @Test
     public void whenApkFileMissing_buildFails() throws Exception {
         FreeStyleProject p = j.createFreeStyleProject("uploadApks");
 
         ApkPublisher publisher = new ApkPublisher();
-        publisher.trackName = "production";
+        publisher.setTrackName("production");
         p.getPublishersList().add(publisher);
 
         QueueTaskFuture<FreeStyleBuild> scheduled = p.scheduleBuild2(0);
@@ -110,8 +148,8 @@ public class ApkPublisherTest {
         FreeStyleProject p = j.createFreeStyleProject();
         ApkPublisher publisher = new ApkPublisher();
         publisher.setGoogleCredentialsId("test-credentials");
-        publisher.filesPattern = "**/*.apk";
-        publisher.trackName = "production";
+        publisher.setFilesPattern("**/*.apk");
+        publisher.setTrackName("production");
         p.getPublishersList().add(publisher);
 
         TestsHelper.setUpCredentials("test-credentials");
@@ -138,8 +176,8 @@ public class ApkPublisherTest {
 
         ApkPublisher publisher = new ApkPublisher();
         publisher.setGoogleCredentialsId("test-credentials");
-        publisher.filesPattern = "**/*.apk";
-        publisher.trackName = "production";
+        publisher.setFilesPattern("**/*.apk");
+        publisher.setTrackName("production");
 
         p.getPublishersList().add(publisher);
 
@@ -182,8 +220,8 @@ public class ApkPublisherTest {
         FreeStyleProject p = folder.createProject(FreeStyleProject.class, "some-job-in-a-folder");
         ApkPublisher publisher = new ApkPublisher();
         publisher.setGoogleCredentialsId("folder-credentials");
-        publisher.filesPattern = "**/*.apk";
-        publisher.trackName = "production";
+        publisher.setFilesPattern("**/*.apk");
+        publisher.setTrackName("production");
         p.getPublishersList().add(publisher);
         setUpApkFile(p);
 
@@ -199,6 +237,114 @@ public class ApkPublisherTest {
     }
 
     @Test
+    public void uploadingApkWithParametersSucceeds() throws Exception {
+        // Given a job with various parameters
+        FreeStyleProject p = j.createFreeStyleProject();
+
+        ParametersDefinitionProperty pdp = new ParametersDefinitionProperty(
+            new CredentialsParameterDefinition(
+                "GP_CREDENTIAL", null, "test-credentials",
+                    GoogleRobotPrivateKeyCredentials.class.getName(), true
+            ),
+            new StringParameterDefinition("APK_PATTERN", "**/app.apk"),
+            new StringParameterDefinition("TRACK_NAME", "production"),
+            new StringParameterDefinition("ROLLOUT_PCT", "12.5%")
+        );
+        p.addProperty(pdp);
+
+        // And a publisher which uses those parameters
+        ApkPublisher publisher = new ApkPublisher();
+        publisher.setGoogleCredentialsId("${GP_CREDENTIAL}");
+        publisher.setFilesPattern("${APK_PATTERN}");
+        publisher.setTrackName("${TRACK_NAME}");
+        publisher.setRolloutPercentage("${ROLLOUT_PCT}");
+        p.getPublishersList().add(publisher);
+
+        // And the prerequisites are in place
+        TestsHelper.setUpCredentials("test-credentials");
+        setUpTransportForApk();
+        setUpApkFile(p);
+
+        // When a build occurs, it should apply the default parameter values
+        TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS,
+            "- Credential:     test-credentials",
+            "Setting rollout to target 12.5% of production track users",
+            "Changes were successfully applied to Google Play"
+        );
+    }
+
+    @Test
+    public void uploadSingleApkWithPipeline_succeeds() throws Exception {
+        // Given a Pipeline with only the required parameters
+        String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials'";
+
+        uploadApkWithPipelineAndAssertSuccess(
+            stepDefinition, "Setting rollout to target 100% of production track users"
+        );
+    }
+
+    @Test
+    public void uploadSingleApkWithPipeline_withRolloutPercentage() throws Exception {
+        // Given a step with a `rolloutPercentage` value
+        String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
+                "  rolloutPercentage: '56.789'";
+
+        // When a build occurs, it should roll out to that percentage
+        uploadApkWithPipelineAndAssertSuccess(
+            stepDefinition, "Setting rollout to target 56.789% of production track users"
+        );
+    }
+
+    @Test
+    public void uploadSingleApkWithPipeline_withRolloutPercent() throws Exception {
+        // Given a step with a deprecated `rolloutPercent` value
+        String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
+                "  rolloutPercent: 12.34";
+
+        // When a build occurs, it should roll out to that percentage
+        uploadApkWithPipelineAndAssertSuccess(
+            stepDefinition, "Setting rollout to target 12.34% of production track users"
+        );
+    }
+
+    @Test
+    public void uploadSingleApkWithPipeline_withBothRolloutFormats_usesRolloutPercentage() throws Exception {
+        // Given a step with both the deprecated `rolloutPercent`, and a verbose `rolloutPercentage` value
+        String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
+                "  rolloutPercent: 12.3456,\n" +
+                "  rolloutPercentage: '56.789%'";
+
+        // When a build occurs, it should prefer the string `rolloutPercentage` value
+        uploadApkWithPipelineAndAssertSuccess(
+            stepDefinition, "Setting rollout to target 56.789% of production track users"
+        );
+    }
+
+    private void uploadApkWithPipelineAndAssertSuccess(String stepDefinition, String... expectedLines) throws Exception {
+        WorkflowJob p = j.createProject(WorkflowJob.class);
+        p.setDefinition(new CpsFlowDefinition("" +
+                "node {\n" +
+                "  writeFile text: 'this-is-a-dummy-apk', file: 'build/outputs/apk/app.apk'\n" +
+                "  " + stepDefinition + "\n" +
+                "}", true
+        ));
+
+        TestsHelper.setUpCredentials("test-credentials");
+        setUpTransportForApk();
+
+        String[] commonLines = {
+            "Uploading 1 file(s) with application ID: org.jenkins.appId",
+            "APK file: " + join(Arrays.asList("build", "outputs", "apk", "app.apk"), File.separator),
+            "versionCode: 42",
+            "The production release track will now contain the version code(s): 42",
+            "Changes were successfully applied to Google Play"
+        };
+        String[] allExpectedLogLines = Stream.concat(Arrays.stream(commonLines), Arrays.stream(expectedLines))
+                .toArray(String[]::new);
+        TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS, allExpectedLogLines);
+    }
+
+    @Test
     public void uploadingExistingBundleFails() throws Exception {
         // Given that some version codes already exist on Google Play
         setUpTransportForApk();
@@ -211,8 +357,8 @@ public class ApkPublisherTest {
         FreeStyleProject p = j.createFreeStyleProject();
         ApkPublisher publisher = new ApkPublisher();
         publisher.setGoogleCredentialsId("test-credentials");
-        publisher.filesPattern = "**/*.aab";
-        publisher.trackName = "production";
+        publisher.setFilesPattern("**/*.aab");
+        publisher.setTrackName("production");
         p.getPublishersList().add(publisher);
 
         TestsHelper.setUpCredentials("test-credentials");
@@ -229,7 +375,7 @@ public class ApkPublisherTest {
     }
 
     @Test
-    public void uploadSingleBundle_succeeds() throws Exception {
+    public void uploadBundle_succeeds() throws Exception {
         setUpTransportForBundle();
 
         FreeStyleProject p = j.createFreeStyleProject("uploadBundles");
@@ -239,8 +385,8 @@ public class ApkPublisherTest {
 
         ApkPublisher publisher = new ApkPublisher();
         publisher.setGoogleCredentialsId("test-credentials");
-        publisher.filesPattern = "**/*.aab";
-        publisher.trackName = "production";
+        publisher.setFilesPattern("**/*.aab");
+        publisher.setTrackName("production");
 
         p.getPublishersList().add(publisher);
 
@@ -278,8 +424,8 @@ public class ApkPublisherTest {
         FreeStyleProject p = j.createFreeStyleProject();
         ApkPublisher publisher = new ApkPublisher();
         publisher.setGoogleCredentialsId("test-credentials");
-        publisher.filesPattern = "**/*";
-        publisher.trackName = "production";
+        publisher.setFilesPattern("**/*");
+        publisher.setTrackName("production");
         p.getPublishersList().add(publisher);
 
         TestsHelper.setUpCredentials("test-credentials");
@@ -301,6 +447,31 @@ public class ApkPublisherTest {
             "Uploading 1 file(s) with application ID: com.example.test",
             "AAB file: " + join(Arrays.asList("build", "outputs", "bundle", "release", "bundle.aab"), File.separator),
             "The production release track will now contain the version code(s): 43"
+        );
+    }
+
+    @Test
+    public void uploadBundleWithPipeline_succeeds() throws Exception {
+        // Given a Pipeline with only the required parameters
+        WorkflowJob p = j.createProject(WorkflowJob.class);
+        p.setDefinition(new CpsFlowDefinition("" +
+                "node {\n" +
+                "  writeFile text: 'this-is-a-dummy-bundle', file: 'build/outputs/bundle/release/bundle.aab'\n" +
+                "  androidApkUpload googleCredentialsId: 'test-credentials'\n" +
+                "}", true
+        ));
+
+        TestsHelper.setUpCredentials("test-credentials");
+        setUpTransportForBundle();
+
+        // When a build occurs, it should succeed
+        TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS,
+                "Uploading 1 file(s) with application ID: org.jenkins.bundleAppId",
+                "AAB file: " + join(Arrays.asList("build", "outputs", "bundle", "release", "bundle.aab"), File.separator),
+                "versionCode: 43",
+                "Setting rollout to target 100% of production track users",
+                "The production release track will now contain the version code(s): 43",
+                "Changes were successfully applied to Google Play"
         );
     }
 
@@ -345,8 +516,8 @@ public class ApkPublisherTest {
 
         ApkPublisher publisher = new ApkPublisher();
         publisher.setGoogleCredentialsId("test-credentials");
-        publisher.filesPattern = "**/*.apk";
-        publisher.trackName = "production";
+        publisher.setFilesPattern("**/*.apk");
+        publisher.setTrackName("production");
 
         p.getPublishersList().add(publisher);
 

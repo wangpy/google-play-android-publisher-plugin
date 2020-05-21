@@ -16,19 +16,25 @@ import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeC
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeListApksResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeListBundlesResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakePostEditsResponse;
+import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
+import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.JenkinsRule;
+
+import java.util.Arrays;
+import java.util.stream.Stream;
+
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
-public class ReleaseTrackAssignmentTest {
+public class ReleaseTrackAssignmentBuilderTest {
     @Rule
     public JenkinsRule j = new JenkinsRule();
 
@@ -56,6 +62,35 @@ public class ReleaseTrackAssignmentTest {
     }
 
     @Test
+    public void configRoundtripWorks() throws Exception {
+        // Given that a few credentials have been set up
+        TestsHelper.setUpCredentials("credential-a");
+        TestsHelper.setUpCredentials("credential-b");
+        TestsHelper.setUpCredentials("credential-c");
+
+        // And we have a job configured with the builder, which includes all possible configuration options
+        FreeStyleProject project = j.createFreeStyleProject();
+
+        ReleaseTrackAssignmentBuilder builder = new ReleaseTrackAssignmentBuilder();
+        // Choose the second credential, so that when the config page loads, we can differentiate between the dropdown
+        // working as expected vs just appearing to work because the first credential would be selected by default
+        builder.setGoogleCredentialsId("credential-b");
+        builder.setFromVersionCode(false);
+        builder.setApplicationId("org.jenkins.appId");
+        builder.setVersionCodes("42");
+        builder.setFilesPattern("**/*.apk");
+        builder.setTrackName("production");
+        builder.setRolloutPercentage("5");
+        project.getBuildersList().add(builder);
+
+        // When we open and save the configuration page for this job
+        project = j.configRoundtrip(project);
+
+        // Then the publisher object should have been serialised and deserialised, without any changes
+        j.assertEqualDataBoundBeans(builder, project.getBuildersList().get(0));
+    }
+
+    @Test
     public void moveApkTrack_whenVersionCodeDoesNotExist_buildFails() throws Exception {
         transport
                 .withResponse("/edits",
@@ -78,18 +113,7 @@ public class ReleaseTrackAssignmentTest {
 
     @Test
     public void moveApkTrack_succeeds() throws Exception {
-        transport
-                .withResponse("/edits",
-                        new FakePostEditsResponse().setEditId("the-edit-id"))
-                .withResponse("/edits/the-edit-id/apks",
-                        new FakeListApksResponse().setApks(42))
-                .withResponse("/edits/the-edit-id/bundles",
-                        new FakeListBundlesResponse().setEmptyBundles())
-                .withResponse("/edits/the-edit-id/tracks/production",
-                        new FakeAssignTrackResponse().success("production", 42))
-                .withResponse("/edits/the-edit-id:commit",
-                        new FakeCommitResponse().success())
-        ;
+        setUpTransportForSuccess();
 
         FreeStyleProject p = j.createFreeStyleProject("moveReleaseTrack");
 
@@ -116,6 +140,89 @@ public class ReleaseTrackAssignmentTest {
                 "The production release track will now contain the version code(s): 42",
                 "Changes were successfully applied to Google Play"
         );
+    }
+
+    @Test
+    public void moveApkTrackWithPipeline_succeeds() throws Exception {
+        String stepDefinition =
+            "  androidApkMove googleCredentialsId: 'test-credentials',\n" +
+            "    fromVersionCode: true,\n" +
+            "    applicationId: 'org.jenkins.appId',\n" +
+            "    versionCodes: '42'";
+
+        moveApkTrackWithPipelineAndAssertSuccess(
+            stepDefinition, "Setting rollout to target 100% of production track users"
+        );
+    }
+
+    @Test
+    public void moveApkTrackWithPipeline_withRolloutPercentage() throws Exception {
+        // Given a step with a `rolloutPercentage` value
+        String stepDefinition =
+            "androidApkMove googleCredentialsId: 'test-credentials',\n" +
+            "  fromVersionCode: true,\n" +
+            "  applicationId: 'org.jenkins.appId',\n" +
+            "  versionCodes: '42',\n" +
+            "  rolloutPercentage: '56.789'";
+
+        // When a build occurs, it should roll out to that percentage
+        moveApkTrackWithPipelineAndAssertSuccess(
+            stepDefinition, "Setting rollout to target 56.789% of production track users"
+        );
+    }
+
+    @Test
+    public void moveApkTrackWithPipeline_withRolloutPercent() throws Exception {
+        // Given a step with a deprecated `rolloutPercent` value
+        String stepDefinition =
+            "androidApkMove googleCredentialsId: 'test-credentials',\n" +
+            "  fromVersionCode: true,\n" +
+            "  applicationId: 'org.jenkins.appId',\n" +
+            "  versionCodes: '42',\n" +
+            "  rolloutPercent: 12.34";
+
+        // When a build occurs, it should roll out to that percentage
+        moveApkTrackWithPipelineAndAssertSuccess(
+            stepDefinition, "Setting rollout to target 12.34% of production track users"
+        );
+    }
+
+    @Test
+    public void moveApkTrackWithPipeline_withBothRolloutFormats_usesRolloutPercentage() throws Exception {
+        // Given a step with both the deprecated `rolloutPercent`, and a verbose `rolloutPercentage` value
+        String stepDefinition =
+            "androidApkMove googleCredentialsId: 'test-credentials',\n" +
+            "  fromVersionCode: true,\n" +
+            "  applicationId: 'org.jenkins.appId',\n" +
+            "  versionCodes: '42',\n" +
+            "  rolloutPercent: 12.3456,\n" +
+            "  rolloutPercentage: '56.789%'";
+
+        // When a build occurs, it should prefer the string `rolloutPercentage` value
+        moveApkTrackWithPipelineAndAssertSuccess(
+            stepDefinition, "Setting rollout to target 56.789% of production track users"
+        );
+    }
+
+    private void moveApkTrackWithPipelineAndAssertSuccess(String stepDefinition, String... expectedLines) throws Exception {
+        WorkflowJob p = j.createProject(WorkflowJob.class);
+        p.setDefinition(new CpsFlowDefinition("" +
+            "node {\n" +
+            "  " + stepDefinition + "\n" +
+            "}", true
+        ));
+
+        TestsHelper.setUpCredentials("test-credentials");
+        setUpTransportForSuccess();
+
+        String[] commonLines = {
+            "Assigning 1 version(s) with application ID org.jenkins.appId to production release track",
+            "The production release track will now contain the version code(s): 42",
+            "Changes were successfully applied to Google Play"
+        };
+        String[] allExpectedLogLines = Stream.concat(Arrays.stream(commonLines), Arrays.stream(expectedLines))
+                .toArray(String[]::new);
+        TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS, allExpectedLogLines);
     }
 
     @Test
@@ -163,14 +270,29 @@ public class ReleaseTrackAssignmentTest {
         );
     }
 
+    private void setUpTransportForSuccess() {
+        transport
+            .withResponse("/edits",
+                    new FakePostEditsResponse().setEditId("the-edit-id"))
+            .withResponse("/edits/the-edit-id/apks",
+                    new FakeListApksResponse().setApks(42))
+            .withResponse("/edits/the-edit-id/bundles",
+                    new FakeListBundlesResponse().setEmptyBundles())
+            .withResponse("/edits/the-edit-id/tracks/production",
+                    new FakeAssignTrackResponse().success("production", 42))
+            .withResponse("/edits/the-edit-id:commit",
+                    new FakeCommitResponse().success())
+        ;
+    }
+
     private ReleaseTrackAssignmentBuilder createBuilder() throws Exception {
         ReleaseTrackAssignmentBuilder builder = new ReleaseTrackAssignmentBuilder();
         TestsHelper.setUpCredentials("test-credentials");
         builder.setGoogleCredentialsId("test-credentials");
-        builder.applicationId = "org.jenkins.appId";
-        builder.versionCodes = "42";
-        builder.rolloutPercent = 5d;
-        builder.trackName = "production";
+        builder.setApplicationId("org.jenkins.appId");
+        builder.setVersionCodes("42");
+        builder.setRolloutPercentage("5%");
+        builder.setTrackName("production");
         return builder;
     }
 }
