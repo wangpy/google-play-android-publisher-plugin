@@ -1,6 +1,6 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
-import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
+import com.cloudbees.plugins.credentials.CredentialsNameProvider;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.model.AbstractProject;
 import hudson.model.Describable;
@@ -14,6 +14,8 @@ import net.sf.json.JSONObject;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
+
+import javax.annotation.Nonnull;
 
 import static hudson.Util.fixEmptyAndTrim;
 import static hudson.Util.tryParseNumber;
@@ -34,7 +36,7 @@ public abstract class GooglePlayBuildStepDescriptor<T extends BuildStep & Descri
             return new ListBoxModel();
         }
 
-        ListBoxModel credentials = GoogleRobotCredentials.getCredentialsListBox(GooglePlayPublisher.class);
+        ListBoxModel credentials = getCredentialsListBox(item);
         if (credentials.isEmpty()) {
             credentials.add("(No Google Play account credentials have been added to Jenkins)", null);
         }
@@ -48,7 +50,7 @@ public abstract class GooglePlayBuildStepDescriptor<T extends BuildStep & Descri
         }
 
         // Complain if no credentials have been set up
-        ListBoxModel credentials = GoogleRobotCredentials.getCredentialsListBox(GooglePlayPublisher.class);
+        ListBoxModel credentials = getCredentialsListBox(item);
         if (credentials.isEmpty()) {
             return FormValidation.error("You must add at least one Google Service Account via the Credentials page");
         }
@@ -60,7 +62,7 @@ public abstract class GooglePlayBuildStepDescriptor<T extends BuildStep & Descri
 
         // Otherwise, attempt to load the given credential to see whether it has been set up correctly
         try {
-            new CredentialsHandler(value).getServiceAccountCredentials();
+            new CredentialsHandler(value).getServiceAccountCredentials(item);
         } catch (EphemeralCredentialsException e) {
             // Loading the credential (apparently) goes online, so we may get ephemeral connectivity problems
             return FormValidation.warning(e.getMessage());
@@ -70,6 +72,16 @@ public abstract class GooglePlayBuildStepDescriptor<T extends BuildStep & Descri
 
         // Everything is fine
         return FormValidation.ok();
+    }
+
+    @Nonnull
+    private static ListBoxModel getCredentialsListBox(Item item) {
+        ListBoxModel listBox = new ListBoxModel();
+        CredentialsHandler.getCredentials(item).forEach(credential -> {
+            String name = CredentialsNameProvider.name(credential);
+            listBox.add(name, credential.getId());
+        });
+        return listBox;
     }
 
     public FormValidation doCheckApkFilesPattern(@QueryParameter String value) {

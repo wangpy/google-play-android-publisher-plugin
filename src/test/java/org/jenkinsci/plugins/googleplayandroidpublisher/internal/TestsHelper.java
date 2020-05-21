@@ -1,6 +1,11 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher.internal;
 
+import com.cloudbees.hudson.plugins.folder.Folder;
+import com.cloudbees.hudson.plugins.folder.properties.FolderCredentialsProvider;
+import com.cloudbees.plugins.credentials.CredentialsProvider;
+import com.cloudbees.plugins.credentials.CredentialsStore;
 import com.cloudbees.plugins.credentials.SystemCredentialsProvider;
+import com.cloudbees.plugins.credentials.domains.Domain;
 import com.google.api.client.googleapis.testing.auth.oauth2.MockGoogleCredential;
 import com.google.api.services.androidpublisher.AndroidPublisher;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
@@ -11,14 +16,28 @@ import jenkins.model.ParameterizedJobMixIn;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.oauth.TestCredentials;
 import org.jvnet.hudson.test.JenkinsRule;
 
+import java.io.IOException;
+
 import static org.junit.Assert.assertNotNull;
 
 public class TestsHelper {
-    public static void setUpCredentials(String name) throws Exception {
+    public static void setUpCredentials(String name) {
         GoogleRobotCredentials fakeCredentials = new TestCredentials(name);
         SystemCredentialsProvider.getInstance()
                 .getCredentials()
                 .add(fakeCredentials);
+    }
+
+    public static void setUpCredentials(String name, Folder folder) throws IOException {
+        Iterable<CredentialsStore> stores = CredentialsProvider.lookupStores(folder);
+        for (CredentialsStore store : stores) {
+            if (store.getProvider() instanceof FolderCredentialsProvider && store.getContext() == folder) {
+                GoogleRobotCredentials fakeCredentials = new TestCredentials(name);
+                store.addCredentials(Domain.global(), fakeCredentials);
+                return;
+            }
+        }
+        throw new IllegalStateException("Credentials store does not exist for folder: " + folder.getFullName());
     }
 
     /**

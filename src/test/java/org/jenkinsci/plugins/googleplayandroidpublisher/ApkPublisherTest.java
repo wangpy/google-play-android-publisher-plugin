@@ -1,5 +1,6 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
+import com.cloudbees.hudson.plugins.folder.Folder;
 import com.cloudbees.plugins.credentials.CredentialsParameterDefinition;
 import com.google.api.services.androidpublisher.AndroidPublisher;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotPrivateKeyCredentials;
@@ -197,6 +198,34 @@ public class ApkPublisherTest {
         // Applying changes to Google Play...
         // Changes were successfully applied to Google Play
 
+        TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS,
+                "Uploading 1 file(s) with application ID: org.jenkins.appId",
+                "APK file: " + join(Arrays.asList("build", "outputs", "apk", "app.apk"), File.separator),
+                "versionCode: 42",
+                "Setting rollout to target 100% of production track users",
+                "The production release track will now contain the version code(s): 42",
+                "Changes were successfully applied to Google Play"
+        );
+    }
+
+    @Test
+    public void uploadSingleApk_inFolder_succeeds() throws Exception {
+        setUpTransportForApk();
+
+        // Given a folder, which has Google Play credentials attached
+        Folder folder = j.createProject(Folder.class, "some-folder");
+        TestsHelper.setUpCredentials("folder-credentials", folder);
+
+        // And given there's a job in the folder which wants to use those credentials
+        FreeStyleProject p = folder.createProject(FreeStyleProject.class, "some-job-in-a-folder");
+        ApkPublisher publisher = new ApkPublisher();
+        publisher.setGoogleCredentialsId("folder-credentials");
+        publisher.setFilesPattern("**/*.apk");
+        publisher.setTrackName("production");
+        p.getPublishersList().add(publisher);
+        setUpApkFile(p);
+
+        // When a build occurs, it should succeed
         TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS,
                 "Uploading 1 file(s) with application ID: org.jenkins.appId",
                 "APK file: " + join(Arrays.asList("build", "outputs", "apk", "app.apk"), File.separator),

@@ -2,7 +2,7 @@
 
 [![Jenkins plugin](https://img.shields.io/jenkins/plugin/v/google-play-android-publisher.svg)](https://plugins.jenkins.io/google-play-android-publisher)
 [![Jenkins plugin installs](https://img.shields.io/jenkins/plugin/i/google-play-android-publisher?color=blue)](https://plugins.jenkins.io/google-play-android-publisher)
-[![Build status](https://ci.jenkins.io/job/Plugins/job/google-play-android-publisher-plugin/job/master/badge/icon)](https://ci.jenkins.io/job/Plugins/job/google-play-android-publisher/job/master/)
+[![Build status](https://ci.jenkins.io/job/Plugins/job/google-play-android-publisher-plugin/job/master/badge/icon)](https://ci.jenkins.io/job/Plugins/job/google-play-android-publisher-plugin/job/master/)
 
 Enables Jenkins to manage and upload Android app files (AAB or APK) to Google Play.
 
