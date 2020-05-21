@@ -575,7 +575,7 @@ public class ApkPublisherTest {
                         new FakeListApksResponse().setEmptyApks())
                 .withResponse("/edits/the-edit-id/bundles",
                         new FakeListBundlesResponse().setEmptyBundles())
-                .withResponse("/edits/the-edit-id/bundles?uploadType=resumable",
+                .withResponse("/edits/the-edit-id/bundles?ackBundleInstallationWarning=true&uploadType=resumable",
                         new FakeUploadBundleResponse().willContinue())
                 .withResponse("google.local/uploading/foo/bundle",
                         new FakePutBundleResponse().success(43, "the:sha"))

@@ -111,7 +111,10 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
             FileContent fileContent = new FileContent("application/octet-stream", fileToUpload);
             final long uploadedVersionCode;
             if (fileFormat == AppFileFormat.BUNDLE) {
-                Bundle uploadedBundle = editService.bundles().upload(applicationId, editId, fileContent).execute();
+                Bundle uploadedBundle = editService.bundles().upload(applicationId, editId, fileContent)
+                        // Prevent Google Play error when uploading large bundles
+                        .setAckBundleInstallationWarning(true)
+                        .execute();
                 uploadedVersionCode = uploadedBundle.getVersionCode();
                 uploadedVersionCodes.add(uploadedVersionCode);
             } else {
