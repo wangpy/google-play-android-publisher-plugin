@@ -35,12 +35,23 @@ abstract class TrackPublisherTask<V> extends AbstractPublisherTask<V> {
                 .setTrack(track.getApiValue())
                 .setReleases(Collections.singletonList(release));
 
+        final boolean isDraft = release.getStatus().equals("draft");
+        if (!isDraft) {
+            logger.println(String.format("Setting rollout to target %s%% of %s track users",
+                    PERCENTAGE_FORMATTER.format(rolloutFraction * 100), track));
+        }
+
         // Assign the new file(s) to the desired track
-        logger.println(String.format("Setting rollout to target %s%% of %s track users",
-                        PERCENTAGE_FORMATTER.format(rolloutFraction * 100), track));
         Track updatedTrack =
                 editService.tracks().update(applicationId, editId, trackToAssign.getTrack(), trackToAssign).execute();
-        logger.println(String.format("The %s release track will now contain the version code(s): %s%n", track,
+
+        final String msgFormat;
+        if (isDraft) {
+            msgFormat = "New %s draft release created, with the version code(s): %s%n";
+        } else {
+            msgFormat = "The %s release track will now contain the version code(s): %s%n";
+        }
+        logger.println(String.format(msgFormat, track,
                 join(updatedTrack.getReleases().get(0).getVersionCodes(), ", ")));
     }
 

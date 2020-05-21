@@ -121,13 +121,25 @@ public class Util {
         return null;
     }
 
-    static TrackRelease buildRelease(List<Long> versionCodes, double userFraction, @Nullable List<LocalizedText> releaseNotes) {
-        // We need to explicitly set the fraction to null if it's not 0 < x < 1.
-        // If so, then we also mark the rollout as done, rather than in-progress:
-        // https://developers.google.com/android-publisher/api-ref/edits/tracks#resource
-        boolean hasValidFraction = (Double.compare(userFraction, 0) != 0) && (Double.compare(userFraction, 1) != 0);
-        Double fraction = hasValidFraction ? userFraction : null;
-        String status = hasValidFraction ? "inProgress" : "completed";
+    static TrackRelease buildRelease(
+        List<Long> versionCodes, double userFraction, @Nullable List<LocalizedText> releaseNotes
+    ) {
+        final String status;
+        final Double fraction;
+
+        boolean isDraftRelease = Double.compare(userFraction, 0) == 0;
+        boolean isFullRollout = Double.compare(userFraction, 1) == 0;
+
+        if (isDraftRelease) {
+            status = "draft";
+            fraction = null;
+        } else if (isFullRollout) {
+            status = "completed";
+            fraction = null;
+        } else {
+            status = "inProgress";
+            fraction = userFraction;
+        }
 
         TrackRelease release = new TrackRelease()
                 .setVersionCodes(versionCodes)
