@@ -5,13 +5,15 @@ import com.google.api.client.http.HttpHeaders;
 import com.google.api.client.http.HttpResponseException;
 import com.google.api.services.androidpublisher.model.LocalizedText;
 import com.google.api.services.androidpublisher.model.TrackRelease;
+import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestUtilImpl;
+import org.junit.Before;
+import org.junit.Test;
+
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
 import java.util.List;
-import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestUtilImpl;
-import org.junit.Before;
-import org.junit.Test;
+
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
@@ -40,13 +42,23 @@ public class UtilsTest {
     }
 
     @Test
-    public void buildRelease_withInvalidFraction_releaseIsComplete() {
+    public void buildRelease_withZeroFraction_releaseIsComplete() {
         List<Long> versionCodes = Arrays.asList(1L, 2L, 3L);
         double fraction = 0.0;
         TrackRelease track = Util.buildRelease(versionCodes, fraction, null);
 
         assertNull(track.getUserFraction());
-        assertEquals("completed", track.getStatus());
+        assertEquals("draft", track.getStatus());
+    }
+
+    @Test
+    public void buildRelease_withNonZeroFraction_releaseIsInProgress() {
+        List<Long> versionCodes = Arrays.asList(1L, 2L, 3L);
+        double fraction = 0.123;
+        TrackRelease track = Util.buildRelease(versionCodes, fraction, null);
+
+        assertEquals(0.123, track.getUserFraction(), 0.0001);
+        assertEquals("inProgress", track.getStatus());
     }
 
     @Test
