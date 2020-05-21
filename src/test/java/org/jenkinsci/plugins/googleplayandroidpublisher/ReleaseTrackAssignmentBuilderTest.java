@@ -1,6 +1,8 @@
 package org.jenkinsci.plugins.googleplayandroidpublisher;
 
 import com.google.api.services.androidpublisher.AndroidPublisher;
+import com.google.api.services.androidpublisher.model.Track;
+import com.google.api.services.androidpublisher.model.TrackRelease;
 import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
 import hudson.model.Result;
@@ -28,6 +30,9 @@ import org.jvnet.hudson.test.JenkinsRule;
 import java.util.Arrays;
 import java.util.stream.Stream;
 
+import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper.getRequestBodyForUrl;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -143,6 +148,33 @@ public class ReleaseTrackAssignmentBuilderTest {
     }
 
     @Test
+    public void movingApkTrackAsDraftSucceeds() throws Exception {
+        // Given a job, configured to upload as a draft
+        FreeStyleProject p = j.createFreeStyleProject();
+        ReleaseTrackAssignmentBuilder builder = createBuilder();
+        builder.setRolloutPercentage("0%");
+        p.getBuildersList().add(builder);
+
+        // And the prerequisites are in place
+        TestsHelper.setUpCredentials("test-credentials");
+        setUpTransportForSuccess();
+
+        // When a build occurs, it should create the release in the target track as a draft
+        TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS,
+            "New production draft release created, with the version code(s): 42",
+            "Changes were successfully applied to Google Play"
+        );
+
+        // And we should have set draft status when updating the track
+        Track track = getRequestBodyForUrl(
+            transport, "/org.jenkins.appId/edits/the-edit-id/tracks/production", Track.class
+        );
+        TrackRelease release = track.getReleases().get(0);
+        assertEquals("draft", release.getStatus());
+        assertNull(release.getUserFraction());
+    }
+
+    @Test
     public void moveApkTrackWithPipeline_succeeds() throws Exception {
         String stepDefinition =
             "  androidApkMove googleCredentialsId: 'test-credentials',\n" +
@@ -204,6 +236,31 @@ public class ReleaseTrackAssignmentBuilderTest {
         );
     }
 
+    @Test
+    public void uploadingApkWithPipelineAsDraftSucceeds() throws Exception {
+        // Given a step with the rollout percentage set to zero
+        String stepDefinition =
+            "androidApkMove googleCredentialsId: 'test-credentials',\n" +
+            "  fromVersionCode: true,\n" +
+            "  applicationId: 'org.jenkins.appId',\n" +
+            "  versionCodes: '42',\n" +
+            "  rolloutPercentage: '0%'";
+
+        // When a build occurs, it should upload as a draft
+        moveApkTrackWithPipelineAndAssertSuccess(
+            stepDefinition,
+            "New production draft release created, with the version code(s): 42"
+        );
+
+        // And we should have set draft status when updating the track
+        Track track = getRequestBodyForUrl(
+            transport, "/org.jenkins.appId/edits/the-edit-id/tracks/production", Track.class
+        );
+        TrackRelease release = track.getReleases().get(0);
+        assertEquals("draft", release.getStatus());
+        assertNull(release.getUserFraction());
+    }
+
     private void moveApkTrackWithPipelineAndAssertSuccess(String stepDefinition, String... expectedLines) throws Exception {
         WorkflowJob p = j.createProject(WorkflowJob.class);
         p.setDefinition(new CpsFlowDefinition("" +
@@ -217,7 +274,6 @@ public class ReleaseTrackAssignmentBuilderTest {
 
         String[] commonLines = {
             "Assigning 1 version(s) with application ID org.jenkins.appId to production release track",
-            "The production release track will now contain the version code(s): 42",
             "Changes were successfully applied to Google Play"
         };
         String[] allExpectedLogLines = Stream.concat(Arrays.stream(commonLines), Arrays.stream(expectedLines))
