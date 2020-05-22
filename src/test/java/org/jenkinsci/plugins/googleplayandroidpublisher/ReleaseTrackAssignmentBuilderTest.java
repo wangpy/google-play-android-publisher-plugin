@@ -13,7 +13,6 @@ import org.jenkinsci.plugins.googleplayandroidpublisher.internal.AndroidUtil;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.JenkinsUtil;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestHttpTransport;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestUtilImpl;
-import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeAssignTrackResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeCommitResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeListApksResponse;
@@ -34,7 +33,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
 
+import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper.assertLogLines;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper.assertResultWithLogLines;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper.createAndroidPublisher;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper.getRequestBodyForUrl;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper.release;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper.setUpCredentials;
@@ -63,7 +64,7 @@ public class ReleaseTrackAssignmentBuilderTest {
         when(mockAndroid.getApkPackageName(any())).thenReturn("org.jenkins.appId");
 
         // Create fake AndroidPublisher client
-        AndroidPublisher androidClient = TestsHelper.createAndroidPublisher(transport);
+        AndroidPublisher androidClient = createAndroidPublisher(transport);
         when(jenkinsUtil.createPublisherClient(any(), anyString())).thenReturn(androidClient);
 
         Util.setAndroidUtil(mockAndroid);
@@ -78,9 +79,9 @@ public class ReleaseTrackAssignmentBuilderTest {
     @Test
     public void configRoundtripWorks() throws Exception {
         // Given that a few credentials have been set up
-        TestsHelper.setUpCredentials("credential-a");
-        TestsHelper.setUpCredentials("credential-b");
-        TestsHelper.setUpCredentials("credential-c");
+        setUpCredentials("credential-a");
+        setUpCredentials("credential-b");
+        setUpCredentials("credential-c");
 
         // And we have a job configured with the builder, which includes all possible configuration options
         FreeStyleProject project = j.createFreeStyleProject();
@@ -182,7 +183,7 @@ public class ReleaseTrackAssignmentBuilderTest {
         QueueTaskFuture<FreeStyleBuild> scheduled = p.scheduleBuild2(0);
         j.assertBuildStatusSuccess(scheduled);
 
-        TestsHelper.assertLogLines(j, scheduled,
+        assertLogLines(j, scheduled,
                 "Assigning 1 version(s) with application ID org.jenkins.appId to production release track",
                 "Setting rollout to target 5% of production track users",
                 "The production release track will now contain the version code(s): 42",
@@ -209,11 +210,11 @@ public class ReleaseTrackAssignmentBuilderTest {
         p.getBuildersList().add(builder);
 
         // And the prerequisites are in place
-        TestsHelper.setUpCredentials("test-credentials");
+        setUpCredentials("test-credentials");
         setUpTransportForSuccess();
 
         // When a build occurs, it should create the release in the target track as a draft
-        TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS,
+        assertResultWithLogLines(j, p, Result.SUCCESS,
             "New production draft release created, with the version code(s): 42",
             "Changes were successfully applied to Google Play"
         );
@@ -367,10 +368,10 @@ public class ReleaseTrackAssignmentBuilderTest {
             "}", true
         ));
 
-        TestsHelper.setUpCredentials("test-credentials");
+        setUpCredentials("test-credentials");
         setUpTransportForSuccess();
 
-        TestsHelper.assertResultWithLogLines(j, p, expectedResult, expectedLogLines);
+        assertResultWithLogLines(j, p, expectedResult, expectedLogLines);
     }
 
     @Test
@@ -410,7 +411,7 @@ public class ReleaseTrackAssignmentBuilderTest {
         QueueTaskFuture<FreeStyleBuild> scheduled = p.scheduleBuild2(0);
         j.assertBuildStatusSuccess(scheduled);
 
-        TestsHelper.assertLogLines(j, scheduled,
+        assertLogLines(j, scheduled,
                 "Assigning 1 version(s) with application ID org.jenkins.appId to production release track",
                 "Setting rollout to target 5% of production track users",
                 "The production release track will now contain the version code(s): 42",
@@ -442,7 +443,7 @@ public class ReleaseTrackAssignmentBuilderTest {
 
     private ReleaseTrackAssignmentBuilder createBuilder() throws Exception {
         ReleaseTrackAssignmentBuilder builder = new ReleaseTrackAssignmentBuilder();
-        TestsHelper.setUpCredentials("test-credentials");
+        setUpCredentials("test-credentials");
         builder.setGoogleCredentialsId("test-credentials");
         builder.setApplicationId("org.jenkins.appId");
         builder.setVersionCodes("42");
