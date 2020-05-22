@@ -3,6 +3,8 @@ package org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses;
 import com.google.api.services.androidpublisher.model.Track;
 import com.google.api.services.androidpublisher.model.TracksListResponse;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 /**
@@ -14,8 +16,9 @@ import java.util.List;
  */
 public class FakeListTracksResponse extends FakeHttpResponse<FakeListTracksResponse> {
     public FakeListTracksResponse setTracks(List<Track> tracks) {
+        List<Track> uniqueTracks = new ArrayList<>(new LinkedHashSet<>(tracks));
         return setSuccessData(new TracksListResponse()
                 .setKind("androidpublisher#tracksListResponse")
-                .setTracks(tracks));
+                .setTracks(uniqueTracks));
     }
 }

@@ -20,6 +20,7 @@ import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeA
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeCommitResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeListApksResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeListBundlesResponse;
+import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeListTracksResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakePostEditsResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakePutApkResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakePutBundleResponse;
@@ -41,6 +42,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.stream.Stream;
@@ -55,6 +57,7 @@ import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHel
 import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper.createAndroidPublisher;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper.getRequestBodyForUrl;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper.setUpCredentials;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper.track;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -411,6 +414,49 @@ public class ApkPublisherTest {
     }
 
     @Test
+    public void uploadingApkToCustomTrackSucceeds() throws Exception {
+        // Given a job, whose publisher wants to upload to a custom release track
+        FreeStyleProject p = j.createFreeStyleProject();
+        ApkPublisher publisher = new ApkPublisher();
+        publisher.setGoogleCredentialsId("test-credentials");
+        publisher.setTrackName("DogFood"); // case should not matter
+        p.getPublishersList().add(publisher);
+
+        // And the prerequisites are in place
+        setUpCredentials("test-credentials");
+        setUpTransportForApk("dogfood");
+        setUpApkFile(p);
+
+        // When a build occurs
+        // Then the APK should be successfully uploaded and assigned to the custom track
+        assertResultWithLogLines(j, p, Result.SUCCESS,
+            "Setting rollout to target 100% of 'dogfood' track users",
+            "The 'dogfood' release track will now contain the version code(s): 42",
+            "Changes were successfully applied to Google Play"
+        );
+    }
+
+    @Test
+    public void uploadingApkToNonExistentCustomTrackFails() throws Exception {
+        // Given a job, whose publisher wants to upload to a custom release track,
+        // But the track does not exist on the backend
+        FreeStyleProject p = j.createFreeStyleProject();
+        ApkPublisher publisher = new ApkPublisher();
+        publisher.setGoogleCredentialsId("test-credentials");
+        publisher.setTrackName("non-existent-track");
+        p.getPublishersList().add(publisher);
+
+        // And the prerequisites are in place
+        setUpCredentials("test-credentials");
+        setUpTransportForApk();
+        setUpApkFile(p);
+
+        // When a build occurs
+        // Then it should fail with a message about the missing track
+        assertResultWithLogLines(j, p, Result.FAILURE, "Release track 'non-existent-track' could not be found");
+    }
+
+    @Test
     public void uploadingApkWithPipelineSucceeds() throws Exception {
         // Given a Pipeline with only the required parameters
         String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
@@ -491,6 +537,39 @@ public class ApkPublisherTest {
         assertNull(release.getUserFraction());
     }
 
+    @Test
+    public void uploadingApkWithPipelineToCustomTrackSucceeds() throws Exception {
+        // Given a step that wants to upload to a custom release track
+        String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
+                "  trackName: 'dogfood'";
+
+        // And the backend will recognise the custom track
+        setUpTransportForApk("dogfood");
+
+        // When a build occurs
+        // Then the APK should be successfully uploaded and assigned to the custom track
+        uploadApkWithPipelineAndAssertSuccess(
+            stepDefinition,
+            "Setting rollout to target 100% of 'dogfood' track users",
+            "The 'dogfood' release track will now contain the version code(s): 42"
+        );
+    }
+
+    @Test
+    public void uploadingApkWithPipelineToNonExistentCustomTrackFails() throws Exception {
+        // Given a step that wants to upload to a custom release track
+        // But the track does not exist on the backend
+        String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
+                "  trackName: 'non-existent-track'";
+
+        // And the backend does not know about the custom track
+        setUpTransportForApk();
+
+        // When a build occurs
+        // Then it should fail with a message about the missing track
+        uploadApkWithPipelineAndAssertFailure(stepDefinition, "Release track 'non-existent-track' could not be found");
+    }
+
     private void uploadApkWithPipelineAndAssertFailure(
         String stepDefinition, String... expectedLogLines
     ) throws Exception {
@@ -523,7 +602,9 @@ public class ApkPublisherTest {
         ));
 
         setUpCredentials("test-credentials");
-        setUpTransportForApk();
+        if (transport.responses.isEmpty()) {
+            setUpTransportForApk();
+        }
 
         assertResultWithLogLines(j, p, expectedResult, expectedLogLines);
     }
@@ -734,6 +815,10 @@ public class ApkPublisherTest {
     }
 
     private void setUpTransportForApk() {
+        setUpTransportForApk("production");
+    }
+
+    private void setUpTransportForApk(String trackName) {
         transport
                 .withResponse("/edits",
                         new FakePostEditsResponse().setEditId("the-edit-id"))
@@ -741,18 +826,32 @@ public class ApkPublisherTest {
                         new FakeListApksResponse().setEmptyApks())
                 .withResponse("/edits/the-edit-id/bundles",
                         new FakeListBundlesResponse().setEmptyBundles())
+                .withResponse("/edits/the-edit-id/tracks",
+                        new FakeListTracksResponse().setTracks(
+                            new ArrayList<Track>() {{
+                                add(track("production"));
+                                add(track("beta"));
+                                add(track("alpha"));
+                                add(track("internal"));
+                                add(track(trackName));
+                            }}
+                        ))
                 .withResponse("/edits/the-edit-id/apks?uploadType=resumable",
                         new FakeUploadApkResponse().willContinue())
                 .withResponse("google.local/uploading/foo/apk",
                         new FakePutApkResponse().success(42, "the:sha"))
-                .withResponse("/edits/the-edit-id/tracks/production",
-                        new FakeAssignTrackResponse().success("production", 42))
+                .withResponse("/edits/the-edit-id/tracks/" + trackName,
+                        new FakeAssignTrackResponse().success(trackName, 42))
                 .withResponse("/edits/the-edit-id:commit",
                         new FakeCommitResponse().success())
         ;
     }
 
     private void setUpTransportForBundle() {
+        setUpTransportForBundle("production");
+    }
+
+    private void setUpTransportForBundle(String trackName) {
         transport
                 .withResponse("/edits",
                         new FakePostEditsResponse().setEditId("the-edit-id"))
@@ -760,6 +859,16 @@ public class ApkPublisherTest {
                         new FakeListApksResponse().setEmptyApks())
                 .withResponse("/edits/the-edit-id/bundles",
                         new FakeListBundlesResponse().setEmptyBundles())
+                .withResponse("/edits/the-edit-id/tracks",
+                        new FakeListTracksResponse().setTracks(
+                            new ArrayList<Track>() {{
+                                add(track("production"));
+                                add(track("beta"));
+                                add(track("alpha"));
+                                add(track("internal"));
+                                add(track(trackName));
+                            }}
+                        ))
                 .withResponse("/edits/the-edit-id/bundles?ackBundleInstallationWarning=true&uploadType=resumable",
                         new FakeUploadBundleResponse().willContinue())
                 .withResponse("google.local/uploading/foo/bundle",

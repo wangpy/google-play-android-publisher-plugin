@@ -25,7 +25,7 @@ class TrackAssignmentTask extends TrackPublisherTask<Boolean> {
 
     TrackAssignmentTask(TaskListener listener, GoogleRobotCredentials credentials, String applicationId,
                         Collection<Long> versionCodes, ReleaseTrack track, double rolloutPercentage) {
-        super(listener, credentials, applicationId, track, rolloutPercentage);
+        super(listener, credentials, applicationId, track.getApiValue(), rolloutPercentage);
         this.versionCodes = new ArrayList<>(versionCodes);
     }
 
@@ -37,7 +37,7 @@ class TrackAssignmentTask extends TrackPublisherTask<Boolean> {
 
         // Log some useful information
         logger.println(String.format("Assigning %d version(s) with application ID %s to '%s' release track",
-                versionCodes.size(), applicationId, track));
+                versionCodes.size(), applicationId, trackName));
 
         // Check that all version codes to assign actually exist already on the server
         // (We could remove this block since Google Play does this check nowadays, but its error messages are
@@ -74,7 +74,7 @@ class TrackAssignmentTask extends TrackPublisherTask<Boolean> {
 
         // Assign the version codes to the configured track
         TrackRelease release = Util.buildRelease(versionCodes, rolloutFraction, releaseNotes);
-        assignAppFilesToTrack(track, rolloutFraction, release);
+        assignAppFilesToTrack(trackName, rolloutFraction, release);
 
         // Commit the changes
         try {

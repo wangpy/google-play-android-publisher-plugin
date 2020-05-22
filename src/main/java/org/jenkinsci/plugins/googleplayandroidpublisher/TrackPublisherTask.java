@@ -12,33 +12,33 @@ import static org.jenkinsci.plugins.googleplayandroidpublisher.Constants.PERCENT
 abstract class TrackPublisherTask<V> extends AbstractPublisherTask<V> {
 
     protected final String applicationId;
-    protected final ReleaseTrack track;
+    protected String trackName;
     protected final double rolloutFraction;
 
     TrackPublisherTask(TaskListener listener, GoogleRobotCredentials credentials, String applicationId,
-                       ReleaseTrack track, double rolloutPercentage) {
+                       String trackName, double rolloutPercentage) {
         super(listener, credentials);
         this.applicationId = applicationId;
-        this.track = track;
+        this.trackName = trackName;
         this.rolloutFraction = rolloutPercentage / 100d;
     }
 
     /**
      * Assigns a release, which contains a list of version codes, to a release track.
      *
-     * @param track The track to which the version codes should be assigned.
+     * @param trackName The track to which the version codes should be assigned.
      * @param rolloutFraction The rollout fraction, if track is a staged rollout.
      */
-    void assignAppFilesToTrack(ReleaseTrack track, double rolloutFraction, TrackRelease release) throws IOException {
+    void assignAppFilesToTrack(String trackName, double rolloutFraction, TrackRelease release) throws IOException {
         // Prepare to assign the release to the desired track
         final Track trackToAssign = new Track()
-                .setTrack(track.getApiValue())
+                .setTrack(trackName)
                 .setReleases(Collections.singletonList(release));
 
         final boolean isDraft = release.getStatus().equals("draft");
         if (!isDraft) {
             logger.println(String.format("Setting rollout to target %s%% of '%s' track users",
-                    PERCENTAGE_FORMATTER.format(rolloutFraction * 100), track));
+                    PERCENTAGE_FORMATTER.format(rolloutFraction * 100), trackName));
         }
 
         // Assign the new file(s) to the desired track
@@ -51,7 +51,7 @@ abstract class TrackPublisherTask<V> extends AbstractPublisherTask<V> {
         } else {
             msgFormat = "The '%s' release track will now contain the version code(s): %s%n";
         }
-        logger.println(String.format(msgFormat, track,
+        logger.println(String.format(msgFormat, trackName,
                 join(updatedTrack.getReleases().get(0).getVersionCodes(), ", ")));
     }
 
