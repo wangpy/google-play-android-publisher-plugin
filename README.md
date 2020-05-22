@@ -333,7 +333,7 @@ See [CHANGELOG.md][changelog].
 [gp-docs-expansions]:https://developer.android.com/google/play/expansion-files.html
 [gp-docs-rollout]:https://support.google.com/googleplay/android-developer/answer/6346149
 [gp-support-form]:https://support.google.com/googleplay/android-developer/contact/publishing?extra.IssueType=submitting&hl=en&ec=publish&cfsi=publish_cf&cfnti=escalationflow.email&cft=3&rd=1
-[issues-existing]:https://issues.jenkins-ci.org/issues/?jql=project%20%3D%20JENKINS%20AND%20status%20in%20(Open%2C%20%22In%20Progress%22%2C%20Reopened)%20AND%20component%20%3D%20google-play-android-publisher-plugin
+[issues-existing]:https://issues.jenkins-ci.org/issues/?jql=project%20%3D%20JENKINS%20AND%20component%20%3D%20google-play-android-publisher-plugin%20AND%20status%20NOT%20IN(Closed%2C%20Resolved)%20ORDER%20BY%20updated%20DESC
 [issues-report]:http://jenkins.io/redirect/report-an-issue
 [jenkins-behind-proxy]:https://wiki.jenkins.io/display/JENKINS/JenkinsBehindProxy#JenkinsBehindProxy-HowJenkinshandlesProxyServers
 [lts-changelog]:https://jenkins.io/changelog-stable#v2.138.4
