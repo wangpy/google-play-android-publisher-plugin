@@ -16,7 +16,6 @@ import hudson.slaves.DumbSlave;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.JenkinsUtil;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestHttpTransport;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestUtilImpl;
-import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeAssignTrackResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeCommitResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeListApksResponse;
@@ -83,7 +82,7 @@ public class ApkPublisherTest {
 
         // Create fake AndroidPublisher client
         transport = new TestHttpTransport();
-        AndroidPublisher androidClient = TestsHelper.createAndroidPublisher(transport);
+        AndroidPublisher androidClient = createAndroidPublisher(transport);
         when(jenkinsUtil.createPublisherClient(any(), anyString())).thenReturn(androidClient);
     }
 
@@ -97,9 +96,9 @@ public class ApkPublisherTest {
     @Test
     public void configRoundtripWorks() throws Exception {
         // Given that a few credentials have been set up
-        TestsHelper.setUpCredentials("credential-a");
-        TestsHelper.setUpCredentials("credential-b");
-        TestsHelper.setUpCredentials("credential-c");
+        setUpCredentials("credential-a");
+        setUpCredentials("credential-b");
+        setUpCredentials("credential-c");
 
         // And we have a job configured with the APK publisher, which includes all possible configuration options
         FreeStyleProject project = j.createFreeStyleProject();
@@ -200,11 +199,11 @@ public class ApkPublisherTest {
         publisher.setTrackName("production");
         p.getPublishersList().add(publisher);
 
-        TestsHelper.setUpCredentials("test-credentials");
+        setUpCredentials("test-credentials");
         setUpApkFile(p);
 
         // When a build occurs, it should fail as the APK file already exists
-        TestsHelper.assertResultWithLogLines(j, p, Result.FAILURE,
+        assertResultWithLogLines(j, p, Result.FAILURE,
                 "Uploading 1 file(s) with application ID: org.jenkins.appId",
                 "APK file: " + join(Arrays.asList("build", "outputs", "apk", "app.apk"), File.separator),
                 "versionCode: 42",
@@ -219,7 +218,7 @@ public class ApkPublisherTest {
 
         FreeStyleProject p = j.createFreeStyleProject("uploadApks");
 
-        TestsHelper.setUpCredentials("test-credentials");
+        setUpCredentials("test-credentials");
         setUpApkFile(p);
 
         ApkPublisher publisher = new ApkPublisher();
@@ -246,7 +245,7 @@ public class ApkPublisherTest {
         // Applying changes to Google Play...
         // Changes were successfully applied to Google Play
 
-        TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS,
+        assertResultWithLogLines(j, p, Result.SUCCESS,
                 "Uploading 1 file(s) with application ID: org.jenkins.appId",
                 "APK file: " + join(Arrays.asList("build", "outputs", "apk", "app.apk"), File.separator),
                 "versionCode: 42",
@@ -293,7 +292,7 @@ public class ApkPublisherTest {
 
         // Given a folder, which has Google Play credentials attached
         Folder folder = j.createProject(Folder.class, "some-folder");
-        TestsHelper.setUpCredentials("folder-credentials", folder);
+        setUpCredentials("folder-credentials", folder);
 
         // And given there's a job in the folder which wants to use those credentials
         FreeStyleProject p = folder.createProject(FreeStyleProject.class, "some-job-in-a-folder");
@@ -305,7 +304,7 @@ public class ApkPublisherTest {
         setUpApkFile(p);
 
         // When a build occurs, it should succeed
-        TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS,
+        assertResultWithLogLines(j, p, Result.SUCCESS,
                 "Uploading 1 file(s) with application ID: org.jenkins.appId",
                 "APK file: " + join(Arrays.asList("build", "outputs", "apk", "app.apk"), File.separator),
                 "versionCode: 42",
@@ -340,12 +339,12 @@ public class ApkPublisherTest {
         p.getPublishersList().add(publisher);
 
         // And the prerequisites are in place
-        TestsHelper.setUpCredentials("test-credentials");
+        setUpCredentials("test-credentials");
         setUpTransportForApk();
         setUpApkFile(p);
 
         // When a build occurs, it should apply the default parameter values
-        TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS,
+        assertResultWithLogLines(j, p, Result.SUCCESS,
             "- Credential:     test-credentials",
             "Setting rollout to target 12.5% of production track users",
             "Changes were successfully applied to Google Play"
@@ -372,12 +371,12 @@ public class ApkPublisherTest {
         p.getPublishersList().add(publisher);
 
         // And the prerequisites are in place
-        TestsHelper.setUpCredentials("test-credentials");
+        setUpCredentials("test-credentials");
         setUpTransportForApk();
         setUpApkFile(p);
 
         // When a build occurs, it should upload as a draft
-        TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS,
+        assertResultWithLogLines(j, p, Result.SUCCESS,
             "New production draft release created, with the version code(s): 42",
             "Changes were successfully applied to Google Play"
         );
@@ -546,11 +545,11 @@ public class ApkPublisherTest {
         publisher.setTrackName("production");
         p.getPublishersList().add(publisher);
 
-        TestsHelper.setUpCredentials("test-credentials");
+        setUpCredentials("test-credentials");
         setUpBundleFile(p);
 
         // When a build occurs, it should fail as the bundle file already exists
-        TestsHelper.assertResultWithLogLines(j, p, Result.FAILURE,
+        assertResultWithLogLines(j, p, Result.FAILURE,
                 "Uploading 1 file(s) with application ID: org.jenkins.bundleAppId",
                 "AAB file: " + join(Arrays.asList("build", "outputs", "bundle", "release", "bundle.aab"), File.separator),
                 "versionCode: 43",
@@ -565,7 +564,7 @@ public class ApkPublisherTest {
 
         FreeStyleProject p = j.createFreeStyleProject("uploadBundles");
 
-        TestsHelper.setUpCredentials("test-credentials");
+        setUpCredentials("test-credentials");
         setUpBundleFile(p);
 
         ApkPublisher publisher = new ApkPublisher();
@@ -592,7 +591,7 @@ public class ApkPublisherTest {
         // Applying changes to Google Play...
         // Changes were successfully applied to Google Play
 
-        TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS,
+        assertResultWithLogLines(j, p, Result.SUCCESS,
                 "Uploading 1 file(s) with application ID: org.jenkins.bundleAppId",
                 "AAB file: " + join(Arrays.asList("build", "outputs", "bundle", "release", "bundle.aab"), File.separator),
                 "versionCode: 43",
@@ -613,7 +612,7 @@ public class ApkPublisherTest {
         publisher.setTrackName("production");
         p.getPublishersList().add(publisher);
 
-        TestsHelper.setUpCredentials("test-credentials");
+        setUpCredentials("test-credentials");
         setUpTransportForBundle();
 
         // And there are both AAB and APK files in the workspace
@@ -627,7 +626,7 @@ public class ApkPublisherTest {
 
         // When a build occurs, then we should see a warning about multiple files
         // And the AAB upload should succeed, without uploading the APK
-        TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS,
+        assertResultWithLogLines(j, p, Result.SUCCESS,
             "Both AAB and APK files were found; only the AAB files will be uploaded",
             "Uploading 1 file(s) with application ID: com.example.test",
             "AAB file: " + join(Arrays.asList("build", "outputs", "bundle", "release", "bundle.aab"), File.separator),
@@ -647,11 +646,11 @@ public class ApkPublisherTest {
                 "}", true
         ));
 
-        TestsHelper.setUpCredentials("test-credentials");
+        setUpCredentials("test-credentials");
         setUpTransportForBundle();
 
         // When a build occurs, it should succeed
-        TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS,
+        assertResultWithLogLines(j, p, Result.SUCCESS,
                 "Uploading 1 file(s) with application ID: org.jenkins.bundleAppId",
                 "AAB file: " + join(Arrays.asList("build", "outputs", "bundle", "release", "bundle.aab"), File.separator),
                 "versionCode: 43",
@@ -697,7 +696,7 @@ public class ApkPublisherTest {
         FreeStyleProject p = j.createFreeStyleProject("uploadApks");
         p.setAssignedNode(agent);
 
-        TestsHelper.setUpCredentials("test-credentials");
+        setUpCredentials("test-credentials");
         setUpApkFileOnSlave(p, agent);
 
         ApkPublisher publisher = new ApkPublisher();
@@ -724,7 +723,7 @@ public class ApkPublisherTest {
         // Applying changes to Google Play...
         // Changes were successfully applied to Google Play
 
-        TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS,
+        assertResultWithLogLines(j, p, Result.SUCCESS,
                 "Uploading 1 file(s) with application ID: org.jenkins.appId",
                 "APK file: " + join(Arrays.asList("build", "outputs", "apk", "app.apk"), File.separator),
                 "versionCode: 42",
