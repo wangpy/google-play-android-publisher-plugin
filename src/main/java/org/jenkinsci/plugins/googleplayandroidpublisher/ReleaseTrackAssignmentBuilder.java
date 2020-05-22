@@ -240,7 +240,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
         final String trackName = getCanonicalTrackName();
         final ReleaseTrack track = fromConfigValue(trackName);
         if (trackName == null) {
-            errors.add("Release track was not specified");
+            errors.add("Release track was not specified; this is now a mandatory parameter");
         } else if (track == null) {
             errors.add(String.format("'%s' is not a valid release track", trackName));
         } else {
