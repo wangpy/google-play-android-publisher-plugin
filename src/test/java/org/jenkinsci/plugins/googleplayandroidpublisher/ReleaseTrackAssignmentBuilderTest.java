@@ -171,9 +171,9 @@ public class ReleaseTrackAssignmentBuilderTest {
         // Authenticating to Google Play API...
         // - Credential:     test-credentials
         // - Application ID: org.jenkins.appId
-        // Assigning 1 version(s) with application ID org.jenkins.appId to production release track
-        // Setting rollout to target 100% of production track users
-        // The production release track will now contain the version code(s): 42
+        // Assigning 1 version(s) with application ID org.jenkins.appId to 'production' release track
+        // Setting rollout to target 100% of 'production' track users
+        // The 'production' release track will now contain the version code(s): 42
         //
         // Applying changes to Google Play...
         // Changes were successfully applied to Google Play
@@ -184,9 +184,9 @@ public class ReleaseTrackAssignmentBuilderTest {
         j.assertBuildStatusSuccess(scheduled);
 
         assertLogLines(j, scheduled,
-                "Assigning 1 version(s) with application ID org.jenkins.appId to production release track",
-                "Setting rollout to target 5% of production track users",
-                "The production release track will now contain the version code(s): 42",
+                "Assigning 1 version(s) with application ID org.jenkins.appId to 'production' release track",
+                "Setting rollout to target 5% of 'production' track users",
+                "The 'production' release track will now contain the version code(s): 42",
                 "Changes were successfully applied to Google Play"
         );
 
@@ -215,7 +215,7 @@ public class ReleaseTrackAssignmentBuilderTest {
 
         // When a build occurs, it should create the release in the target track as a draft
         assertResultWithLogLines(j, p, Result.SUCCESS,
-            "New production draft release created, with the version code(s): 42",
+            "New 'production' draft release created, with the version code(s): 42",
             "Changes were successfully applied to Google Play"
         );
 
@@ -258,7 +258,7 @@ public class ReleaseTrackAssignmentBuilderTest {
             "    versionCodes: '42'";
 
         moveApkTrackWithPipelineAndAssertSuccess(
-            stepDefinition, "Setting rollout to target 100% of production track users"
+            stepDefinition, "Setting rollout to target 100% of 'production' track users"
         );
     }
 
@@ -275,7 +275,7 @@ public class ReleaseTrackAssignmentBuilderTest {
 
         // When a build occurs, it should roll out to that percentage
         moveApkTrackWithPipelineAndAssertSuccess(
-            stepDefinition, "Setting rollout to target 56.789% of production track users"
+            stepDefinition, "Setting rollout to target 56.789% of 'production' track users"
         );
     }
 
@@ -292,7 +292,7 @@ public class ReleaseTrackAssignmentBuilderTest {
 
         // When a build occurs, it should roll out to that percentage
         moveApkTrackWithPipelineAndAssertSuccess(
-            stepDefinition, "Setting rollout to target 12.34% of production track users"
+            stepDefinition, "Setting rollout to target 12.34% of 'production' track users"
         );
     }
 
@@ -310,7 +310,7 @@ public class ReleaseTrackAssignmentBuilderTest {
 
         // When a build occurs, it should prefer the string `rolloutPercentage` value
         moveApkTrackWithPipelineAndAssertSuccess(
-            stepDefinition, "Setting rollout to target 56.789% of production track users"
+            stepDefinition, "Setting rollout to target 56.789% of 'production' track users"
         );
     }
 
@@ -328,7 +328,7 @@ public class ReleaseTrackAssignmentBuilderTest {
         // When a build occurs, it should upload as a draft
         moveApkTrackWithPipelineAndAssertSuccess(
             stepDefinition,
-            "New production draft release created, with the version code(s): 42"
+            "New 'production' draft release created, with the version code(s): 42"
         );
 
         // And we should have set draft status when updating the track
@@ -350,7 +350,7 @@ public class ReleaseTrackAssignmentBuilderTest {
         String stepDefinition, String... expectedLogLines
     ) throws Exception {
         String[] commonLogLines = {
-            "Assigning 1 version(s) with application ID org.jenkins.appId to production release track",
+            "Assigning 1 version(s) with application ID org.jenkins.appId to 'production' release track",
             "Changes were successfully applied to Google Play"
         };
         String[] allExpectedLogLines = Stream.concat(Arrays.stream(commonLogLines), Arrays.stream(expectedLogLines))
@@ -399,9 +399,9 @@ public class ReleaseTrackAssignmentBuilderTest {
         // Authenticating to Google Play API...
         // - Credential:     test-credentials
         // - Application ID: org.jenkins.appId
-        // Assigning 1 version(s) with application ID org.jenkins.appId to production release track
-        // Setting rollout to target 100% of production track users
-        // The production release track will now contain the version code(s): 42
+        // Assigning 1 version(s) with application ID org.jenkins.appId to 'production' release track
+        // Setting rollout to target 100% of 'production' track users
+        // The 'production' release track will now contain the version code(s): 42
         //
         // Applying changes to Google Play...
         // Changes were successfully applied to Google Play
@@ -412,9 +412,9 @@ public class ReleaseTrackAssignmentBuilderTest {
         j.assertBuildStatusSuccess(scheduled);
 
         assertLogLines(j, scheduled,
-                "Assigning 1 version(s) with application ID org.jenkins.appId to production release track",
-                "Setting rollout to target 5% of production track users",
-                "The production release track will now contain the version code(s): 42",
+                "Assigning 1 version(s) with application ID org.jenkins.appId to 'production' release track",
+                "Setting rollout to target 5% of 'production' track users",
+                "The 'production' release track will now contain the version code(s): 42",
                 "Changes were successfully applied to Google Play"
         );
     }

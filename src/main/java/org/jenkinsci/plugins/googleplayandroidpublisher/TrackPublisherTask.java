@@ -37,7 +37,7 @@ abstract class TrackPublisherTask<V> extends AbstractPublisherTask<V> {
 
         final boolean isDraft = release.getStatus().equals("draft");
         if (!isDraft) {
-            logger.println(String.format("Setting rollout to target %s%% of %s track users",
+            logger.println(String.format("Setting rollout to target %s%% of '%s' track users",
                     PERCENTAGE_FORMATTER.format(rolloutFraction * 100), track));
         }
 
@@ -47,9 +47,9 @@ abstract class TrackPublisherTask<V> extends AbstractPublisherTask<V> {
 
         final String msgFormat;
         if (isDraft) {
-            msgFormat = "New %s draft release created, with the version code(s): %s%n";
+            msgFormat = "New '%s' draft release created, with the version code(s): %s%n";
         } else {
-            msgFormat = "The %s release track will now contain the version code(s): %s%n";
+            msgFormat = "The '%s' release track will now contain the version code(s): %s%n";
         }
         logger.println(String.format(msgFormat, track,
                 join(updatedTrack.getReleases().get(0).getVersionCodes(), ", ")));

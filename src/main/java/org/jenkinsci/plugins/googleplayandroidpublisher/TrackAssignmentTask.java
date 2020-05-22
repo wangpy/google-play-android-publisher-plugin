@@ -36,7 +36,7 @@ class TrackAssignmentTask extends TrackPublisherTask<Boolean> {
         createEdit(applicationId);
 
         // Log some useful information
-        logger.println(String.format("Assigning %d version(s) with application ID %s to %s release track",
+        logger.println(String.format("Assigning %d version(s) with application ID %s to '%s' release track",
                 versionCodes.size(), applicationId, track));
 
         // Check that all version codes to assign actually exist already on the server
