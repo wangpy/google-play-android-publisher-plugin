@@ -9,6 +9,9 @@ import com.cloudbees.plugins.credentials.domains.Domain;
 import com.google.api.client.googleapis.testing.auth.oauth2.MockGoogleCredential;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.androidpublisher.AndroidPublisher;
+import com.google.api.services.androidpublisher.model.LocalizedText;
+import com.google.api.services.androidpublisher.model.Track;
+import com.google.api.services.androidpublisher.model.TrackRelease;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import hudson.model.Result;
 import hudson.model.Run;
@@ -19,6 +22,10 @@ import org.jenkinsci.plugins.googleplayandroidpublisher.internal.oauth.TestCrede
 import org.jvnet.hudson.test.JenkinsRule;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 import static org.junit.Assert.assertNotNull;
 
@@ -71,6 +78,24 @@ public class TestsHelper {
             .request
             .getContentAsString();
         return JacksonFactory.getDefaultInstance().createJsonParser(json).parse(cls);
+    }
+
+    public static Track track(String name, TrackRelease... releases) {
+        return new Track().setTrack(name).setReleases(Arrays.asList(releases));
+    }
+
+    public static TrackRelease release(long versionCode, String... languages) {
+        TrackRelease release = new TrackRelease();
+        release.setVersionCodes(Collections.singletonList(versionCode));
+        List<LocalizedText> releaseNotes = null;
+        if (languages.length > 0) {
+            releaseNotes = new ArrayList<>();
+            for (String lang : languages) {
+                releaseNotes.add(new LocalizedText().setLanguage(lang).setText("Notes: " + lang));
+            }
+        }
+        release.setReleaseNotes(releaseNotes);
+        return release;
     }
 
     /**

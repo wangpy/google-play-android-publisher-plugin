@@ -2,6 +2,7 @@ package org.jenkinsci.plugins.googleplayandroidpublisher;
 
 import com.google.api.services.androidpublisher.model.Apk;
 import com.google.api.services.androidpublisher.model.Bundle;
+import com.google.api.services.androidpublisher.model.LocalizedText;
 import com.google.api.services.androidpublisher.model.TrackRelease;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import hudson.model.TaskListener;
@@ -12,6 +13,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Stream;
 
 import static hudson.Util.join;
 
@@ -55,8 +59,21 @@ class TrackAssignmentTask extends TrackPublisherTask<Boolean> {
             return false;
         }
 
+        // Attempt to locate any release notes already uploaded for these files, so we can assign them to the new track
+        final Long latestVersion = versionCodes.stream().max(Long::compareTo).orElse(0L);
+        List<LocalizedText> releaseNotes = editService.tracks().list(applicationId, editId).execute().getTracks()
+            .stream()
+            .flatMap(track -> Optional.ofNullable(track.getReleases()).map(Collection::stream).orElseGet(Stream::empty))
+            .map(release -> {
+                List<Long> versionCodes = release.getVersionCodes();
+                return versionCodes != null && versionCodes.contains(latestVersion) ? release.getReleaseNotes() : null;
+            })
+            .filter(Objects::nonNull)
+            .findFirst()
+            .orElse(null);
+
         // Assign the version codes to the configured track
-        TrackRelease release = Util.buildRelease(versionCodes, rolloutFraction, null);
+        TrackRelease release = Util.buildRelease(versionCodes, rolloutFraction, releaseNotes);
         assignAppFilesToTrack(track, rolloutFraction, release);
 
         // Commit the changes
