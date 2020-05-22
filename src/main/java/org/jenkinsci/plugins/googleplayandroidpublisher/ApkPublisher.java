@@ -26,6 +26,7 @@ import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.export.Exported;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.Serializable;
@@ -105,7 +106,7 @@ public class ApkPublisher extends GooglePlayPublisher {
     }
 
     @DataBoundSetter
-    public void setFilesPattern(@Nonnull String pattern) {
+    public void setFilesPattern(String pattern) {
         this.filesPattern = DescriptorImpl.defaultFilesPattern.equals(pattern) ? null : pattern;
     }
 
@@ -164,13 +165,13 @@ public class ApkPublisher extends GooglePlayPublisher {
     }
 
     @DataBoundSetter
-    public void setTrackName(@Nonnull String trackName) {
-        this.trackName = DescriptorImpl.defaultTrackName.equalsIgnoreCase(trackName) ? null : trackName;
+    public void setTrackName(String trackName) {
+        this.trackName = trackName;
     }
 
-    @Nonnull
+    @Nullable
     public String getTrackName() {
-        return fixEmptyAndTrim(trackName) == null ? DescriptorImpl.defaultTrackName : trackName;
+        return fixEmptyAndTrim(trackName);
     }
 
     @DataBoundSetter
@@ -609,7 +610,6 @@ public class ApkPublisher extends GooglePlayPublisher {
     @Extension
     public static final class DescriptorImpl extends GooglePlayBuildStepDescriptor<Publisher> {
         public static final String defaultFilesPattern = "**/build/outputs/**/*.aab, **/build/outputs/**/*.apk";
-        public static final String defaultTrackName = ReleaseTrack.PRODUCTION.getApiValue();
         public static final int defaultRolloutPercent = 100;
 
         public String getDisplayName() {

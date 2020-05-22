@@ -22,7 +22,7 @@
   </f:entry>
 
   <f:entry title="${%Release track}" field="trackName">
-    <f:combobox style="width:15em" default="${descriptor.defaultTrackName}" />
+    <f:combobox style="width:15em" />
   </f:entry>
 
   <f:entry title="${%Rollout %}" field="rolloutPercentage"

@@ -7,13 +7,11 @@ import com.google.api.services.androidpublisher.model.Track;
 import com.google.api.services.androidpublisher.model.TrackRelease;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotPrivateKeyCredentials;
 import hudson.FilePath;
-import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
 import hudson.model.ParametersDefinitionProperty;
 import hudson.model.Result;
 import hudson.model.Slave;
 import hudson.model.StringParameterDefinition;
-import hudson.model.queue.QueueTaskFuture;
 import hudson.slaves.DumbSlave;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.JenkinsUtil;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestHttpTransport;
@@ -54,7 +52,10 @@ import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestConstants.DEFAULT_APK;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestConstants.DEFAULT_BUNDLE;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper.assertResultWithLogLines;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper.createAndroidPublisher;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper.getRequestBodyForUrl;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper.setUpCredentials;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -126,17 +127,60 @@ public class ApkPublisherTest {
     }
 
     @Test
-    public void whenApkFileMissing_buildFails() throws Exception {
-        FreeStyleProject p = j.createFreeStyleProject("uploadApks");
-
+    public void uploadingWithoutTrackNameFails() throws Exception {
+        // Given a job where the track name is not provided
+        FreeStyleProject p = j.createFreeStyleProject();
         ApkPublisher publisher = new ApkPublisher();
+        p.getPublishersList().add(publisher);
+
+        // And the prerequisites are in place
+        setUpCredentials("test-credentials");
+        setUpTransportForApk();
+        setUpApkFile(p);
+
+        // When a build occurs
+        // Then it should fail as the track name has not been specified
+        assertResultWithLogLines(j, p, Result.FAILURE, "Release track was not specified");
+    }
+
+    @Test
+    public void uploadingWithEmptyTrackNameFails() throws Exception {
+        // Given a job where the track name is empty (e.g. saved without entering a value, or an empty parameter value)
+        FreeStyleProject p = j.createFreeStyleProject();
+        ApkPublisher publisher = new ApkPublisher();
+        publisher.setGoogleCredentialsId("test-credentials");
+        publisher.setTrackName("");
+        p.getPublishersList().add(publisher);
+
+        // And the prerequisites are in place
+        setUpCredentials("test-credentials");
+        setUpTransportForApk();
+        setUpApkFile(p);
+
+        // When a build occurs
+        // Then it should fail as the track name has not been specified
+        assertResultWithLogLines(j, p, Result.FAILURE, "Release track was not specified");
+    }
+
+    @Test
+    public void uploadingWithoutMatchingFilesFails() throws Exception {
+        // Given a job with the default configuration
+        FreeStyleProject p = j.createFreeStyleProject();
+        ApkPublisher publisher = new ApkPublisher();
+        publisher.setGoogleCredentialsId("test-credentials");
         publisher.setTrackName("production");
         p.getPublishersList().add(publisher);
 
-        QueueTaskFuture<FreeStyleBuild> scheduled = p.scheduleBuild2(0);
-        j.assertBuildStatus(Result.FAILURE, scheduled);
-        String error = "No AAB or APK files matching the pattern '**/build/outputs/**/*.aab, **/build/outputs/**/*.apk' could be found";
-        j.assertLogContains(error, scheduled.get());
+        // And the prerequisites are in place
+        // But no files exist in the workspace
+        setUpCredentials("test-credentials");
+        setUpTransportForApk();
+
+        // When a build occurs
+        // Then it should fail as no matching files exist
+        assertResultWithLogLines(j, p, Result.FAILURE,
+            "No AAB or APK files matching the pattern '**/build/outputs/**/*.aab, **/build/outputs/**/*.apk' could be found"
+        );
     }
 
     @Test
@@ -221,21 +265,22 @@ public class ApkPublisherTest {
     }
 
     @Test
-    public void uploadingApkWithoutConfigurationUsesDefaults() throws Exception {
-        // Given a job, whose publisher has a credential, but no other configuration
+    public void uploadingApkWithMinimalConfigurationUsesDefaults() throws Exception {
+        // Given a job, whose publisher has a credential and track name, but no other configuration
         FreeStyleProject p = j.createFreeStyleProject();
         ApkPublisher publisher = new ApkPublisher();
         publisher.setGoogleCredentialsId("test-credentials");
+        publisher.setTrackName("production");
         p.getPublishersList().add(publisher);
 
         // And the prerequisites are in place
-        TestsHelper.setUpCredentials("test-credentials");
+        setUpCredentials("test-credentials");
         setUpTransportForApk();
         setUpApkFile(p);
 
-        // When a build occurs, it should find the APK, and upload to 100% of the production track.
-        // TODO: Probably we want to change this behaviour in future…
-        TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS,
+        // When a build occurs
+        // Then it should find the APK using the default pattern, and upload to 100% of users
+        assertResultWithLogLines(j, p, Result.SUCCESS,
             "Setting rollout to target 100% of production track users",
             "The production release track will now contain the version code(s): 42",
             "Changes were successfully applied to Google Play"
@@ -347,9 +392,30 @@ public class ApkPublisherTest {
     }
 
     @Test
+    public void uploadingApkWithPipelineWithoutTrackNameFails() throws Exception {
+        // Given a Pipeline where the track name is not provided
+        String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials'";
+
+        // When a build occurs
+        // Then it should fail as the track name has not been specified
+        uploadApkWithPipelineAndAssertFailure(stepDefinition, "Release track was not specified");
+    }
+
+    @Test
+    public void uploadingApkWithPipelineWithEmptyTrackNameFails() throws Exception {
+        // Given a Pipeline where the track name is empty (e.g. an empty parameter value)
+        String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials'";
+
+        // When a build occurs
+        // Then it should fail as the track name has not been specified
+        uploadApkWithPipelineAndAssertFailure(stepDefinition, "Release track was not specified");
+    }
+
+    @Test
     public void uploadingApkWithPipelineSucceeds() throws Exception {
         // Given a Pipeline with only the required parameters
-        String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials'";
+        String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
+                "  trackName: 'production'";
 
         uploadApkWithPipelineAndAssertSuccess(
             stepDefinition,
@@ -362,6 +428,7 @@ public class ApkPublisherTest {
     public void uploadingApkWithPipelineWithRolloutPercentageSucceeds() throws Exception {
         // Given a step with a `rolloutPercentage` value
         String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
+                "  trackName: 'production',\n" +
                 "  rolloutPercentage: '56.789'";
 
         // When a build occurs, it should roll out to that percentage
@@ -376,6 +443,7 @@ public class ApkPublisherTest {
     public void uploadingApkWithPipelineWithRolloutPercentSucceeds() throws Exception {
         // Given a step with a deprecated `rolloutPercent` value
         String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
+                "  trackName: 'production',\n" +
                 "  rolloutPercent: 12.34";
 
         // When a build occurs, it should roll out to that percentage
@@ -390,6 +458,7 @@ public class ApkPublisherTest {
     public void uploadingApkWithPipelineWithBothRolloutFormatsUsesRolloutPercentage() throws Exception {
         // Given a step with both the deprecated `rolloutPercent`, and a verbose `rolloutPercentage` value
         String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
+                "  trackName: 'production',\n" +
                 "  rolloutPercent: 12.3456,\n" +
                 "  rolloutPercentage: '56.789%'";
 
@@ -405,6 +474,7 @@ public class ApkPublisherTest {
     public void uploadingApkWithPipelineAsDraftSucceeds() throws Exception {
         // Given a step with the rollout percentage set to zero
         String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
+                "  trackName: 'production',\n" +
                 "  rolloutPercentage: '0.0'";
 
         // When a build occurs, it should upload as a draft
@@ -422,27 +492,41 @@ public class ApkPublisherTest {
         assertNull(release.getUserFraction());
     }
 
-    private void uploadApkWithPipelineAndAssertSuccess(String stepDefinition, String... expectedLines) throws Exception {
-        WorkflowJob p = j.createProject(WorkflowJob.class);
-        p.setDefinition(new CpsFlowDefinition("" +
-                "node {\n" +
-                "  writeFile text: 'this-is-a-dummy-apk', file: 'build/outputs/apk/app.apk'\n" +
-                "  " + stepDefinition + "\n" +
-                "}", true
-        ));
+    private void uploadApkWithPipelineAndAssertFailure(
+        String stepDefinition, String... expectedLogLines
+    ) throws Exception {
+        uploadApkWithPipelineAndAssertResult(stepDefinition, Result.FAILURE, expectedLogLines);
+    }
 
-        TestsHelper.setUpCredentials("test-credentials");
-        setUpTransportForApk();
-
-        String[] commonLines = {
+    private void uploadApkWithPipelineAndAssertSuccess(
+        String stepDefinition, String... expectedLogLines
+    ) throws Exception {
+        String[] commonLogLines = {
             "Uploading 1 file(s) with application ID: org.jenkins.appId",
             "APK file: " + join(Arrays.asList("build", "outputs", "apk", "app.apk"), File.separator),
             "versionCode: 42",
             "Changes were successfully applied to Google Play"
         };
-        String[] allExpectedLogLines = Stream.concat(Arrays.stream(commonLines), Arrays.stream(expectedLines))
-                .toArray(String[]::new);
-        TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS, allExpectedLogLines);
+        String[] allExpectedLogLines = Stream.concat(Arrays.stream(commonLogLines), Arrays.stream(expectedLogLines))
+            .toArray(String[]::new);
+        uploadApkWithPipelineAndAssertResult(stepDefinition, Result.SUCCESS, allExpectedLogLines);
+    }
+
+    private void uploadApkWithPipelineAndAssertResult(
+        String stepDefinition, Result expectedResult, String... expectedLogLines
+    ) throws Exception {
+        WorkflowJob p = j.createProject(WorkflowJob.class);
+        p.setDefinition(new CpsFlowDefinition("" +
+            "node {\n" +
+            "  writeFile text: 'this-is-a-dummy-apk', file: 'build/outputs/apk/app.apk'\n" +
+            "  " + stepDefinition + "\n" +
+            "}", true
+        ));
+
+        setUpCredentials("test-credentials");
+        setUpTransportForApk();
+
+        assertResultWithLogLines(j, p, expectedResult, expectedLogLines);
     }
 
     @Test
@@ -558,7 +642,8 @@ public class ApkPublisherTest {
         p.setDefinition(new CpsFlowDefinition("" +
                 "node {\n" +
                 "  writeFile text: 'this-is-a-dummy-bundle', file: 'build/outputs/bundle/release/bundle.aab'\n" +
-                "  androidApkUpload googleCredentialsId: 'test-credentials'\n" +
+                "  androidApkUpload googleCredentialsId: 'test-credentials',\n" + //
+                "                   trackName: 'production'\n" +
                 "}", true
         ));
 
