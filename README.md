@@ -188,7 +188,7 @@ The `androidApkUpload` build step lets you upload Android App Bundle (AAB) or AP
 | usePreviousExpansion<br>FilesIfMissing | boolean | `false`            | `true`                                                   | Whether to re-use the existing expansion files that have already been uploaded to Google Play for this app, if any expansion files are missing |
 | recentChangeList                   | list    | (see below)            | (empty)                                                  | List of recent change texts to associate with the upload app files                                                     |
 
-The only mandatory parameter is `googlePlayCredentialId`:
+The only mandatory parameter is `googlePlayCredentialsId`:
 ```groovy
 androidApkUpload googleCredentialsId: 'My Google Play account'
 ```
@@ -200,7 +200,7 @@ A more complete example:
 androidApkUpload googleCredentialsId: 'My Google Play account',
                  filesPattern: '**/build/outputs/**/*.aab',
                  trackName: 'beta',
-                 rolloutPercent: 25,
+                 rolloutPercentage: '25',
                  deobfuscationFilesPattern: '**/build/outputs/**/mapping.txt',
                  recentChangeList: [
                    [language: 'en-GB', text: "Please test the changes from Jenkins build ${env.BUILD_NUMBER}."],
@@ -208,7 +208,7 @@ androidApkUpload googleCredentialsId: 'My Google Play account',
                  ]
 ```
 
-To upload expansion files, reusing those from the previous upload where possible:
+To upload APKs and their expansion files, reusing those from the previous upload where possible:
 ```
 androidApkUpload googleCredentialsId: 'My Google Play account',
                  filesPattern: '**/*.apk',
@@ -227,10 +227,10 @@ The `androidApkMove` build step lets you move existing Android app versions to a
 | ~rolloutPercent~<br>(deprecated) | number  | `0.01`        | `100.0`                                                  | (deprecated, but still supported; prefer `rolloutPercentage` instead — it takes priority if both are defined)                   |
 | fromVersionCode         | boolean | `true`                 | `false`                                                  | If true, the `applicationId` and `versionCodes` parameters will be used. Otherwise the `filesPattern` parameter will be used    |
 | applicationId           | string  | `'com.example.app'`    | (none)                                                   | The application ID of the app to update                                                                                         |
-| versionCodes            | string  | `'1281, 1282, 1283'`   | (none)                                                   | The version codes to set on the given release track                                                                             |
+| versionCodes            | string  | `'1281, 1282, 1283'`   | (none)                                                   | Comma-separated list of version codes to set on the given release track                                                         |
 | filesPattern            | string  | `'release/my-app.aab'` | `'**/build/outputs/**/*.aab, **/build/outputs/**/*.apk'` | Comma-separated glob patterns or filenames pointing to the files from which the application ID and version codes should be read |
 
-The `googlePlayCredentialId` parameter is mandatory, plus either an application ID and version code(s), or AAB or APK file(s) to read this information from.
+The `googlePlayCredentialsId` parameter is mandatory, plus either an application ID and version code(s), or AAB or APK file(s) to read this information from.
 
 For example, this would move the given versions to the production track, and make them available to 100% of users:
 ```groovy
@@ -239,11 +239,11 @@ androidApkMove googleCredentialsId: 'My Google Play account',
                versionCodes: '1281, 1282, 1283'
 ```
 
-Or moving versions from alpha (for example), to 50% of beta users, reading the application ID and version codes from APK files in the workspace:
+Or moving versions from alpha (for example), to 50% of beta users, figuring out which application ID and version codes to use, based on the APK files in the workspace:
 ```groovy
 androidApkMove googleCredentialsId: 'My Google Play account',
                trackName: 'beta',
-               rolloutPercent: 50,
+               rolloutPercentage: '50',
                fromVersionCode: false,
                apkFilesPattern: '**/*.apk'
 ```
