@@ -144,15 +144,19 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
             this.rolloutPercentage = percentage;
             return;
         }
-        this.rolloutPercentage = pct.intValue() == DescriptorImpl.defaultRolloutPercent ? null : pctStr;
+        this.rolloutPercentage = pct.intValue() == DescriptorImpl.defaultRolloutPercentage ? null : pctStr;
     }
 
     @Nonnull
     public String getRolloutPercentage() {
-        if (fixEmptyAndTrim(rolloutPercentage) == null) {
-            return String.valueOf(DescriptorImpl.defaultRolloutPercent);
+        String pct = fixEmptyAndTrim(rolloutPercentage);
+        if (pct == null) {
+            pct = String.valueOf(ApkPublisher.DescriptorImpl.defaultRolloutPercentage);
         }
-        return rolloutPercentage;
+        if (!pct.endsWith("%") && !pct.matches(REGEX_VARIABLE)) {
+            pct += "%";
+        }
+        return pct;
     }
 
     // Required for Pipeline builds using the deprecated `rolloutPercent` option
@@ -369,7 +373,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
     @Extension
     public static final class DescriptorImpl extends GooglePlayBuildStepDescriptor<Builder> {
         public static final String defaultFilesPattern = "**/build/outputs/**/*.aab, **/build/outputs/**/*.apk";
-        public static final int defaultRolloutPercent = 100;
+        public static final int defaultRolloutPercentage = 100;
 
         public String getDisplayName() {
             return "Move Android apps to a different release track";
