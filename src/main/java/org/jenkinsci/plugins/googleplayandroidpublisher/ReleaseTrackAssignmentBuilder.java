@@ -16,6 +16,7 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -143,13 +144,13 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
             this.rolloutPercentage = percentage;
             return;
         }
-        this.rolloutPercentage = pct.intValue() == ApkPublisher.DescriptorImpl.defaultRolloutPercent ? null : pctStr;
+        this.rolloutPercentage = pct.intValue() == DescriptorImpl.defaultRolloutPercent ? null : pctStr;
     }
 
     @Nonnull
     public String getRolloutPercentage() {
         if (fixEmptyAndTrim(rolloutPercentage) == null) {
-            return String.valueOf(ApkPublisher.DescriptorImpl.defaultRolloutPercent);
+            return String.valueOf(DescriptorImpl.defaultRolloutPercent);
         }
         return rolloutPercentage;
     }
@@ -174,13 +175,13 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
     }
 
     @DataBoundSetter
-    public void setTrackName(@Nonnull String trackName) {
-        this.trackName = DescriptorImpl.defaultTrackName.equalsIgnoreCase(trackName) ? null : trackName;
+    public void setTrackName(String trackName) {
+        this.trackName = trackName;
     }
 
-    @Nonnull
+    @Nullable
     public String getTrackName() {
-        return fixEmptyAndTrim(trackName) == null ? DescriptorImpl.defaultTrackName : trackName;
+        return fixEmptyAndTrim(trackName);
     }
 
     private String getExpandedApplicationId() throws IOException, InterruptedException {
@@ -368,7 +369,6 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
     @Extension
     public static final class DescriptorImpl extends GooglePlayBuildStepDescriptor<Builder> {
         public static final String defaultFilesPattern = "**/build/outputs/**/*.aab, **/build/outputs/**/*.apk";
-        public static final String defaultTrackName = ReleaseTrack.PRODUCTION.getApiValue();
         public static final int defaultRolloutPercent = 100;
 
         public String getDisplayName() {

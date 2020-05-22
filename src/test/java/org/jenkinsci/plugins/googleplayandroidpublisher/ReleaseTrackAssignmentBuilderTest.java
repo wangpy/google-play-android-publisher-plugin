@@ -31,12 +31,13 @@ import org.jvnet.hudson.test.JenkinsRule;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
 
+import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper.assertResultWithLogLines;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper.getRequestBodyForUrl;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper.release;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper.setUpCredentials;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper.track;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -101,6 +102,40 @@ public class ReleaseTrackAssignmentBuilderTest {
 
         // Then the publisher object should have been serialised and deserialised, without any changes
         j.assertEqualDataBoundBeans(builder, project.getBuildersList().get(0));
+    }
+
+    @Test
+    public void movingApkTrackWithoutTrackNameFails() throws Exception {
+        // Given a job where the track name is not provided
+        FreeStyleProject p = j.createFreeStyleProject();
+        ReleaseTrackAssignmentBuilder builder = createBuilder();
+        builder.setTrackName(null);
+        p.getBuildersList().add(builder);
+
+        // And the prerequisites are in place
+        setUpCredentials("test-credentials");
+        setUpTransportForSuccess();
+
+        // When a build occurs
+        // Then it should fail as the track name has not been specified
+        assertResultWithLogLines(j, p, Result.FAILURE, "Release track was not specified");
+    }
+
+    @Test
+    public void movingApkTrackWithEmptyTrackNameFails() throws Exception {
+        // Given a job where the track name is empty (e.g. saved without entering a value, or an empty parameter value)
+        FreeStyleProject p = j.createFreeStyleProject();
+        ReleaseTrackAssignmentBuilder builder = createBuilder();
+        builder.setTrackName("");
+        p.getBuildersList().add(builder);
+
+        // And the prerequisites are in place
+        setUpCredentials("test-credentials");
+        setUpTransportForSuccess();
+
+        // When a build occurs
+        // Then it should fail as the track name has not been specified
+        assertResultWithLogLines(j, p, Result.FAILURE, "Release track was not specified");
     }
 
     @Test
@@ -193,9 +228,30 @@ public class ReleaseTrackAssignmentBuilderTest {
     }
 
     @Test
+    public void movingApkTrackWithPipelineWithoutTrackNameFails() throws Exception {
+        // Given a Pipeline where the track name is not provided
+        String stepDefinition = "androidApkMove googleCredentialsId: 'test-credentials'";
+
+        // When a build occurs
+        // Then it should fail as the track name has not been specified
+        moveApkTrackWithPipelineAndAssertFailure(stepDefinition, "Release track was not specified");
+    }
+
+    @Test
+    public void movingApkTrackWithPipelineWithEmptyTrackNameFails() throws Exception {
+        // Given a Pipeline where the track name is empty (e.g. an empty parameter value)
+        String stepDefinition = "androidApkMove googleCredentialsId: 'test-credentials'";
+
+        // When a build occurs
+        // Then it should fail as the track name has not been specified
+        moveApkTrackWithPipelineAndAssertFailure(stepDefinition, "Release track was not specified");
+    }
+
+    @Test
     public void moveApkTrackWithPipeline_succeeds() throws Exception {
         String stepDefinition =
             "  androidApkMove googleCredentialsId: 'test-credentials',\n" +
+            "    trackName: 'production',\n" +
             "    fromVersionCode: true,\n" +
             "    applicationId: 'org.jenkins.appId',\n" +
             "    versionCodes: '42'";
@@ -210,6 +266,7 @@ public class ReleaseTrackAssignmentBuilderTest {
         // Given a step with a `rolloutPercentage` value
         String stepDefinition =
             "androidApkMove googleCredentialsId: 'test-credentials',\n" +
+            "  trackName: 'production',\n" +
             "  fromVersionCode: true,\n" +
             "  applicationId: 'org.jenkins.appId',\n" +
             "  versionCodes: '42',\n" +
@@ -226,6 +283,7 @@ public class ReleaseTrackAssignmentBuilderTest {
         // Given a step with a deprecated `rolloutPercent` value
         String stepDefinition =
             "androidApkMove googleCredentialsId: 'test-credentials',\n" +
+            "  trackName: 'production',\n" +
             "  fromVersionCode: true,\n" +
             "  applicationId: 'org.jenkins.appId',\n" +
             "  versionCodes: '42',\n" +
@@ -242,6 +300,7 @@ public class ReleaseTrackAssignmentBuilderTest {
         // Given a step with both the deprecated `rolloutPercent`, and a verbose `rolloutPercentage` value
         String stepDefinition =
             "androidApkMove googleCredentialsId: 'test-credentials',\n" +
+            "  trackName: 'production',\n" +
             "  fromVersionCode: true,\n" +
             "  applicationId: 'org.jenkins.appId',\n" +
             "  versionCodes: '42',\n" +
@@ -259,6 +318,7 @@ public class ReleaseTrackAssignmentBuilderTest {
         // Given a step with the rollout percentage set to zero
         String stepDefinition =
             "androidApkMove googleCredentialsId: 'test-credentials',\n" +
+            "  trackName: 'production',\n" +
             "  fromVersionCode: true,\n" +
             "  applicationId: 'org.jenkins.appId',\n" +
             "  versionCodes: '42',\n" +
@@ -279,7 +339,27 @@ public class ReleaseTrackAssignmentBuilderTest {
         assertNull(release.getUserFraction());
     }
 
-    private void moveApkTrackWithPipelineAndAssertSuccess(String stepDefinition, String... expectedLines) throws Exception {
+    private void moveApkTrackWithPipelineAndAssertFailure(
+        String stepDefinition, String... expectedLogLines
+    ) throws Exception {
+        moveApkTrackWithPipelineAndAssertResult(stepDefinition, Result.FAILURE, expectedLogLines);
+    }
+
+    private void moveApkTrackWithPipelineAndAssertSuccess(
+        String stepDefinition, String... expectedLogLines
+    ) throws Exception {
+        String[] commonLogLines = {
+            "Assigning 1 version(s) with application ID org.jenkins.appId to production release track",
+            "Changes were successfully applied to Google Play"
+        };
+        String[] allExpectedLogLines = Stream.concat(Arrays.stream(commonLogLines), Arrays.stream(expectedLogLines))
+                .toArray(String[]::new);
+        moveApkTrackWithPipelineAndAssertResult(stepDefinition, Result.SUCCESS, allExpectedLogLines);
+    }
+
+    private void moveApkTrackWithPipelineAndAssertResult(
+        String stepDefinition, Result expectedResult, String... expectedLogLines
+    ) throws Exception {
         WorkflowJob p = j.createProject(WorkflowJob.class);
         p.setDefinition(new CpsFlowDefinition("" +
             "node {\n" +
@@ -290,13 +370,7 @@ public class ReleaseTrackAssignmentBuilderTest {
         TestsHelper.setUpCredentials("test-credentials");
         setUpTransportForSuccess();
 
-        String[] commonLines = {
-            "Assigning 1 version(s) with application ID org.jenkins.appId to production release track",
-            "Changes were successfully applied to Google Play"
-        };
-        String[] allExpectedLogLines = Stream.concat(Arrays.stream(commonLines), Arrays.stream(expectedLines))
-                .toArray(String[]::new);
-        TestsHelper.assertResultWithLogLines(j, p, Result.SUCCESS, allExpectedLogLines);
+        TestsHelper.assertResultWithLogLines(j, p, expectedResult, expectedLogLines);
     }
 
     @Test
