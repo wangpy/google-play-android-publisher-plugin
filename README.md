@@ -180,17 +180,18 @@ The `androidApkUpload` build step lets you upload Android App Bundle (AAB) or AP
 |------------------------------------|---------|------------------------|----------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
 | googlePlayCredentialsId            | string  | My Google Play account | (none)                                                   | Name of the Google Service Account credential created in Jenkins                                                       |
 | filesPattern                       | string  | `'release/my-app.aab'` | `'**/build/outputs/**/*.aab, **/build/outputs/**/*.apk'` | Comma-separated glob patterns or filenames pointing to the app files to upload, relative to the root of the workspace  |
-| trackName                          | string  | `'internal'`           | `'production'`                                           | Google Play track to which the app files should be published                                                           |
-| rolloutPercentage                  | string  | `'1.5%'`               | `'100.0'`                                                | The rollout percentage to set on the track; use 0% to create a draft release                                           |
-| ~rolloutPercent~<br>(deprecated)   | number  | `0.01`                 | `100.0`                                                  | (deprecated, but still supported; prefer `rolloutPercentage` instead — it takes priority if both are defined)          |
+| trackName                          | string  | `'internal'`           | (none)                                                   | Google Play track to which the app files should be published                                                           |
+| rolloutPercentage                  | string  | `'1.5'`                | `'100%'`                                                 | The rollout percentage to set on the track; use 0% to create a draft release                                           |
+| ~rolloutPercent~<br>(deprecated)   | number  | `1.5`                  | `100.0`                                                  | (deprecated, but still supported; prefer `rolloutPercentage` instead — it takes priority if both are defined)          |
 | deobfuscationFiles<br>Pattern      | string  | `'**/mapping.txt'`     | (none)                                                   | Comma-separated glob patterns or filenames pointing to ProGuard mapping files to associate with the uploaded app files |
 | expansionFilesPattern              | string  | `'**/*.obb'`           | (none)                                                   | Comma-separated glob patterns or filenames pointing to expansion files to associate with the uploaded APK files        |
 | usePreviousExpansion<br>FilesIfMissing | boolean | `false`            | `true`                                                   | Whether to re-use the existing expansion files that have already been uploaded to Google Play for this app, if any expansion files are missing |
 | recentChangeList                   | list    | (see below)            | (empty)                                                  | List of recent change texts to associate with the upload app files                                                     |
 
-The only mandatory parameter is `googlePlayCredentialsId`:
+The only mandatory parameters are `googlePlayCredentialsId` and `trackName`, e.g.:
 ```groovy
-androidApkUpload googleCredentialsId: 'My Google Play account'
+androidApkUpload googleCredentialsId: 'My Google Play account',
+                 trackName: 'production'
 ```
 
 This will find any app files in the workspace matching the pattern `**/build/outputs/**/*.aab, **/build/outputs/**/*.apk`, upload them to the Production track, and make them available to 100% of users.
@@ -222,19 +223,20 @@ The `androidApkMove` build step lets you move existing Android app versions to a
 | Parameter               | Type    | Example                | Default                                                  | Description                                                                                                                     |
 |-------------------------|---------|------------------------|----------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------|
 | googlePlayCredentialsId | string  | My Google Play account | (none)                                                   | Name of the Google Service Account credential created in Jenkins                                                                |
-| trackName               | string  | `'internal'`           | `'production'`                                           | Google Play release track to update with the given app versions                                                                 |
-| rolloutPercentage       | string  | `'1.5%'`               | `'100.0'`                                                | The rollout percentage to set on the given release track; use 0% to create a draft release                                      |
-| ~rolloutPercent~<br>(deprecated) | number  | `0.01`        | `100.0`                                                  | (deprecated, but still supported; prefer `rolloutPercentage` instead — it takes priority if both are defined)                   |
+| trackName               | string  | `'internal'`           | (none)                                                   | Google Play release track to update with the given app versions                                                                 |
+| rolloutPercentage       | string  | `'1.5'`                | `'100%'`                                                 | The rollout percentage to set on the given release track; use 0% to create a draft release                                      |
+| ~rolloutPercent~<br>(deprecated) | number  | `1.5`         | `100.0`                                                  | (deprecated, but still supported; prefer `rolloutPercentage` instead — it takes priority if both are defined)                   |
 | fromVersionCode         | boolean | `true`                 | `false`                                                  | If true, the `applicationId` and `versionCodes` parameters will be used. Otherwise the `filesPattern` parameter will be used    |
 | applicationId           | string  | `'com.example.app'`    | (none)                                                   | The application ID of the app to update                                                                                         |
 | versionCodes            | string  | `'1281, 1282, 1283'`   | (none)                                                   | Comma-separated list of version codes to set on the given release track                                                         |
 | filesPattern            | string  | `'release/my-app.aab'` | `'**/build/outputs/**/*.aab, **/build/outputs/**/*.apk'` | Comma-separated glob patterns or filenames pointing to the files from which the application ID and version codes should be read |
 
-The `googlePlayCredentialsId` parameter is mandatory, plus either an application ID and version code(s), or AAB or APK file(s) to read this information from.
+The `googlePlayCredentialsId` and `trackName` parameters are mandatory, plus either an application ID and version code(s), or AAB or APK file(s) to read this information from.
 
 For example, this would move the given versions to the production track, and make them available to 100% of users:
 ```groovy
 androidApkMove googleCredentialsId: 'My Google Play account',
+               trackName: 'production',
                applicationId: 'com.example.app',
                versionCodes: '1281, 1282, 1283'
 ```
@@ -248,11 +250,21 @@ androidApkMove googleCredentialsId: 'My Google Play account',
                apkFilesPattern: '**/*.apk'
 ```
 
-##### Backwards-compatibility
+#### Backwards-compatibility
+##### Version 3.0
 Version 3.0 of the plugin deprecated some parameters used by the build steps, but they will remain supported for the foreseeable future:
-- `apkFilesPattern` is deprecated — `filesPattern` should be used instead
+- For Pipeline, `apkFilesPattern` is deprecated — `filesPattern` should be used instead
 
 In addition, version 3.0 introduced the default values shown in the tables above, so those parameters can optionally now be omitted.
+
+##### Version 4.0
+**NOTE: This version makes it mandatory to configure a release track name.**
+
+In order to avoid unintentionally publishing to Production — if you forget to provide a track name, or use a string parameter for the track name but accidentally leave it empty, for example — we made the release track name a mandatory field.
+
+If you have jobs configured without a track name, or without a `trackName` for Pipeline, you now need to set the track name to `'production'` to restore the previous behaviour.
+
+Sorry for any inconvenience caused by this breaking change.
 
 ## Troubleshooting
 Error messages from the plugin (many of which come directly from the Google Play API) should generally be self-explanatory.  
@@ -288,6 +300,13 @@ This likely means your build machine is behind an HTTP proxy.
 In this case, you should set up Jenkins as documented on the [JenkinsBehindProxy][jenkins-behind-proxy] page.
 
 This plugin only makes secure (HTTPS) requests, so you need to make sure that the `-Dhttps.proxyHost=<hostname>` and `-Dhttps.proxyPort=<port>` Java properties are set when starting Jenkins. Add the appropriate http versions of those flags too, if unsecured HTTP requests also need to go through the proxy.
+
+### Release track was not specified; this is now a mandatory parameter
+Version 4.0 of the plugin made it [mandatory](#version-40) to specify the desired release track name.
+
+If you're seeing this error, it means you were relying on the previous behaviour where not specifying a release track name would default to releasing to the Production track.
+
+To fix this, update any job configurations to explicitly set the track name to `'production'`.
 
 ## Frequently asked questions
 ### What if I want to upload APKs with multiple, different application IDs (i.e. build flavours)?
