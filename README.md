@@ -12,7 +12,7 @@ Enables Jenkins to manage and upload Android app files (AAB or APK) to Google Pl
   - ProGuard `mapping.txt` files can also be associated with each app file, for deobfuscating stacktraces
 -  Uploading APK expansion (.obb) files
    - With the option to re-use expansion files from existing APKs, e.g. for patch releases
-- Assigning apps to internal, alpha, beta or production release tracks
+- Assigning apps to internal, alpha, beta, production, or custom release tracks
   - This includes a build step for moving existing versions to a different track, or updating the rollout percentage   
     e.g. You can upload an alpha in one job, then later have another job promote it to beta
 - Staged rollout of apps to any release track
@@ -86,7 +86,7 @@ To enable automated access to your Google Play account, you must create a servic
 5.  Ensure that at least the following permissions are enabled:
     - **View app information** — this is required for the plugin to function
     - **Manage production releases** — optional, if you want to upload APKs to production
-    - **Manage testing track releases** — if you want to upload APKs to alpha, beta, or internal
+    - **Manage testing track releases** — if you want to upload APKs to alpha, beta, internal, or custom test tracks
 6.  Click "Add user" (or "Send invitation", as appropriate)
 7.  You can now log out of the Google Play publisher account
 
@@ -200,7 +200,7 @@ A more complete example:
 ```groovy
 androidApkUpload googleCredentialsId: 'My Google Play account',
                  filesPattern: '**/build/outputs/**/*.aab',
-                 trackName: 'beta',
+                 trackName: 'dogfood',
                  rolloutPercentage: '25',
                  deobfuscationFilesPattern: '**/build/outputs/**/mapping.txt',
                  recentChangeList: [
