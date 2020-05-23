@@ -3,6 +3,7 @@ package org.jenkinsci.plugins.googleplayandroidpublisher;
 import com.google.api.services.androidpublisher.model.Apk;
 import com.google.api.services.androidpublisher.model.Bundle;
 import com.google.api.services.androidpublisher.model.LocalizedText;
+import com.google.api.services.androidpublisher.model.Track;
 import com.google.api.services.androidpublisher.model.TrackRelease;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import hudson.model.TaskListener;
@@ -24,8 +25,8 @@ class TrackAssignmentTask extends TrackPublisherTask<Boolean> {
     private final List<Long> versionCodes;
 
     TrackAssignmentTask(TaskListener listener, GoogleRobotCredentials credentials, String applicationId,
-                        Collection<Long> versionCodes, ReleaseTrack track, double rolloutPercentage) {
-        super(listener, credentials, applicationId, track.getApiValue(), rolloutPercentage);
+                        Collection<Long> versionCodes, String trackName, double rolloutPercentage) {
+        super(listener, credentials, applicationId, trackName, rolloutPercentage);
         this.versionCodes = new ArrayList<>(versionCodes);
     }
 
@@ -34,6 +35,21 @@ class TrackAssignmentTask extends TrackPublisherTask<Boolean> {
         logger.println(String.format("Authenticating to Google Play API...%n- Credential:     %s%n- Application ID: %s",
                 getCredentialName(), applicationId));
         createEdit(applicationId);
+
+        // Before doing anything else, verify that the desired track exists
+        // TODO: Refactor this and the weird class hierarchy
+        List<Track> tracks = editService.tracks().list(applicationId, editId).execute().getTracks();
+        String canonicalTrackName = tracks.stream()
+            .filter(it -> it.getTrack().equalsIgnoreCase(trackName))
+            .map(Track::getTrack)
+            .findFirst()
+            .orElse(null);
+        if (canonicalTrackName == null) {
+            logger.println(String.format("Release track '%s' could not be found", trackName));
+            return false;
+        }
+        // Track names are case-sensitive, so override the user-provided value from the job config
+        trackName = canonicalTrackName;
 
         // Log some useful information
         logger.println(String.format("Assigning %d version(s) with application ID %s to '%s' release track",
