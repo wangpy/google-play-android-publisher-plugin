@@ -20,7 +20,6 @@ import javax.annotation.Nonnull;
 import static hudson.Util.fixEmptyAndTrim;
 import static hudson.Util.tryParseNumber;
 import static hudson.model.Item.EXTENDED_READ;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.getConfigValues;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.REGEX_VARIABLE;
 
 public abstract class GooglePlayBuildStepDescriptor<T extends BuildStep & Describable<T>>
@@ -84,13 +83,6 @@ public abstract class GooglePlayBuildStepDescriptor<T extends BuildStep & Descri
         return listBox;
     }
 
-    public FormValidation doCheckApkFilesPattern(@QueryParameter String value) {
-        if (fixEmptyAndTrim(value) == null) {
-            return FormValidation.error("An APK file path or pattern is required");
-        }
-        return FormValidation.ok();
-    }
-
     public FormValidation doCheckTrackName(@QueryParameter String value) {
         if (fixEmptyAndTrim(value) == null) {
             return FormValidation.error("A release track is required");
@@ -113,11 +105,8 @@ public abstract class GooglePlayBuildStepDescriptor<T extends BuildStep & Descri
     }
 
     public ComboBoxModel doFillTrackNameItems() {
-        return new ComboBoxModel(getConfigValues());
-    }
-
-    public ComboBoxModel doFillRolloutPercentageItems() {
-        return null;
+        // Auto-complete the default track names, though users can also enter custom track names
+        return new ComboBoxModel("internal", "alpha", "beta", "production");
     }
 
     public boolean isApplicable(Class<? extends AbstractProject> c) {
