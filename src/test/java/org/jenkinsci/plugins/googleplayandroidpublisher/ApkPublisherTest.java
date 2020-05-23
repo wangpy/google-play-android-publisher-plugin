@@ -437,6 +437,32 @@ public class ApkPublisherTest {
     }
 
     @Test
+    public void uploadingApkToUnpublishedCustomTrackSucceeds() throws Exception {
+        // Given a job, whose publisher wants to upload to a custom release track
+        FreeStyleProject p = j.createFreeStyleProject();
+        ApkPublisher publisher = new ApkPublisher();
+        publisher.setGoogleCredentialsId("test-credentials");
+        publisher.setTrackName("dogfood");
+        p.getPublishersList().add(publisher);
+
+        // And the prerequisites are in place
+        // But the initial 'tracks' response won't include the track, as it doesn't yet have any releases
+        setUpCredentials("test-credentials");
+        setUpTransportForApk("dogfood", false);
+        setUpApkFile(p);
+
+        // When a build occurs
+        // Then the APK should be successfully assigned to the custom track
+        // And we should have seen the warning about the track not being returned by Google Play
+        assertResultWithLogLines(j, p, Result.SUCCESS,
+            "Release track 'dogfood' could not be found",
+            "Setting rollout to target 100% of 'dogfood' track users",
+            "The 'dogfood' release track will now contain the version code(s): 42",
+            "Changes were successfully applied to Google Play"
+        );
+    }
+
+    @Test
     public void uploadingApkToNonExistentCustomTrackFails() throws Exception {
         // Given a job, whose publisher wants to upload to a custom release track,
         // But the track does not exist on the backend
@@ -819,6 +845,10 @@ public class ApkPublisherTest {
     }
 
     private void setUpTransportForApk(String trackName) {
+        setUpTransportForApk(trackName, true);
+    }
+
+    private void setUpTransportForApk(String trackName, boolean includeTrackInList) {
         transport
                 .withResponse("/edits",
                         new FakePostEditsResponse().setEditId("the-edit-id"))
@@ -833,7 +863,9 @@ public class ApkPublisherTest {
                                 add(track("beta"));
                                 add(track("alpha"));
                                 add(track("internal"));
-                                add(track(trackName));
+                                if (includeTrackInList) {
+                                    add(track(trackName));
+                                }
                             }}
                         ))
                 .withResponse("/edits/the-edit-id/apks?uploadType=resumable",

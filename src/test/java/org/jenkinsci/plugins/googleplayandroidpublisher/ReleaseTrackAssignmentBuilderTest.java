@@ -257,6 +257,31 @@ public class ReleaseTrackAssignmentBuilderTest {
     }
 
     @Test
+    public void movingApkToUnpublishedCustomTrackSucceeds() throws Exception {
+        // Given a job, configured to move APKs to a custom release track
+        FreeStyleProject p = j.createFreeStyleProject();
+        ReleaseTrackAssignmentBuilder builder = createBuilder();
+        builder.setTrackName("dogfood");
+        p.getBuildersList().add(builder);
+
+        // And the prerequisites are in place
+        // But the initial 'tracks' response won't include the track, as it doesn't yet have any releases
+        setUpCredentials("test-credentials");
+        setUpTransportForSuccess("dogfood", false);
+
+        // When a build occurs
+        // Then the APK should be successfully assigned to the custom track
+        // And we should have seen the warning about the track not being returned by Google Play
+        assertResultWithLogLines(j, p, Result.SUCCESS,
+                "Release track 'dogfood' could not be found on Google Play",
+                "Assigning 1 version(s) with application ID org.jenkins.appId to 'dogfood' release track",
+                "Setting rollout to target 5% of 'dogfood' track users",
+                "The 'dogfood' release track will now contain the version code(s): 42",
+                "Changes were successfully applied to Google Play"
+        );
+    }
+
+    @Test
     public void movingApkToNonExistentCustomTrackFails() throws Exception {
         // Given a job, configured to move APKs to a custom release track
         // But the track does not exist on the backend
@@ -518,6 +543,10 @@ public class ReleaseTrackAssignmentBuilderTest {
     }
 
     private void setUpTransportForSuccess(String trackName) {
+        setUpTransportForSuccess(trackName, true);
+    }
+
+    private void setUpTransportForSuccess(String trackName, boolean includeTrackInList) {
         transport
             .withResponse("/edits",
                     new FakePostEditsResponse().setEditId("the-edit-id"))
@@ -532,7 +561,9 @@ public class ReleaseTrackAssignmentBuilderTest {
                             add(track("beta", release(42, "en_GB", "de_DE")));
                             add(track("alpha"));
                             add(track("internal"));
-                            add(track(trackName));
+                            if (includeTrackInList) {
+                                add(track(trackName));
+                            }
                         }}
                     ))
             .withResponse("/edits/the-edit-id/tracks/" + trackName,

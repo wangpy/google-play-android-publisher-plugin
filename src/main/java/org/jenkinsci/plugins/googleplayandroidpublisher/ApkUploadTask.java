@@ -77,11 +77,18 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
             .findFirst()
             .orElse(null);
         if (canonicalTrackName == null) {
-            logger.println(String.format("Release track '%s' could not be found", trackName));
-            return false;
+            // If you ask Google Play for the list of tracks, it won't include any which don't yet have a release…
+            // TODO: I don't yet know whether Google Play also ignores built-in tracks, if they have no releases;
+            //       but we can make things a little bit smoother by avoiding doing this check for built-in track names,
+            //       and ensuring we use the lowercase track name for those
+            String msgFormat = "Release track '%s' could not be found on Google Play%n" +
+                "- This may be because this track does not yet have any releases, so we will continue… %n" +
+                "- Note: Custom track names are case-sensitive; double-check your configuration, if this build fails%n";
+            logger.println(String.format(msgFormat, trackName));
+        } else {
+            // Track names are case-sensitive, so override the user-provided value from the job config
+            trackName = canonicalTrackName;
         }
-        // Track names are case-sensitive, so override the user-provided value from the job config
-        trackName = canonicalTrackName;
 
         // Fetch information about the app files that already exist on Google Play
         Set<String> existingAppFileHashes = new HashSet<>();
