@@ -22,14 +22,12 @@ import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import static hudson.Util.fixEmptyAndTrim;
 import static hudson.Util.tryParseNumber;
-import static org.jenkinsci.plugins.googleplayandroidpublisher.ReleaseTrack.fromConfigValue;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.REGEX_VARIABLE;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.Util.getPublisherErrorMessage;
 
@@ -201,11 +199,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
     }
 
     private String getCanonicalTrackName() throws IOException, InterruptedException {
-        String name = expand(getTrackName());
-        if (name == null) {
-            return null;
-        }
-        return name.toLowerCase(Locale.ENGLISH);
+        return expand(getTrackName());
     }
 
     private String getExpandedRolloutPercentageString() throws IOException, InterruptedException {
@@ -238,11 +232,8 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
 
         // Track name is also required
         final String trackName = getCanonicalTrackName();
-        final ReleaseTrack track = fromConfigValue(trackName);
         if (trackName == null) {
             errors.add("Release track was not specified; this is now a mandatory parameter");
-        } else if (track == null) {
-            errors.add(String.format("'%s' is not a valid release track", trackName));
         } else {
             // Check for valid rollout percentage
             double pct = getExpandedRolloutPercentage();
@@ -309,7 +300,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
         try {
             GoogleRobotCredentials credentials = getCredentialsHandler().getServiceAccountCredentials(run.getParent());
             return workspace.act(new TrackAssignmentTask(listener, credentials, applicationId, versionCodeList,
-                            fromConfigValue(getCanonicalTrackName()), getExpandedRolloutPercentage()));
+                            getCanonicalTrackName(), getExpandedRolloutPercentage()));
         } catch (UploadException e) {
             logger.println(String.format("Assignment failed: %s", getPublisherErrorMessage(e)));
             logger.println("No changes have been applied to the Google Play account");

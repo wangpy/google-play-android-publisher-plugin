@@ -7,6 +7,7 @@ import com.google.api.services.androidpublisher.model.Bundle;
 import com.google.api.services.androidpublisher.model.ExpansionFile;
 import com.google.api.services.androidpublisher.model.ExpansionFilesUploadResponse;
 import com.google.api.services.androidpublisher.model.LocalizedText;
+import com.google.api.services.androidpublisher.model.Track;
 import com.google.api.services.androidpublisher.model.TrackRelease;
 import com.google.jenkins.plugins.credentials.oauth.GoogleRobotCredentials;
 import hudson.FilePath;
@@ -49,9 +50,9 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
     // TODO: Could be renamed
     ApkUploadTask(TaskListener listener, GoogleRobotCredentials credentials, String applicationId,
                   FilePath workspace, List<UploadFile> appFilesToUpload, Map<Long, ExpansionFileSet> expansionFiles,
-                  boolean usePreviousExpansionFilesIfMissing, ReleaseTrack track, double rolloutPercentage,
+                  boolean usePreviousExpansionFilesIfMissing, String trackName, double rolloutPercentage,
                   ApkPublisher.RecentChanges[] recentChangeList) {
-        super(listener, credentials, applicationId, track, rolloutPercentage);
+        super(listener, credentials, applicationId, trackName, rolloutPercentage);
         this.workspace = workspace;
         this.appFilesToUpload = appFilesToUpload;
         this.expansionFiles = expansionFiles;
@@ -66,6 +67,28 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
                         "- Credential:     %s%n" +
                         "- Application ID: %s%n", getCredentialName(), applicationId));
         createEdit(applicationId);
+
+        // Before doing anything else, verify that the desired track exists
+        // TODO: Refactor this and the weird class hierarchy
+        List<Track> tracks = editService.tracks().list(applicationId, editId).execute().getTracks();
+        String canonicalTrackName = tracks.stream()
+            .filter(it -> it.getTrack().equalsIgnoreCase(trackName))
+            .map(Track::getTrack)
+            .findFirst()
+            .orElse(null);
+        if (canonicalTrackName == null) {
+            // If you ask Google Play for the list of tracks, it won't include any which don't yet have a release…
+            // TODO: I don't yet know whether Google Play also ignores built-in tracks, if they have no releases;
+            //       but we can make things a little bit smoother by avoiding doing this check for built-in track names,
+            //       and ensuring we use the lowercase track name for those
+            String msgFormat = "Release track '%s' could not be found on Google Play%n" +
+                "- This may be because this track does not yet have any releases, so we will continue… %n" +
+                "- Note: Custom track names are case-sensitive; double-check your configuration, if this build fails%n";
+            logger.println(String.format(msgFormat, trackName));
+        } else {
+            // Track names are case-sensitive, so override the user-provided value from the job config
+            trackName = canonicalTrackName;
+        }
 
         // Fetch information about the app files that already exist on Google Play
         Set<String> existingAppFileHashes = new HashSet<>();
@@ -155,7 +178,7 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
         // Assign all uploaded app files to the configured track
         List<LocalizedText> releaseNotes = Util.transformReleaseNotes(recentChangeList);
         TrackRelease release = Util.buildRelease(uploadedVersionCodes, rolloutFraction, releaseNotes);
-        assignAppFilesToTrack(track, rolloutFraction, release);
+        assignAppFilesToTrack(trackName, rolloutFraction, release);
 
         // Commit all the changes
         try {

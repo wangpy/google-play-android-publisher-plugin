@@ -20,6 +20,7 @@ import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeA
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeCommitResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeListApksResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeListBundlesResponse;
+import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakeListTracksResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakePostEditsResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakePutApkResponse;
 import org.jenkinsci.plugins.googleplayandroidpublisher.internal.responses.FakePutBundleResponse;
@@ -41,6 +42,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.stream.Stream;
@@ -55,6 +57,7 @@ import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHel
 import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper.createAndroidPublisher;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper.getRequestBodyForUrl;
 import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper.setUpCredentials;
+import static org.jenkinsci.plugins.googleplayandroidpublisher.internal.TestsHelper.track;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -239,8 +242,8 @@ public class ApkPublisherTest {
         //    versionCode: 42
         //  minSdkVersion: 16
         //
-        // Setting rollout to target 100% of production track users
-        // The production release track will now contain the version code(s): 42
+        // Setting rollout to target 100% of 'production' track users
+        // The 'production' release track will now contain the version code(s): 42
         //
         // Applying changes to Google Play...
         // Changes were successfully applied to Google Play
@@ -249,8 +252,8 @@ public class ApkPublisherTest {
                 "Uploading 1 file(s) with application ID: org.jenkins.appId",
                 "APK file: " + join(Arrays.asList("build", "outputs", "apk", "app.apk"), File.separator),
                 "versionCode: 42",
-                "Setting rollout to target 100% of production track users",
-                "The production release track will now contain the version code(s): 42",
+                "Setting rollout to target 100% of 'production' track users",
+                "The 'production' release track will now contain the version code(s): 42",
                 "Changes were successfully applied to Google Play"
         );
 
@@ -280,8 +283,8 @@ public class ApkPublisherTest {
         // When a build occurs
         // Then it should find the APK using the default pattern, and upload to 100% of users
         assertResultWithLogLines(j, p, Result.SUCCESS,
-            "Setting rollout to target 100% of production track users",
-            "The production release track will now contain the version code(s): 42",
+            "Setting rollout to target 100% of 'production' track users",
+            "The 'production' release track will now contain the version code(s): 42",
             "Changes were successfully applied to Google Play"
         );
     }
@@ -308,8 +311,8 @@ public class ApkPublisherTest {
                 "Uploading 1 file(s) with application ID: org.jenkins.appId",
                 "APK file: " + join(Arrays.asList("build", "outputs", "apk", "app.apk"), File.separator),
                 "versionCode: 42",
-                "Setting rollout to target 100% of production track users",
-                "The production release track will now contain the version code(s): 42",
+                "Setting rollout to target 100% of 'production' track users",
+                "The 'production' release track will now contain the version code(s): 42",
                 "Changes were successfully applied to Google Play"
         );
     }
@@ -346,7 +349,7 @@ public class ApkPublisherTest {
         // When a build occurs, it should apply the default parameter values
         assertResultWithLogLines(j, p, Result.SUCCESS,
             "- Credential:     test-credentials",
-            "Setting rollout to target 12.5% of production track users",
+            "Setting rollout to target 12.5% of 'production' track users",
             "Changes were successfully applied to Google Play"
         );
 
@@ -377,7 +380,7 @@ public class ApkPublisherTest {
 
         // When a build occurs, it should upload as a draft
         assertResultWithLogLines(j, p, Result.SUCCESS,
-            "New production draft release created, with the version code(s): 42",
+            "New 'production' draft release created, with the version code(s): 42",
             "Changes were successfully applied to Google Play"
         );
 
@@ -411,6 +414,75 @@ public class ApkPublisherTest {
     }
 
     @Test
+    public void uploadingApkToCustomTrackSucceeds() throws Exception {
+        // Given a job, whose publisher wants to upload to a custom release track
+        FreeStyleProject p = j.createFreeStyleProject();
+        ApkPublisher publisher = new ApkPublisher();
+        publisher.setGoogleCredentialsId("test-credentials");
+        publisher.setTrackName("DogFood"); // case should not matter
+        p.getPublishersList().add(publisher);
+
+        // And the prerequisites are in place
+        setUpCredentials("test-credentials");
+        setUpTransportForApk("dogfood");
+        setUpApkFile(p);
+
+        // When a build occurs
+        // Then the APK should be successfully uploaded and assigned to the custom track
+        assertResultWithLogLines(j, p, Result.SUCCESS,
+            "Setting rollout to target 100% of 'dogfood' track users",
+            "The 'dogfood' release track will now contain the version code(s): 42",
+            "Changes were successfully applied to Google Play"
+        );
+    }
+
+    @Test
+    public void uploadingApkToUnpublishedCustomTrackSucceeds() throws Exception {
+        // Given a job, whose publisher wants to upload to a custom release track
+        FreeStyleProject p = j.createFreeStyleProject();
+        ApkPublisher publisher = new ApkPublisher();
+        publisher.setGoogleCredentialsId("test-credentials");
+        publisher.setTrackName("dogfood");
+        p.getPublishersList().add(publisher);
+
+        // And the prerequisites are in place
+        // But the initial 'tracks' response won't include the track, as it doesn't yet have any releases
+        setUpCredentials("test-credentials");
+        setUpTransportForApk("dogfood", false);
+        setUpApkFile(p);
+
+        // When a build occurs
+        // Then the APK should be successfully assigned to the custom track
+        // And we should have seen the warning about the track not being returned by Google Play
+        assertResultWithLogLines(j, p, Result.SUCCESS,
+            "Release track 'dogfood' could not be found",
+            "Setting rollout to target 100% of 'dogfood' track users",
+            "The 'dogfood' release track will now contain the version code(s): 42",
+            "Changes were successfully applied to Google Play"
+        );
+    }
+
+    @Test
+    public void uploadingApkToNonExistentCustomTrackFails() throws Exception {
+        // Given a job, whose publisher wants to upload to a custom release track,
+        // But the track does not exist on the backend
+        FreeStyleProject p = j.createFreeStyleProject();
+        ApkPublisher publisher = new ApkPublisher();
+        publisher.setGoogleCredentialsId("test-credentials");
+        publisher.setTrackName("non-existent-track");
+        p.getPublishersList().add(publisher);
+
+        // And the prerequisites are in place
+        setUpCredentials("test-credentials");
+        setUpTransportForApk();
+        setUpApkFile(p);
+
+        // When a build occurs
+        // Then it should fail with a message about the missing track
+        assertResultWithLogLines(j, p, Result.FAILURE, "Release track 'non-existent-track' could not be found");
+    }
+
+    @Test
     public void uploadingApkWithPipelineSucceeds() throws Exception {
         // Given a Pipeline with only the required parameters
         String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
@@ -418,8 +490,8 @@ public class ApkPublisherTest {
 
         uploadApkWithPipelineAndAssertSuccess(
             stepDefinition,
-            "Setting rollout to target 100% of production track users",
-            "The production release track will now contain the version code(s): 42"
+            "Setting rollout to target 100% of 'production' track users",
+            "The 'production' release track will now contain the version code(s): 42"
         );
     }
 
@@ -433,8 +505,8 @@ public class ApkPublisherTest {
         // When a build occurs, it should roll out to that percentage
         uploadApkWithPipelineAndAssertSuccess(
             stepDefinition,
-            "Setting rollout to target 56.789% of production track users",
-            "The production release track will now contain the version code(s): 42"
+            "Setting rollout to target 56.789% of 'production' track users",
+            "The 'production' release track will now contain the version code(s): 42"
         );
     }
 
@@ -448,8 +520,8 @@ public class ApkPublisherTest {
         // When a build occurs, it should roll out to that percentage
         uploadApkWithPipelineAndAssertSuccess(
             stepDefinition,
-            "Setting rollout to target 12.34% of production track users",
-            "The production release track will now contain the version code(s): 42"
+            "Setting rollout to target 12.34% of 'production' track users",
+            "The 'production' release track will now contain the version code(s): 42"
         );
     }
 
@@ -464,8 +536,8 @@ public class ApkPublisherTest {
         // When a build occurs, it should prefer the string `rolloutPercentage` value
         uploadApkWithPipelineAndAssertSuccess(
             stepDefinition,
-            "Setting rollout to target 56.789% of production track users",
-            "The production release track will now contain the version code(s): 42"
+            "Setting rollout to target 56.789% of 'production' track users",
+            "The 'production' release track will now contain the version code(s): 42"
         );
     }
 
@@ -479,7 +551,7 @@ public class ApkPublisherTest {
         // When a build occurs, it should upload as a draft
         uploadApkWithPipelineAndAssertSuccess(
             stepDefinition,
-            "New production draft release created, with the version code(s): 42"
+            "New 'production' draft release created, with the version code(s): 42"
         );
 
         // And we should have set draft status when updating the track
@@ -489,6 +561,39 @@ public class ApkPublisherTest {
         TrackRelease release = track.getReleases().get(0);
         assertEquals("draft", release.getStatus());
         assertNull(release.getUserFraction());
+    }
+
+    @Test
+    public void uploadingApkWithPipelineToCustomTrackSucceeds() throws Exception {
+        // Given a step that wants to upload to a custom release track
+        String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
+                "  trackName: 'dogfood'";
+
+        // And the backend will recognise the custom track
+        setUpTransportForApk("dogfood");
+
+        // When a build occurs
+        // Then the APK should be successfully uploaded and assigned to the custom track
+        uploadApkWithPipelineAndAssertSuccess(
+            stepDefinition,
+            "Setting rollout to target 100% of 'dogfood' track users",
+            "The 'dogfood' release track will now contain the version code(s): 42"
+        );
+    }
+
+    @Test
+    public void uploadingApkWithPipelineToNonExistentCustomTrackFails() throws Exception {
+        // Given a step that wants to upload to a custom release track
+        // But the track does not exist on the backend
+        String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
+                "  trackName: 'non-existent-track'";
+
+        // And the backend does not know about the custom track
+        setUpTransportForApk();
+
+        // When a build occurs
+        // Then it should fail with a message about the missing track
+        uploadApkWithPipelineAndAssertFailure(stepDefinition, "Release track 'non-existent-track' could not be found");
     }
 
     private void uploadApkWithPipelineAndAssertFailure(
@@ -523,7 +628,9 @@ public class ApkPublisherTest {
         ));
 
         setUpCredentials("test-credentials");
-        setUpTransportForApk();
+        if (transport.responses.isEmpty()) {
+            setUpTransportForApk();
+        }
 
         assertResultWithLogLines(j, p, expectedResult, expectedLogLines);
     }
@@ -585,8 +692,8 @@ public class ApkPublisherTest {
         //    versionCode: 43
         //  minSdkVersion: 29
         //
-        // Setting rollout to target 100% of production track users
-        // The production release track will now contain the version code(s): 43
+        // Setting rollout to target 100% of 'production' track users
+        // The 'production' release track will now contain the version code(s): 43
         //
         // Applying changes to Google Play...
         // Changes were successfully applied to Google Play
@@ -596,8 +703,8 @@ public class ApkPublisherTest {
                 "AAB file: " + join(Arrays.asList("build", "outputs", "bundle", "release", "bundle.aab"), File.separator),
                 "versionCode: 43",
                 "minSdkVersion: 29",
-                "Setting rollout to target 100% of production track users",
-                "The production release track will now contain the version code(s): 43",
+                "Setting rollout to target 100% of 'production' track users",
+                "The 'production' release track will now contain the version code(s): 43",
                 "Changes were successfully applied to Google Play"
         );
     }
@@ -630,7 +737,7 @@ public class ApkPublisherTest {
             "Both AAB and APK files were found; only the AAB files will be uploaded",
             "Uploading 1 file(s) with application ID: com.example.test",
             "AAB file: " + join(Arrays.asList("build", "outputs", "bundle", "release", "bundle.aab"), File.separator),
-            "The production release track will now contain the version code(s): 43"
+            "The 'production' release track will now contain the version code(s): 43"
         );
     }
 
@@ -654,8 +761,8 @@ public class ApkPublisherTest {
                 "Uploading 1 file(s) with application ID: org.jenkins.bundleAppId",
                 "AAB file: " + join(Arrays.asList("build", "outputs", "bundle", "release", "bundle.aab"), File.separator),
                 "versionCode: 43",
-                "Setting rollout to target 100% of production track users",
-                "The production release track will now contain the version code(s): 43",
+                "Setting rollout to target 100% of 'production' track users",
+                "The 'production' release track will now contain the version code(s): 43",
                 "Changes were successfully applied to Google Play"
         );
     }
@@ -717,8 +824,8 @@ public class ApkPublisherTest {
         //    versionCode: 42
         //  minSdkVersion: 16
         //
-        // Setting rollout to target 100% of production track users
-        // The production release track will now contain the version code(s): 42
+        // Setting rollout to target 100% of 'production' track users
+        // The 'production' release track will now contain the version code(s): 42
         //
         // Applying changes to Google Play...
         // Changes were successfully applied to Google Play
@@ -727,13 +834,21 @@ public class ApkPublisherTest {
                 "Uploading 1 file(s) with application ID: org.jenkins.appId",
                 "APK file: " + join(Arrays.asList("build", "outputs", "apk", "app.apk"), File.separator),
                 "versionCode: 42",
-                "Setting rollout to target 100% of production track users",
-                "The production release track will now contain the version code(s): 42",
+                "Setting rollout to target 100% of 'production' track users",
+                "The 'production' release track will now contain the version code(s): 42",
                 "Changes were successfully applied to Google Play"
         );
     }
 
     private void setUpTransportForApk() {
+        setUpTransportForApk("production");
+    }
+
+    private void setUpTransportForApk(String trackName) {
+        setUpTransportForApk(trackName, true);
+    }
+
+    private void setUpTransportForApk(String trackName, boolean includeTrackInList) {
         transport
                 .withResponse("/edits",
                         new FakePostEditsResponse().setEditId("the-edit-id"))
@@ -741,18 +856,34 @@ public class ApkPublisherTest {
                         new FakeListApksResponse().setEmptyApks())
                 .withResponse("/edits/the-edit-id/bundles",
                         new FakeListBundlesResponse().setEmptyBundles())
+                .withResponse("/edits/the-edit-id/tracks",
+                        new FakeListTracksResponse().setTracks(
+                            new ArrayList<Track>() {{
+                                add(track("production"));
+                                add(track("beta"));
+                                add(track("alpha"));
+                                add(track("internal"));
+                                if (includeTrackInList) {
+                                    add(track(trackName));
+                                }
+                            }}
+                        ))
                 .withResponse("/edits/the-edit-id/apks?uploadType=resumable",
                         new FakeUploadApkResponse().willContinue())
                 .withResponse("google.local/uploading/foo/apk",
                         new FakePutApkResponse().success(42, "the:sha"))
-                .withResponse("/edits/the-edit-id/tracks/production",
-                        new FakeAssignTrackResponse().success("production", 42))
+                .withResponse("/edits/the-edit-id/tracks/" + trackName,
+                        new FakeAssignTrackResponse().success(trackName, 42))
                 .withResponse("/edits/the-edit-id:commit",
                         new FakeCommitResponse().success())
         ;
     }
 
     private void setUpTransportForBundle() {
+        setUpTransportForBundle("production");
+    }
+
+    private void setUpTransportForBundle(String trackName) {
         transport
                 .withResponse("/edits",
                         new FakePostEditsResponse().setEditId("the-edit-id"))
@@ -760,6 +891,16 @@ public class ApkPublisherTest {
                         new FakeListApksResponse().setEmptyApks())
                 .withResponse("/edits/the-edit-id/bundles",
                         new FakeListBundlesResponse().setEmptyBundles())
+                .withResponse("/edits/the-edit-id/tracks",
+                        new FakeListTracksResponse().setTracks(
+                            new ArrayList<Track>() {{
+                                add(track("production"));
+                                add(track("beta"));
+                                add(track("alpha"));
+                                add(track("internal"));
+                                add(track(trackName));
+                            }}
+                        ))
                 .withResponse("/edits/the-edit-id/bundles?ackBundleInstallationWarning=true&uploadType=resumable",
                         new FakeUploadBundleResponse().willContinue())
                 .withResponse("google.local/uploading/foo/bundle",

@@ -144,6 +144,12 @@ public class ReleaseTrackAssignmentBuilderTest {
         transport
                 .withResponse("/edits",
                         new FakePostEditsResponse().setEditId("the-edit-id"))
+                .withResponse("/edits/the-edit-id/tracks",
+                        new FakeListTracksResponse().setTracks(
+                            new ArrayList<Track>() {{
+                                add(track("production"));
+                            }}
+                        ))
                 .withResponse("/edits/the-edit-id/apks",
                         new FakeListApksResponse().setEmptyApks())
                 .withResponse("/edits/the-edit-id/bundles",
@@ -171,9 +177,9 @@ public class ReleaseTrackAssignmentBuilderTest {
         // Authenticating to Google Play API...
         // - Credential:     test-credentials
         // - Application ID: org.jenkins.appId
-        // Assigning 1 version(s) with application ID org.jenkins.appId to production release track
-        // Setting rollout to target 100% of production track users
-        // The production release track will now contain the version code(s): 42
+        // Assigning 1 version(s) with application ID org.jenkins.appId to 'production' release track
+        // Setting rollout to target 100% of 'production' track users
+        // The 'production' release track will now contain the version code(s): 42
         //
         // Applying changes to Google Play...
         // Changes were successfully applied to Google Play
@@ -184,9 +190,9 @@ public class ReleaseTrackAssignmentBuilderTest {
         j.assertBuildStatusSuccess(scheduled);
 
         assertLogLines(j, scheduled,
-                "Assigning 1 version(s) with application ID org.jenkins.appId to production release track",
-                "Setting rollout to target 5% of production track users",
-                "The production release track will now contain the version code(s): 42",
+                "Assigning 1 version(s) with application ID org.jenkins.appId to 'production' release track",
+                "Setting rollout to target 5% of 'production' track users",
+                "The 'production' release track will now contain the version code(s): 42",
                 "Changes were successfully applied to Google Play"
         );
 
@@ -215,7 +221,7 @@ public class ReleaseTrackAssignmentBuilderTest {
 
         // When a build occurs, it should create the release in the target track as a draft
         assertResultWithLogLines(j, p, Result.SUCCESS,
-            "New production draft release created, with the version code(s): 42",
+            "New 'production' draft release created, with the version code(s): 42",
             "Changes were successfully applied to Google Play"
         );
 
@@ -226,6 +232,71 @@ public class ReleaseTrackAssignmentBuilderTest {
         TrackRelease release = track.getReleases().get(0);
         assertEquals("draft", release.getStatus());
         assertNull(release.getUserFraction());
+    }
+
+    @Test
+    public void movingApkToCustomTrackSucceeds() throws Exception {
+        // Given a job, configured to move APKs to a custom release track
+        FreeStyleProject p = j.createFreeStyleProject();
+        ReleaseTrackAssignmentBuilder builder = createBuilder();
+        builder.setTrackName("DogFood"); // case should not matter
+        p.getBuildersList().add(builder);
+
+        // And the prerequisites are in place
+        setUpCredentials("test-credentials");
+        setUpTransportForSuccess("dogfood");
+
+        // When a build occurs
+        // Then the APK should be successfully assigned to the custom track
+        assertResultWithLogLines(j, p, Result.SUCCESS,
+            "Assigning 1 version(s) with application ID org.jenkins.appId to 'dogfood' release track",
+            "Setting rollout to target 5% of 'dogfood' track users",
+            "The 'dogfood' release track will now contain the version code(s): 42",
+            "Changes were successfully applied to Google Play"
+        );
+    }
+
+    @Test
+    public void movingApkToUnpublishedCustomTrackSucceeds() throws Exception {
+        // Given a job, configured to move APKs to a custom release track
+        FreeStyleProject p = j.createFreeStyleProject();
+        ReleaseTrackAssignmentBuilder builder = createBuilder();
+        builder.setTrackName("dogfood");
+        p.getBuildersList().add(builder);
+
+        // And the prerequisites are in place
+        // But the initial 'tracks' response won't include the track, as it doesn't yet have any releases
+        setUpCredentials("test-credentials");
+        setUpTransportForSuccess("dogfood", false);
+
+        // When a build occurs
+        // Then the APK should be successfully assigned to the custom track
+        // And we should have seen the warning about the track not being returned by Google Play
+        assertResultWithLogLines(j, p, Result.SUCCESS,
+                "Release track 'dogfood' could not be found on Google Play",
+                "Assigning 1 version(s) with application ID org.jenkins.appId to 'dogfood' release track",
+                "Setting rollout to target 5% of 'dogfood' track users",
+                "The 'dogfood' release track will now contain the version code(s): 42",
+                "Changes were successfully applied to Google Play"
+        );
+    }
+
+    @Test
+    public void movingApkToNonExistentCustomTrackFails() throws Exception {
+        // Given a job, configured to move APKs to a custom release track
+        // But the track does not exist on the backend
+        FreeStyleProject p = j.createFreeStyleProject();
+        ReleaseTrackAssignmentBuilder builder = createBuilder();
+        builder.setTrackName("non-existent-track");
+        p.getBuildersList().add(builder);
+
+        // And the prerequisites are in place
+        setUpCredentials("test-credentials");
+        setUpTransportForSuccess();
+
+        // When a build occurs
+        // Then it should fail with a message about the missing track
+        assertResultWithLogLines(j, p, Result.FAILURE, "Release track 'non-existent-track' could not be found");
     }
 
     @Test
@@ -258,7 +329,7 @@ public class ReleaseTrackAssignmentBuilderTest {
             "    versionCodes: '42'";
 
         moveApkTrackWithPipelineAndAssertSuccess(
-            stepDefinition, "Setting rollout to target 100% of production track users"
+            stepDefinition, "Setting rollout to target 100% of 'production' track users"
         );
     }
 
@@ -275,7 +346,7 @@ public class ReleaseTrackAssignmentBuilderTest {
 
         // When a build occurs, it should roll out to that percentage
         moveApkTrackWithPipelineAndAssertSuccess(
-            stepDefinition, "Setting rollout to target 56.789% of production track users"
+            stepDefinition, "Setting rollout to target 56.789% of 'production' track users"
         );
     }
 
@@ -292,7 +363,7 @@ public class ReleaseTrackAssignmentBuilderTest {
 
         // When a build occurs, it should roll out to that percentage
         moveApkTrackWithPipelineAndAssertSuccess(
-            stepDefinition, "Setting rollout to target 12.34% of production track users"
+            stepDefinition, "Setting rollout to target 12.34% of 'production' track users"
         );
     }
 
@@ -310,12 +381,12 @@ public class ReleaseTrackAssignmentBuilderTest {
 
         // When a build occurs, it should prefer the string `rolloutPercentage` value
         moveApkTrackWithPipelineAndAssertSuccess(
-            stepDefinition, "Setting rollout to target 56.789% of production track users"
+            stepDefinition, "Setting rollout to target 56.789% of 'production' track users"
         );
     }
 
     @Test
-    public void uploadingApkWithPipelineAsDraftSucceeds() throws Exception {
+    public void movingApkWithPipelineAsDraftSucceeds() throws Exception {
         // Given a step with the rollout percentage set to zero
         String stepDefinition =
             "androidApkMove googleCredentialsId: 'test-credentials',\n" +
@@ -328,7 +399,7 @@ public class ReleaseTrackAssignmentBuilderTest {
         // When a build occurs, it should upload as a draft
         moveApkTrackWithPipelineAndAssertSuccess(
             stepDefinition,
-            "New production draft release created, with the version code(s): 42"
+            "New 'production' draft release created, with the version code(s): 42"
         );
 
         // And we should have set draft status when updating the track
@@ -338,6 +409,53 @@ public class ReleaseTrackAssignmentBuilderTest {
         TrackRelease release = track.getReleases().get(0);
         assertEquals("draft", release.getStatus());
         assertNull(release.getUserFraction());
+    }
+
+    @Test
+    public void movingApkWithPipelineToCustomTrackSucceeds() throws Exception {
+        // Given a step that wants to move to a custom release track
+        String stepDefinition =
+            "androidApkMove googleCredentialsId: 'test-credentials',\n" +
+            "  trackName: 'DogFood',\n" +
+            "  fromVersionCode: true,\n" +
+            "  applicationId: 'org.jenkins.appId',\n" +
+            "  versionCodes: '42',\n" +
+            "  rolloutPercentage: '5%'";
+
+        // And the backend will recognise the custom track
+        setUpTransportForSuccess("dogfood");
+
+        // When a build occurs
+        // Then the APK should be successfully assigned to the custom track
+        moveApkTrackWithPipelineAndAssertSuccess(
+            stepDefinition,
+            "Assigning 1 version(s) with application ID org.jenkins.appId to 'dogfood' release track",
+            "Setting rollout to target 5% of 'dogfood' track users",
+            "The 'dogfood' release track will now contain the version code(s): 42"
+        );
+    }
+
+    @Test
+    public void movingApkWithPipelineToNonExistentCustomTrackFails() throws Exception {
+        // Given a step that wants to move to a custom release track
+        // But the track does not exist on the backend
+        String stepDefinition =
+            "androidApkMove googleCredentialsId: 'test-credentials',\n" +
+            "  trackName: 'non-existent-track',\n" +
+            "  fromVersionCode: true,\n" +
+            "  applicationId: 'org.jenkins.appId',\n" +
+            "  versionCodes: '42',\n" +
+            "  rolloutPercentage: '5%'";
+
+        // And the backend does not know about the custom track
+        setUpTransportForSuccess();
+
+        // When a build occurs
+        // Then it should fail with a message about the missing track
+        moveApkTrackWithPipelineAndAssertFailure(
+            stepDefinition,
+            "Release track 'non-existent-track' could not be found"
+        );
     }
 
     private void moveApkTrackWithPipelineAndAssertFailure(
@@ -350,7 +468,6 @@ public class ReleaseTrackAssignmentBuilderTest {
         String stepDefinition, String... expectedLogLines
     ) throws Exception {
         String[] commonLogLines = {
-            "Assigning 1 version(s) with application ID org.jenkins.appId to production release track",
             "Changes were successfully applied to Google Play"
         };
         String[] allExpectedLogLines = Stream.concat(Arrays.stream(commonLogLines), Arrays.stream(expectedLogLines))
@@ -369,7 +486,9 @@ public class ReleaseTrackAssignmentBuilderTest {
         ));
 
         setUpCredentials("test-credentials");
-        setUpTransportForSuccess();
+        if (transport.responses.isEmpty()) {
+            setUpTransportForSuccess();
+        }
 
         assertResultWithLogLines(j, p, expectedResult, expectedLogLines);
     }
@@ -399,9 +518,9 @@ public class ReleaseTrackAssignmentBuilderTest {
         // Authenticating to Google Play API...
         // - Credential:     test-credentials
         // - Application ID: org.jenkins.appId
-        // Assigning 1 version(s) with application ID org.jenkins.appId to production release track
-        // Setting rollout to target 100% of production track users
-        // The production release track will now contain the version code(s): 42
+        // Assigning 1 version(s) with application ID org.jenkins.appId to 'production' release track
+        // Setting rollout to target 100% of 'production' track users
+        // The 'production' release track will now contain the version code(s): 42
         //
         // Applying changes to Google Play...
         // Changes were successfully applied to Google Play
@@ -412,14 +531,22 @@ public class ReleaseTrackAssignmentBuilderTest {
         j.assertBuildStatusSuccess(scheduled);
 
         assertLogLines(j, scheduled,
-                "Assigning 1 version(s) with application ID org.jenkins.appId to production release track",
-                "Setting rollout to target 5% of production track users",
-                "The production release track will now contain the version code(s): 42",
+                "Assigning 1 version(s) with application ID org.jenkins.appId to 'production' release track",
+                "Setting rollout to target 5% of 'production' track users",
+                "The 'production' release track will now contain the version code(s): 42",
                 "Changes were successfully applied to Google Play"
         );
     }
 
     private void setUpTransportForSuccess() {
+        setUpTransportForSuccess("production");
+    }
+
+    private void setUpTransportForSuccess(String trackName) {
+        setUpTransportForSuccess(trackName, true);
+    }
+
+    private void setUpTransportForSuccess(String trackName, boolean includeTrackInList) {
         transport
             .withResponse("/edits",
                     new FakePostEditsResponse().setEditId("the-edit-id"))
@@ -432,10 +559,15 @@ public class ReleaseTrackAssignmentBuilderTest {
                         new ArrayList<Track>() {{
                             add(track("production"));
                             add(track("beta", release(42, "en_GB", "de_DE")));
+                            add(track("alpha"));
+                            add(track("internal"));
+                            if (includeTrackInList) {
+                                add(track(trackName));
+                            }
                         }}
                     ))
-            .withResponse("/edits/the-edit-id/tracks/production",
-                    new FakeAssignTrackResponse().success("production", 42))
+            .withResponse("/edits/the-edit-id/tracks/" + trackName,
+                    new FakeAssignTrackResponse().success(trackName, 42))
             .withResponse("/edits/the-edit-id:commit",
                     new FakeCommitResponse().success())
         ;
