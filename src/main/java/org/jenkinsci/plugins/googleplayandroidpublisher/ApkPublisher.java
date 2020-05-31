@@ -26,6 +26,7 @@ import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.export.Exported;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.Serializable;
@@ -105,7 +106,7 @@ public class ApkPublisher extends GooglePlayPublisher {
     }
 
     @DataBoundSetter
-    public void setFilesPattern(@Nonnull String pattern) {
+    public void setFilesPattern(String pattern) {
         this.filesPattern = DescriptorImpl.defaultFilesPattern.equals(pattern) ? null : pattern;
     }
 
@@ -133,15 +134,19 @@ public class ApkPublisher extends GooglePlayPublisher {
             this.rolloutPercentage = percentage;
             return;
         }
-        this.rolloutPercentage = pct.intValue() == DescriptorImpl.defaultRolloutPercent ? null : pctStr;
+        this.rolloutPercentage = pct.intValue() == DescriptorImpl.defaultRolloutPercentage ? null : pctStr;
     }
 
     @Nonnull
     public String getRolloutPercentage() {
-        if (fixEmptyAndTrim(rolloutPercentage) == null) {
-            return String.valueOf(DescriptorImpl.defaultRolloutPercent);
+        String pct = fixEmptyAndTrim(rolloutPercentage);
+        if (pct == null) {
+            pct = String.valueOf(DescriptorImpl.defaultRolloutPercentage);
         }
-        return rolloutPercentage;
+        if (!pct.endsWith("%") && !pct.matches(REGEX_VARIABLE)) {
+            pct += "%";
+        }
+        return pct;
     }
 
     // Required for Pipeline builds using the deprecated `rolloutPercent` option
@@ -164,13 +169,13 @@ public class ApkPublisher extends GooglePlayPublisher {
     }
 
     @DataBoundSetter
-    public void setTrackName(@Nonnull String trackName) {
-        this.trackName = DescriptorImpl.defaultTrackName.equalsIgnoreCase(trackName) ? null : trackName;
+    public void setTrackName(String trackName) {
+        this.trackName = trackName;
     }
 
-    @Nonnull
+    @Nullable
     public String getTrackName() {
-        return fixEmptyAndTrim(trackName) == null ? DescriptorImpl.defaultTrackName : trackName;
+        return fixEmptyAndTrim(trackName);
     }
 
     @DataBoundSetter
@@ -272,7 +277,7 @@ public class ApkPublisher extends GooglePlayPublisher {
         final String trackName = getCanonicalTrackName();
         final ReleaseTrack track = fromConfigValue(trackName);
         if (trackName == null) {
-            errors.add("Release track was not specified");
+            errors.add("Release track was not specified; this is now a mandatory parameter");
         } else if (track == null) {
             errors.add(String.format("'%s' is not a valid release track", trackName));
         } else {
@@ -609,8 +614,7 @@ public class ApkPublisher extends GooglePlayPublisher {
     @Extension
     public static final class DescriptorImpl extends GooglePlayBuildStepDescriptor<Publisher> {
         public static final String defaultFilesPattern = "**/build/outputs/**/*.aab, **/build/outputs/**/*.apk";
-        public static final String defaultTrackName = ReleaseTrack.PRODUCTION.getApiValue();
-        public static final int defaultRolloutPercent = 100;
+        public static final int defaultRolloutPercentage = 100;
 
         public String getDisplayName() {
             return "Upload Android AAB/APKs to Google Play";

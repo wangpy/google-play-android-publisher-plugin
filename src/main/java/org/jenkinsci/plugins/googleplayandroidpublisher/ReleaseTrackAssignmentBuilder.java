@@ -16,6 +16,7 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -143,15 +144,19 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
             this.rolloutPercentage = percentage;
             return;
         }
-        this.rolloutPercentage = pct.intValue() == ApkPublisher.DescriptorImpl.defaultRolloutPercent ? null : pctStr;
+        this.rolloutPercentage = pct.intValue() == DescriptorImpl.defaultRolloutPercentage ? null : pctStr;
     }
 
     @Nonnull
     public String getRolloutPercentage() {
-        if (fixEmptyAndTrim(rolloutPercentage) == null) {
-            return String.valueOf(ApkPublisher.DescriptorImpl.defaultRolloutPercent);
+        String pct = fixEmptyAndTrim(rolloutPercentage);
+        if (pct == null) {
+            pct = String.valueOf(ApkPublisher.DescriptorImpl.defaultRolloutPercentage);
         }
-        return rolloutPercentage;
+        if (!pct.endsWith("%") && !pct.matches(REGEX_VARIABLE)) {
+            pct += "%";
+        }
+        return pct;
     }
 
     // Required for Pipeline builds using the deprecated `rolloutPercent` option
@@ -174,13 +179,13 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
     }
 
     @DataBoundSetter
-    public void setTrackName(@Nonnull String trackName) {
-        this.trackName = DescriptorImpl.defaultTrackName.equalsIgnoreCase(trackName) ? null : trackName;
+    public void setTrackName(String trackName) {
+        this.trackName = trackName;
     }
 
-    @Nonnull
+    @Nullable
     public String getTrackName() {
-        return fixEmptyAndTrim(trackName) == null ? DescriptorImpl.defaultTrackName : trackName;
+        return fixEmptyAndTrim(trackName);
     }
 
     private String getExpandedApplicationId() throws IOException, InterruptedException {
@@ -235,7 +240,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
         final String trackName = getCanonicalTrackName();
         final ReleaseTrack track = fromConfigValue(trackName);
         if (trackName == null) {
-            errors.add("Release track was not specified");
+            errors.add("Release track was not specified; this is now a mandatory parameter");
         } else if (track == null) {
             errors.add(String.format("'%s' is not a valid release track", trackName));
         } else {
@@ -368,8 +373,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
     @Extension
     public static final class DescriptorImpl extends GooglePlayBuildStepDescriptor<Builder> {
         public static final String defaultFilesPattern = "**/build/outputs/**/*.aab, **/build/outputs/**/*.apk";
-        public static final String defaultTrackName = ReleaseTrack.PRODUCTION.getApiValue();
-        public static final int defaultRolloutPercent = 100;
+        public static final int defaultRolloutPercentage = 100;
 
         public String getDisplayName() {
             return "Move Android apps to a different release track";
