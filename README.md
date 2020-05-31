@@ -25,7 +25,7 @@ Enables Jenkins to manage and upload Android app files (AAB or APK) to Google Pl
 
 ## Requirements
 ### Jenkins
-Jenkins [version 2.138.4][lts-changelog] or newer is required.
+Jenkins [version 2.164.3][lts-changelog] or newer is required.
 
 ### Google Play publisher account
 For the initial setup only, you must have access to the Google account which owns the [Google Play publisher account][gp-docs-distribute].
@@ -355,7 +355,7 @@ See [CHANGELOG.md][changelog].
 [issues-existing]:https://issues.jenkins-ci.org/issues/?jql=project%20%3D%20JENKINS%20AND%20component%20%3D%20google-play-android-publisher-plugin%20AND%20status%20NOT%20IN(Closed%2C%20Resolved)%20ORDER%20BY%20updated%20DESC
 [issues-report]:http://jenkins.io/redirect/report-an-issue
 [jenkins-behind-proxy]:https://wiki.jenkins.io/display/JENKINS/JenkinsBehindProxy#JenkinsBehindProxy-HowJenkinshandlesProxyServers
-[lts-changelog]:https://jenkins.io/changelog-stable#v2.138.4
+[lts-changelog]:https://jenkins.io/changelog-stable#v2.164.3
 [plugin-google-oauth]:https://plugins.jenkins.io/google-oauth-plugin
 [plugin-jcasc]:https://plugins.jenkins.io/configuration-as-code
 [plugin-token-macro]:https://plugins.jenkins.io/token-macro
