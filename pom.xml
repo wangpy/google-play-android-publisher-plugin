@@ -38,6 +38,20 @@
   </licenses>
 
   <dependencies>
+    <!-- There are various transitive dependencies on these APIs,
+         so include them via the Jenkins plugins, to help avoid
+         conflicts and multiple copies of the same libraries in Jenkins -->
+    <dependency>
+      <groupId>org.jenkins-ci.plugins</groupId>
+      <artifactId>apache-httpcomponents-client-4-api</artifactId>
+      <version>4.5.10-2.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.jenkins-ci.plugins</groupId>
+      <artifactId>jackson2-api</artifactId>
+      <version>2.11.0</version>
+    </dependency>
+
     <!-- Official bindings for the Android Publisher API -->
     <dependency>
       <groupId>com.google.apis</groupId>
