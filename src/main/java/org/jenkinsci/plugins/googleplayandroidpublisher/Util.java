@@ -59,6 +59,7 @@ public class Util {
     }
 
     /** @return The given value with variables expanded and trimmed; {@code null} if that results in an empty string. */
+    @Nullable
     static String expand(Run<?, ?> run, TaskListener listener, String value)
             throws InterruptedException, IOException {
         // If this is a pipeline run, there's no need to expand tokens

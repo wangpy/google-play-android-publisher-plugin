@@ -111,10 +111,10 @@ public class ApkPublisherTest {
         publisher.setGoogleCredentialsId("credential-b");
         publisher.setFilesPattern("**/builds/*.apk, *.aab");
         publisher.setDeobfuscationFilesPattern("**/proguard/*.txt");
-        publisher.setExpansionFilesPattern("**/exp/*.obb");
+        publisher.setExpansionFilesPattern("${EXP_FILES}");
         publisher.setUsePreviousExpansionFilesIfMissing(true);
         publisher.setTrackName("alpha");
-        publisher.setRolloutPercentage("${ROLLOUT}");
+        publisher.setRolloutPercentage("12.3456789");
         publisher.setRecentChangeList(new ApkPublisher.RecentChanges[] {
             new ApkPublisher.RecentChanges("en", "Hello!"),
             new ApkPublisher.RecentChanges("de", "Hallo!"),
@@ -152,6 +152,7 @@ public class ApkPublisherTest {
         ApkPublisher publisher = new ApkPublisher();
         publisher.setGoogleCredentialsId("test-credentials");
         publisher.setTrackName("");
+        publisher.setRolloutPercentage("100");
         p.getPublishersList().add(publisher);
 
         // And the prerequisites are in place
@@ -165,12 +166,72 @@ public class ApkPublisherTest {
     }
 
     @Test
+    public void uploadingWithoutRolloutPercentageFails() throws Exception {
+        // Given a job where the rollout percentage is not provided
+        FreeStyleProject p = j.createFreeStyleProject();
+        ApkPublisher publisher = new ApkPublisher();
+        publisher.setGoogleCredentialsId("test-credentials");
+        publisher.setTrackName("production");
+        p.getPublishersList().add(publisher);
+
+        // And the prerequisites are in place
+        setUpCredentials("test-credentials");
+        setUpTransportForApk();
+        setUpApkFile(p);
+
+        // When a build occurs
+        // Then it should fail as the rollout percentage has not been specified
+        assertResultWithLogLines(j, p, Result.FAILURE, "Rollout percentage was not specified");
+    }
+
+    @Test
+    public void uploadingWithEmptyRolloutPercentageFails() throws Exception {
+        // Given a job where the percentage is empty (e.g. saved without entering a value, or an empty parameter value)
+        FreeStyleProject p = j.createFreeStyleProject();
+        ApkPublisher publisher = new ApkPublisher();
+        publisher.setGoogleCredentialsId("test-credentials");
+        publisher.setTrackName("production");
+        publisher.setRolloutPercentage("");
+        p.getPublishersList().add(publisher);
+
+        // And the prerequisites are in place
+        setUpCredentials("test-credentials");
+        setUpTransportForApk();
+        setUpApkFile(p);
+
+        // When a build occurs
+        // Then it should fail as the rollout percentage has not been specified
+        assertResultWithLogLines(j, p, Result.FAILURE, "Rollout percentage was not specified");
+    }
+
+    @Test
+    public void uploadingWithInvalidRolloutPercentageFails() throws Exception {
+        // Given a job where the rollout percentage can't be parsed
+        FreeStyleProject p = j.createFreeStyleProject();
+        ApkPublisher publisher = new ApkPublisher();
+        publisher.setGoogleCredentialsId("test-credentials");
+        publisher.setTrackName("production");
+        publisher.setRolloutPercentage("everyone");
+        p.getPublishersList().add(publisher);
+
+        // And the prerequisites are in place
+        setUpCredentials("test-credentials");
+        setUpTransportForApk();
+        setUpApkFile(p);
+
+        // When a build occurs
+        // Then it should fail as the rollout percentage is not valid
+        assertResultWithLogLines(j, p, Result.FAILURE, "'everyone' is not a valid rollout percentage");
+    }
+
+    @Test
     public void uploadingWithoutMatchingFilesFails() throws Exception {
         // Given a job with the default configuration
         FreeStyleProject p = j.createFreeStyleProject();
         ApkPublisher publisher = new ApkPublisher();
         publisher.setGoogleCredentialsId("test-credentials");
         publisher.setTrackName("production");
+        publisher.setRolloutPercentage("100");
         p.getPublishersList().add(publisher);
 
         // And the prerequisites are in place
@@ -200,6 +261,7 @@ public class ApkPublisherTest {
         publisher.setGoogleCredentialsId("test-credentials");
         publisher.setFilesPattern("**/*.apk");
         publisher.setTrackName("production");
+        publisher.setRolloutPercentage("100");
         p.getPublishersList().add(publisher);
 
         setUpCredentials("test-credentials");
@@ -228,6 +290,7 @@ public class ApkPublisherTest {
         publisher.setGoogleCredentialsId("test-credentials");
         publisher.setFilesPattern("**/*.apk");
         publisher.setTrackName("production");
+        publisher.setRolloutPercentage("100");
 
         p.getPublishersList().add(publisher);
 
@@ -268,11 +331,12 @@ public class ApkPublisherTest {
 
     @Test
     public void uploadingApkWithMinimalConfigurationUsesDefaults() throws Exception {
-        // Given a job, whose publisher has a credential and track name, but no other configuration
+        // Given a job, whose publisher has a credential, track name, and rollout percentage, but no other configuration
         FreeStyleProject p = j.createFreeStyleProject();
         ApkPublisher publisher = new ApkPublisher();
         publisher.setGoogleCredentialsId("test-credentials");
         publisher.setTrackName("production");
+        publisher.setRolloutPercentage("100");
         p.getPublishersList().add(publisher);
 
         // And the prerequisites are in place
@@ -303,6 +367,7 @@ public class ApkPublisherTest {
         publisher.setGoogleCredentialsId("folder-credentials");
         publisher.setFilesPattern("**/*.apk");
         publisher.setTrackName("production");
+        publisher.setRolloutPercentage("100");
         p.getPublishersList().add(publisher);
         setUpApkFile(p);
 
@@ -414,12 +479,36 @@ public class ApkPublisherTest {
     }
 
     @Test
+    public void uploadingApkWithPipelineWithoutRolloutPercentageFails() throws Exception {
+        // Given a Pipeline where the rollout percentage is not provided
+        String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
+                "  trackName: 'production'";
+
+        // When a build occurs
+        // Then it should fail as the rollout percentage has not been specified
+        uploadApkWithPipelineAndAssertFailure(stepDefinition, "Rollout percentage was not specified");
+    }
+
+    @Test
+    public void uploadingApkWithPipelineWithEmptyRolloutPercentageFails() throws Exception {
+        // Given a Pipeline where the rollout percentage is empty (e.g. an empty parameter value)
+        String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
+                "  trackName: 'production',\n" +
+                "  rolloutPercentage: ''";
+
+        // When a build occurs
+        // Then it should fail as the rollout percentage has not been specified
+        uploadApkWithPipelineAndAssertFailure(stepDefinition, "Rollout percentage was not specified");
+    }
+
+    @Test
     public void uploadingApkToCustomTrackSucceeds() throws Exception {
         // Given a job, whose publisher wants to upload to a custom release track
         FreeStyleProject p = j.createFreeStyleProject();
         ApkPublisher publisher = new ApkPublisher();
         publisher.setGoogleCredentialsId("test-credentials");
         publisher.setTrackName("DogFood"); // case should not matter
+        publisher.setRolloutPercentage("100");
         p.getPublishersList().add(publisher);
 
         // And the prerequisites are in place
@@ -443,6 +532,7 @@ public class ApkPublisherTest {
         ApkPublisher publisher = new ApkPublisher();
         publisher.setGoogleCredentialsId("test-credentials");
         publisher.setTrackName("dogfood");
+        publisher.setRolloutPercentage("100");
         p.getPublishersList().add(publisher);
 
         // And the prerequisites are in place
@@ -470,6 +560,7 @@ public class ApkPublisherTest {
         ApkPublisher publisher = new ApkPublisher();
         publisher.setGoogleCredentialsId("test-credentials");
         publisher.setTrackName("non-existent-track");
+        publisher.setRolloutPercentage("100");
         p.getPublishersList().add(publisher);
 
         // And the prerequisites are in place
@@ -486,26 +577,12 @@ public class ApkPublisherTest {
     public void uploadingApkWithPipelineSucceeds() throws Exception {
         // Given a Pipeline with only the required parameters
         String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
-                "  trackName: 'production'";
+                "  trackName: 'production',\n" +
+                "  rolloutPercentage: '100'";
 
         uploadApkWithPipelineAndAssertSuccess(
             stepDefinition,
             "Setting rollout to target 100% of 'production' track users",
-            "The 'production' release track will now contain the version code(s): 42"
-        );
-    }
-
-    @Test
-    public void uploadingApkWithPipelineWithRolloutPercentageSucceeds() throws Exception {
-        // Given a step with a `rolloutPercentage` value
-        String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
-                "  trackName: 'production',\n" +
-                "  rolloutPercentage: '56.789'";
-
-        // When a build occurs, it should roll out to that percentage
-        uploadApkWithPipelineAndAssertSuccess(
-            stepDefinition,
-            "Setting rollout to target 56.789% of 'production' track users",
             "The 'production' release track will now contain the version code(s): 42"
         );
     }
@@ -567,7 +644,8 @@ public class ApkPublisherTest {
     public void uploadingApkWithPipelineToCustomTrackSucceeds() throws Exception {
         // Given a step that wants to upload to a custom release track
         String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
-                "  trackName: 'dogfood'";
+                "  trackName: 'dogfood',\n" +
+                "  rolloutPercentage: '100'";
 
         // And the backend will recognise the custom track
         setUpTransportForApk("dogfood");
@@ -586,7 +664,9 @@ public class ApkPublisherTest {
         // Given a step that wants to upload to a custom release track
         // But the track does not exist on the backend
         String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
-                "  trackName: 'non-existent-track'";
+                "  trackName: 'non-existent-track',\n" +
+                "  rolloutPercentage: '100'";
+
 
         // And the backend does not know about the custom track
         setUpTransportForApk();
@@ -650,6 +730,7 @@ public class ApkPublisherTest {
         publisher.setGoogleCredentialsId("test-credentials");
         publisher.setFilesPattern("**/*.aab");
         publisher.setTrackName("production");
+        publisher.setRolloutPercentage("100");
         p.getPublishersList().add(publisher);
 
         setUpCredentials("test-credentials");
@@ -678,6 +759,7 @@ public class ApkPublisherTest {
         publisher.setGoogleCredentialsId("test-credentials");
         publisher.setFilesPattern("**/*.aab");
         publisher.setTrackName("production");
+        publisher.setRolloutPercentage("100");
 
         p.getPublishersList().add(publisher);
 
@@ -717,6 +799,7 @@ public class ApkPublisherTest {
         publisher.setGoogleCredentialsId("test-credentials");
         publisher.setFilesPattern("**/*");
         publisher.setTrackName("production");
+        publisher.setRolloutPercentage("100");
         p.getPublishersList().add(publisher);
 
         setUpCredentials("test-credentials");
@@ -749,7 +832,8 @@ public class ApkPublisherTest {
                 "node {\n" +
                 "  writeFile text: 'this-is-a-dummy-bundle', file: 'build/outputs/bundle/release/bundle.aab'\n" +
                 "  androidApkUpload googleCredentialsId: 'test-credentials',\n" + //
-                "                   trackName: 'production'\n" +
+                "                   trackName: 'production',\n" +
+                "                   rolloutPercentage: '100'\n" +
                 "}", true
         ));
 
@@ -810,6 +894,7 @@ public class ApkPublisherTest {
         publisher.setGoogleCredentialsId("test-credentials");
         publisher.setFilesPattern("**/*.apk");
         publisher.setTrackName("production");
+        publisher.setRolloutPercentage("100");
 
         p.getPublishersList().add(publisher);
 

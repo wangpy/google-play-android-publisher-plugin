@@ -93,7 +93,10 @@ public abstract class GooglePlayBuildStepDescriptor<T extends BuildStep & Descri
     @SuppressFBWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     public FormValidation doCheckRolloutPercentage(@QueryParameter String value) {
         value = fixEmptyAndTrim(value);
-        if (value == null || value.matches(REGEX_VARIABLE)) {
+        if (value == null) {
+            return FormValidation.error("A rollout percentage is required");
+        }
+        if (value.matches(REGEX_VARIABLE)) {
             return FormValidation.ok();
         }
 

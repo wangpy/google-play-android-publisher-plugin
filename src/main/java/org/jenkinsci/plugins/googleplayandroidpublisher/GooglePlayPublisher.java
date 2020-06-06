@@ -11,6 +11,7 @@ import jenkins.tasks.SimpleBuildStep;
 import org.kohsuke.stapler.DataBoundSetter;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
 
 @RequiresDomain(value = AndroidPublisherScopeRequirement.class)
@@ -49,6 +50,7 @@ public abstract class GooglePlayPublisher extends Recorder implements SimpleBuil
     }
 
     /** @return An expanded value, using the build and environment variables, plus token macro expansion. */
+    @Nullable
     protected String expand(String value) throws IOException, InterruptedException {
         return Util.expand(currentBuild.get(), currentListener.get(), value);
     }
