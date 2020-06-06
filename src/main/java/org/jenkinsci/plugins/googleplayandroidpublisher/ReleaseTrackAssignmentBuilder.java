@@ -201,6 +201,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
     }
 
     @SuppressWarnings("ConstantConditions")
+    @SuppressFBWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     private double getExpandedRolloutPercentage() throws IOException, InterruptedException {
         final String pctStr = getExpandedRolloutPercentageString();
         if (pctStr == null) {
