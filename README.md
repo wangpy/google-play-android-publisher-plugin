@@ -252,6 +252,15 @@ androidApkMove googleCredentialsId: 'My Google Play account',
                apkFilesPattern: '**/*.apk'
 ```
 
+Or, say the current production release is rolled out to 10% of users, and we want to expand the rollout to 25% of users:
+```groovy
+androidApkMove googleCredentialsId: 'My Google Play account',
+               trackName: 'production',
+               rolloutPercentage: '25',
+               applicationId: 'com.example.app',
+               versionCodes: '1281, 1282, 1283'
+```
+
 #### Backwards-compatibility
 ##### Version 3.0
 Version 3.0 of the plugin deprecated some parameters used by the build steps, but they will remain supported for the foreseeable future:
