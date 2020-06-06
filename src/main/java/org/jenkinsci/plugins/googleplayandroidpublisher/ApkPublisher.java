@@ -605,7 +605,6 @@ public class ApkPublisher extends GooglePlayPublisher {
     @Extension
     public static final class DescriptorImpl extends GooglePlayBuildStepDescriptor<Publisher> {
         public static final String defaultFilesPattern = "**/build/outputs/**/*.aab, **/build/outputs/**/*.apk";
-        public static final int defaultRolloutPercentage = 100;
 
         public String getDisplayName() {
             return "Upload Android AAB/APKs to Google Play";

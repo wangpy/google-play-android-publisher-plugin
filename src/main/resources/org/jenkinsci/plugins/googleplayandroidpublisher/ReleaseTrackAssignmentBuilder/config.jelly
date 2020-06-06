@@ -33,9 +33,8 @@
     <f:combobox style="width:15em" />
   </f:entry>
 
-  <f:entry title="${%Rollout %}" field="rolloutPercentage"
-      description="${%Defaults to 100% if not set}">
-    <f:textbox style="width:15em" default="${descriptor.defaultRolloutPercentage}%" />
+  <f:entry title="${%Rollout %}" field="rolloutPercentage">
+    <f:textbox style="width:15em" />
   </f:entry>
 
 </j:jelly>
