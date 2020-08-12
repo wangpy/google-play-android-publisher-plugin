@@ -146,6 +146,40 @@ public class ApkPublisherTest {
     }
 
     @Test
+    public void uploadingWithoutInAppUpdatePrioritySucceeds() throws Exception{
+        // Given a step with a deprecated `rolloutPercent` value
+        String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
+                "  trackName: 'production'";
+
+        uploadApkWithPipelineAndAssertSuccess(stepDefinition);
+    }
+
+    @Test
+    public void uploadingWithInAppUpdatePrioritySucceeds() throws Exception{
+        // Given a step with a deprecated `rolloutPercent` value
+        String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
+                "  trackName: 'production',\n"+
+                "  inAppUpdatePriority: '1'";
+
+        uploadApkWithPipelineAndAssertSuccess(stepDefinition,
+                "Set inAppUpdatePriority to 1");
+    }
+
+    @Test
+    public void uploadingWithIncorrectInAppUpdatePriorityFails() throws Exception{
+        // Given a step with a deprecated `rolloutPercent` value
+        String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
+                "  trackName: 'production',\n"+
+                "  inAppUpdatePriority: 'fake'";
+
+        // When a build occurs, it should roll out to that percentage
+        uploadApkWithPipelineAndAssertFailure(
+                stepDefinition,
+                "'fake' is not a valid inAppUpdatePriority"
+        );
+    }
+
+    @Test
     public void uploadingWithEmptyTrackNameFails() throws Exception {
         // Given a job where the track name is empty (e.g. saved without entering a value, or an empty parameter value)
         FreeStyleProject p = j.createFreeStyleProject();

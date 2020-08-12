@@ -51,8 +51,8 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
     ApkUploadTask(TaskListener listener, GoogleRobotCredentials credentials, String applicationId,
                   FilePath workspace, List<UploadFile> appFilesToUpload, Map<Long, ExpansionFileSet> expansionFiles,
                   boolean usePreviousExpansionFilesIfMissing, String trackName, double rolloutPercentage,
-                  ApkPublisher.RecentChanges[] recentChangeList) {
-        super(listener, credentials, applicationId, trackName, rolloutPercentage);
+                  ApkPublisher.RecentChanges[] recentChangeList, Integer inAppUpdatePriority) {
+        super(listener, credentials, applicationId, trackName, rolloutPercentage, inAppUpdatePriority);
         this.workspace = workspace;
         this.appFilesToUpload = appFilesToUpload;
         this.expansionFiles = expansionFiles;
@@ -175,9 +175,14 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
             }
         }
 
+        if (inAppUpdatePriority != null) {
+            logger.println(String.format("Set inAppUpdatePriority to %d", inAppUpdatePriority));
+        }
+
         // Assign all uploaded app files to the configured track
         List<LocalizedText> releaseNotes = Util.transformReleaseNotes(recentChangeList);
-        TrackRelease release = Util.buildRelease(uploadedVersionCodes, rolloutFraction, releaseNotes);
+        TrackRelease release =
+                Util.buildRelease(uploadedVersionCodes, rolloutFraction, inAppUpdatePriority, releaseNotes);
         assignAppFilesToTrack(trackName, rolloutFraction, release);
 
         // Commit all the changes

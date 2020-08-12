@@ -34,4 +34,8 @@
     <f:repeatableProperty field="recentChangeList" add="${%Add language...}" minimum="0" />
   </f:entry>
 
+  <f:entry title="${%InAppUpdatePriority %}" field="inAppUpdatePriority">
+      <f:textbox style="width:15em" />
+    </f:entry>
+
 </j:jelly>

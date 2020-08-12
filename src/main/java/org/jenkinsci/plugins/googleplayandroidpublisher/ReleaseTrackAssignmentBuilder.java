@@ -39,6 +39,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
     private String filesPattern;
     private String trackName;
     private String rolloutPercentage;
+    private String inAppUpdatePriority;
 
     // This field was used before AAB support was introduced; it will be migrated to `filesPattern` for Freestyle jobs
     @Deprecated private transient String apkFilesPattern;
@@ -186,6 +187,16 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
         return fixEmptyAndTrim(trackName);
     }
 
+    @DataBoundSetter
+    public void setInAppUpdatePriority(@Nullable String priorityStr) {
+        this.inAppUpdatePriority = priorityStr;
+    }
+
+    @Nullable
+    public String getInAppUpdatePriority() {
+        return fixEmptyAndTrim(inAppUpdatePriority);
+    }
+
     private String getExpandedApplicationId() throws IOException, InterruptedException {
         return expand(getApplicationId());
     }
@@ -215,6 +226,22 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
         }
     }
 
+    private String getExpandedInAppUpdatePriorityString() throws IOException, InterruptedException {
+        return expand(getInAppUpdatePriority());
+    }
+
+    private Integer getExpandedInAppUpdatePriority() throws IOException, InterruptedException {
+        try {
+            String value = getExpandedInAppUpdatePriorityString();
+            if (value != null) {
+                return Integer.parseInt(value.trim());
+            }
+            return null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
     private boolean isConfigValid(PrintStream logger) throws IOException, InterruptedException {
         final List<String> errors = new ArrayList<>();
 
@@ -239,6 +266,15 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
             double pct = getExpandedRolloutPercentage();
             if (Double.isNaN(pct) || Double.compare(pct, 0) < 0 || Double.compare(pct, 100) > 0) {
                 errors.add(String.format("'%s' is not a valid rollout percentage", getExpandedRolloutPercentageString()));
+            }
+        }
+
+        // Check if inAppUpdatePriority is a valid number if not null
+        if (inAppUpdatePriority != null) {
+            try {
+                Integer.parseInt(inAppUpdatePriority);
+            } catch (NumberFormatException e) {
+                errors.add(String.format("'%s' is not a valid inAppUpdatePriority", getExpandedInAppUpdatePriorityString()));
             }
         }
 
@@ -300,7 +336,7 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
         try {
             GoogleRobotCredentials credentials = getCredentialsHandler().getServiceAccountCredentials(run.getParent());
             return workspace.act(new TrackAssignmentTask(listener, credentials, applicationId, versionCodeList,
-                            getCanonicalTrackName(), getExpandedRolloutPercentage()));
+                            getCanonicalTrackName(), getExpandedRolloutPercentage(), getExpandedInAppUpdatePriority()));
         } catch (UploadException e) {
             logger.println(String.format("Assignment failed: %s", getPublisherErrorMessage(e)));
             logger.println("No changes have been applied to the Google Play account");
