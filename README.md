@@ -147,7 +147,7 @@ The following job setup process is demonstrated in this video:
    - If 0% is entered, the given file(s) will be uploaded as a draft release, leaving any existing rollout unaffected
 8. Optionally choose "Add language" to associate release notes with the uploaded APK(s)
    - You add entries for as many or as few of your supported language as you wish, but each language must already have been added to your app, under the "Store Listing" section in the Google Play Developer Console.
-9. Optionally specify [inAppUpdatePriority][gp-docs-rollout]
+9. Optionally specify [inAppUpdatePriority][gp-docs-inappupdatepriority]
    - If nothing is entered, nothing it uses the default value of Google Play API
    - This should be a valid Integer
 

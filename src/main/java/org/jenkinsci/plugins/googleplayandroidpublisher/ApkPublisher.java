@@ -309,10 +309,11 @@ public class ApkPublisher extends GooglePlayPublisher {
 
         // Check if inAppUpdatePriority is a valid number if not null
         if (inAppUpdatePriority != null) {
+            String expandedInAppUpdatePriorityStr = getExpandedInAppUpdatePriorityString();
             try {
-                Integer.parseInt(inAppUpdatePriority);
+                Integer.parseInt(expandedInAppUpdatePriorityStr);
             } catch (NumberFormatException e) {
-                errors.add(String.format("'%s' is not a valid inAppUpdatePriority", getExpandedInAppUpdatePriorityString()));
+                errors.add(String.format("'%s' is not a valid inAppUpdatePriority", expandedInAppUpdatePriorityStr));
             }
         }
 
