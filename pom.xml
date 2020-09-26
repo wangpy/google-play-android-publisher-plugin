@@ -70,7 +70,7 @@
     <dependency>
       <groupId>com.github.orrc</groupId>
       <artifactId>android-bundle-basics-lib</artifactId>
-      <version>v2</version>
+      <version>v3</version>
     </dependency>
 
     <dependency>
@@ -189,6 +189,11 @@
     <repository>
       <id>jitpack.io</id>
       <url>https://jitpack.io</url>
+    </repository>
+    <!-- For Android bundle lib dependencies -->
+    <repository>
+      <id>google</id>
+      <url>https://maven.google.com</url>
     </repository>
   </repositories>
 
