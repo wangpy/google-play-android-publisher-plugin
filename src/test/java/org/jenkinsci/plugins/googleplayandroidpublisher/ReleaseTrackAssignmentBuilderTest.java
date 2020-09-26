@@ -375,6 +375,19 @@ public class ReleaseTrackAssignmentBuilderTest {
         moveApkTrackWithPipelineAndAssertFailure(stepDefinition, "Release track was not specified");
     }
 
+
+    @Test
+    public void movingApkTrackWithPipelineWithInvalidInAppUpdatePriorityFails() throws Exception {
+        // Given a Pipeline where the inAppUpdatePriority is not provided
+        String stepDefinition = "androidApkMove googleCredentialsId: 'test-credentials',\n" +
+                "  rolloutPercentage: '100',\n"+
+                "  inAppUpdatePriority: 'fake'";
+
+        // When a build occurs
+        // Then it should fail as inAppUpdatePriority is invalid
+        moveApkTrackWithPipelineAndAssertFailure(stepDefinition, "'fake' is not a valid update priority");
+    }
+
     @Test
     public void movingApkTrackWithPipelineWithoutRolloutPercentageFails() throws Exception {
         // Given a Pipeline where the rollout percentage is not provided
@@ -404,6 +417,24 @@ public class ReleaseTrackAssignmentBuilderTest {
         // When a build occurs
         // Then it should fail as the track name has not been specified
         moveApkTrackWithPipelineAndAssertFailure(stepDefinition, "Rollout percentage was not specified");
+    }
+
+    @Test
+    public void moveApkTrackWithPipeline_succeeds_with_inAppUpdatePriority() throws Exception {
+        String stepDefinition =
+            "  androidApkMove googleCredentialsId: 'test-credentials',\n" +
+            "    trackName: 'production',\n" +
+            "    fromVersionCode: true,\n" +
+            "    applicationId: 'org.jenkins.appId',\n" +
+            "    versionCodes: '42',\n" +
+            "    rolloutPercentage: '100',\n"+
+            "    inAppUpdatePriority: '2'\n";
+
+        moveApkTrackWithPipelineAndAssertSuccess(
+            stepDefinition,
+                "Setting rollout to target 100% of 'production' track users",
+                "Setting in-app update priority to 2"
+        );
     }
 
     @Test

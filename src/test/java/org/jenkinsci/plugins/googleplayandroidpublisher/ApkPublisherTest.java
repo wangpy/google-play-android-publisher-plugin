@@ -676,6 +676,34 @@ public class ApkPublisherTest {
         uploadApkWithPipelineAndAssertFailure(stepDefinition, "Release track 'non-existent-track' could not be found");
     }
 
+    @Test
+    public void uploadingApkWithPipelineWithInAppUpdatePrioritySucceeds() throws Exception{
+        // Given a step with in-app update priority
+        String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
+                "  trackName: 'production',\n"+
+                "  rolloutPercentage: '100',\n"+
+                "  inAppUpdatePriority: '1'";
+
+        uploadApkWithPipelineAndAssertSuccess(stepDefinition,
+                "Setting in-app update priority to 1");
+    }
+
+    @Test
+    public void uploadingWithPipelineWithInvalidInAppUpdatePriorityFails() throws Exception{
+        // Given a step with in-app update priority
+        // But whose value is not a valid integer
+        String stepDefinition = "androidApkUpload googleCredentialsId: 'test-credentials',\n" +
+                "  trackName: 'production',\n"+
+                "  rolloutPercentage: '100',\n"+
+                "  inAppUpdatePriority: 'fake'";
+
+        // When a build occurs, it should roll out to that percentage
+        uploadApkWithPipelineAndAssertFailure(
+                stepDefinition,
+                "'fake' is not a valid update priority"
+        );
+    }
+
     private void uploadApkWithPipelineAndAssertFailure(
         String stepDefinition, String... expectedLogLines
     ) throws Exception {

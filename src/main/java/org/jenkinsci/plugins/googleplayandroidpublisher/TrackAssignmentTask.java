@@ -25,8 +25,9 @@ class TrackAssignmentTask extends TrackPublisherTask<Boolean> {
     private final List<Long> versionCodes;
 
     TrackAssignmentTask(TaskListener listener, GoogleRobotCredentials credentials, String applicationId,
-                        Collection<Long> versionCodes, String trackName, double rolloutPercentage) {
-        super(listener, credentials, applicationId, trackName, rolloutPercentage);
+                        Collection<Long> versionCodes, String trackName, double rolloutPercentage,
+                        Integer inAppUpdatePriority) {
+        super(listener, credentials, applicationId, trackName, rolloutPercentage, inAppUpdatePriority);
         this.versionCodes = new ArrayList<>(versionCodes);
     }
 
@@ -82,6 +83,10 @@ class TrackAssignmentTask extends TrackPublisherTask<Boolean> {
             return false;
         }
 
+        if (inAppUpdatePriority != null) {
+            logger.println(String.format("Setting in-app update priority to %d", inAppUpdatePriority));
+        }
+
         // Attempt to locate any release notes already uploaded for these files, so we can assign them to the new track
         final Long latestVersion = versionCodes.stream().max(Long::compareTo).orElse(0L);
         List<LocalizedText> releaseNotes = editService.tracks().list(applicationId, editId).execute().getTracks()
@@ -96,7 +101,7 @@ class TrackAssignmentTask extends TrackPublisherTask<Boolean> {
             .orElse(null);
 
         // Assign the version codes to the configured track
-        TrackRelease release = Util.buildRelease(versionCodes, rolloutFraction, releaseNotes);
+        TrackRelease release = Util.buildRelease(versionCodes, rolloutFraction, inAppUpdatePriority, releaseNotes);
         assignAppFilesToTrack(trackName, rolloutFraction, release);
 
         // Commit the changes

@@ -83,6 +83,11 @@ public abstract class GooglePlayBuildStepDescriptor<T extends BuildStep & Descri
         return listBox;
     }
 
+    public ComboBoxModel doFillTrackNameItems() {
+        // Auto-complete the default track names, though users can also enter custom track names
+        return new ComboBoxModel("internal", "alpha", "beta", "production");
+    }
+
     public FormValidation doCheckTrackName(@QueryParameter String value) {
         if (fixEmptyAndTrim(value) == null) {
             return FormValidation.error("A release track is required");
@@ -90,6 +95,7 @@ public abstract class GooglePlayBuildStepDescriptor<T extends BuildStep & Descri
         return FormValidation.ok();
     }
 
+    @SuppressWarnings("ConstantConditions")
     @SuppressFBWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     public FormValidation doCheckRolloutPercentage(@QueryParameter String value) {
         value = fixEmptyAndTrim(value);
@@ -107,9 +113,19 @@ public abstract class GooglePlayBuildStepDescriptor<T extends BuildStep & Descri
         return FormValidation.ok();
     }
 
-    public ComboBoxModel doFillTrackNameItems() {
-        // Auto-complete the default track names, though users can also enter custom track names
-        return new ComboBoxModel("internal", "alpha", "beta", "production");
+    @SuppressWarnings("ConstantConditions")
+    @SuppressFBWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
+    public FormValidation doCheckInAppUpdatePriority(@QueryParameter String value) {
+        value = fixEmptyAndTrim(value);
+        if (value == null || value.matches(REGEX_VARIABLE)) {
+            return FormValidation.ok();
+        }
+
+        int priority = tryParseNumber(value.trim(), -1).intValue();
+        if (priority < 0 || priority > 5) {
+            return FormValidation.error("Priority value must be between 0 and 5");
+        }
+        return FormValidation.ok();
     }
 
     public boolean isApplicable(Class<? extends AbstractProject> c) {

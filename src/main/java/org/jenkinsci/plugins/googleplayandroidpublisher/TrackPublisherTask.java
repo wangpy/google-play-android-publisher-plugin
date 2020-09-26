@@ -14,13 +14,15 @@ abstract class TrackPublisherTask<V> extends AbstractPublisherTask<V> {
     protected final String applicationId;
     protected String trackName;
     protected final double rolloutFraction;
+    protected final Integer inAppUpdatePriority;
 
     TrackPublisherTask(TaskListener listener, GoogleRobotCredentials credentials, String applicationId,
-                       String trackName, double rolloutPercentage) {
+                       String trackName, double rolloutPercentage, Integer inAppUpdatePriority) {
         super(listener, credentials);
         this.applicationId = applicationId;
         this.trackName = trackName;
         this.rolloutFraction = rolloutPercentage / 100d;
+        this.inAppUpdatePriority = inAppUpdatePriority;
     }
 
     /**
