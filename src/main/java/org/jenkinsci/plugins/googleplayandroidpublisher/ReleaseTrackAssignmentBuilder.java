@@ -230,16 +230,15 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
         return expand(getInAppUpdatePriority());
     }
 
+    @SuppressWarnings("ConstantConditions")
+    @SuppressFBWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     private Integer getExpandedInAppUpdatePriority() throws IOException, InterruptedException {
-        try {
-            String value = getExpandedInAppUpdatePriorityString();
-            if (value != null) {
-                return Integer.parseInt(value.trim());
-            }
-            return null;
-        } catch (NumberFormatException e) {
+        String prioStr = getExpandedInAppUpdatePriorityString();
+        int priority = tryParseNumber(prioStr, Integer.MIN_VALUE).intValue();
+        if (priority == Integer.MIN_VALUE) {
             return null;
         }
+        return priority;
     }
 
     private boolean isConfigValid(PrintStream logger) throws IOException, InterruptedException {
@@ -269,14 +268,9 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
             }
         }
 
-        // Check if inAppUpdatePriority is a valid number if not null
-        if (inAppUpdatePriority != null) {
-            String expandedInAppUpdatePriorityStr = getExpandedInAppUpdatePriorityString();
-            try {
-                Integer.parseInt(expandedInAppUpdatePriorityStr);
-            } catch (NumberFormatException e) {
-                errors.add(String.format("'%s' is not a valid inAppUpdatePriority", expandedInAppUpdatePriorityStr));
-            }
+        // Check whether in-app priority could be parsed to a number
+        if (getExpandedInAppUpdatePriorityString() != null && getExpandedInAppUpdatePriority() == null) {
+            errors.add(String.format("'%s' is not a valid update priority", getExpandedInAppUpdatePriorityString()));
         }
 
         // Print accumulated errors

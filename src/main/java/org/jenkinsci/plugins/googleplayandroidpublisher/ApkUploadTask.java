@@ -176,7 +176,7 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
         }
 
         if (inAppUpdatePriority != null) {
-            logger.println(String.format("Set inAppUpdatePriority to %d", inAppUpdatePriority));
+            logger.println(String.format("Setting in-app update priority to %d", inAppUpdatePriority));
         }
 
         // Assign all uploaded app files to the configured track

@@ -328,7 +328,7 @@ public class ReleaseTrackAssignmentBuilderTest {
 
         // When a build occurs
         // Then it should fail as inAppUpdatePriority is invalid
-        moveApkTrackWithPipelineAndAssertFailure(stepDefinition, "'fake' is not a valid inAppUpdatePriority");
+        moveApkTrackWithPipelineAndAssertFailure(stepDefinition, "'fake' is not a valid update priority");
     }
 
     @Test
@@ -373,7 +373,7 @@ public class ReleaseTrackAssignmentBuilderTest {
         moveApkTrackWithPipelineAndAssertSuccess(
             stepDefinition,
                 "Setting rollout to target 100% of 'production' track users",
-                "Set inAppUpdatePriority to 2"
+                "Setting in-app update priority to 2"
         );
     }
 

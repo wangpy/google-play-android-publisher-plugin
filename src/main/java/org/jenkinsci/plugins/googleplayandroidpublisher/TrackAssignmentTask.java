@@ -84,7 +84,7 @@ class TrackAssignmentTask extends TrackPublisherTask<Boolean> {
         }
 
         if (inAppUpdatePriority != null) {
-            logger.println(String.format("Set inAppUpdatePriority to %d", inAppUpdatePriority));
+            logger.println(String.format("Setting in-app update priority to %d", inAppUpdatePriority));
         }
 
         // Attempt to locate any release notes already uploaded for these files, so we can assign them to the new track

@@ -162,7 +162,7 @@ public class ApkPublisherTest {
                 "  inAppUpdatePriority: '1'";
 
         uploadApkWithPipelineAndAssertSuccess(stepDefinition,
-                "Set inAppUpdatePriority to 1");
+                "Setting in-app update priority to 1");
     }
 
     @Test
@@ -175,7 +175,7 @@ public class ApkPublisherTest {
         // When a build occurs, it should roll out to that percentage
         uploadApkWithPipelineAndAssertFailure(
                 stepDefinition,
-                "'fake' is not a valid inAppUpdatePriority"
+                "'fake' is not a valid update priority"
         );
     }
 
