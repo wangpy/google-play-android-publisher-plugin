@@ -10,6 +10,7 @@ Enables Jenkins to manage and upload Android app files (AAB or APK) to Google Pl
 - Uploading Android App Bundle (AAB) or APK files to Google Play
   - This includes apps which use Multiple APK support
   - ProGuard `mapping.txt` files can also be associated with each app file, for deobfuscating stacktraces
+  - The update priority can also be set, if using [in-app updates][gp-docs-inappupdates]
 -  Uploading APK expansion (.obb) files
    - With the option to re-use expansion files from existing APKs, e.g. for patch releases
 - Assigning apps to internal, alpha, beta, production, or custom release tracks
@@ -22,7 +23,6 @@ Enables Jenkins to manage and upload Android app files (AAB or APK) to Google Pl
 -  Every configuration field supports variable and [token][plugin-token-macro] expansion, allowing release notes to be dynamically generated, for example
 - Integration with the [Google OAuth Credentials Plugin][plugin-google-oauth], so that Google Play credentials can be entered once globally, stored securely, and shared between jobs
   - Multiple Google Play accounts are also supported via this mechanism
-- Set the inAppUpdatePriority
 
 ## Requirements
 ### Jenkins
@@ -147,9 +147,8 @@ The following job setup process is demonstrated in this video:
    - If 0% is entered, the given file(s) will be uploaded as a draft release, leaving any existing rollout unaffected
 8. Optionally choose "Add language" to associate release notes with the uploaded APK(s)
    - You add entries for as many or as few of your supported language as you wish, but each language must already have been added to your app, under the "Store Listing" section in the Google Play Developer Console.
-9. Optionally specify [inAppUpdatePriority][gp-docs-inappupdatepriority]
-   - If nothing is entered, nothing it uses the default value of Google Play API
-   - This should be a valid Integer
+9. Optionally specify an [in-app update priority][gp-docs-inappupdatepriority]
+   - If nothing is entered, the default value (0, lowest priority) will be set by Google Play
 
 ###### APK expansion files
 You can optionally add up to two [expansion files][gp-docs-expansions] (main + patch) for each APK being uploaded.
@@ -191,7 +190,7 @@ The `androidApkUpload` build step lets you upload Android App Bundle (AAB) or AP
 | expansionFilesPattern              | string  | `'**/*.obb'`           | (none)                                                   | Comma-separated glob patterns or filenames pointing to expansion files to associate with the uploaded APK files        |
 | usePreviousExpansion<br>FilesIfMissing | boolean | `false`            | `true`                                                   | Whether to re-use the existing expansion files that have already been uploaded to Google Play for this app, if any expansion files are missing |
 | recentChangeList                   | list    | (see below)            | (empty)                                                  | List of recent change texts to associate with the upload app files                                                     |
-| inAppUpdatePriority                | string  | `'1'`                  | (none)                                                   | Priority used for In-App update feature                                                                                |
+| inAppUpdatePriority                | string  | `'1'`                  | `'0'`                                                    | Priority of this release, used by the Google Play Core in-app update feature                                           |
 
 The only mandatory parameters are `googlePlayCredentialsId` and `trackName`, e.g.:
 ```groovy
@@ -236,7 +235,7 @@ The `androidApkMove` build step lets you move existing Android app versions to a
 | applicationId           | string  | `'com.example.app'`    | (none)                                                   | The application ID of the app to update                                                                                         |
 | versionCodes            | string  | `'1281, 1282, 1283'`   | (none)                                                   | Comma-separated list of version codes to set on the given release track                                                         |
 | filesPattern            | string  | `'release/my-app.aab'` | `'**/build/outputs/**/*.aab, **/build/outputs/**/*.apk'` | Comma-separated glob patterns or filenames pointing to the files from which the application ID and version codes should be read |
-| inAppUpdatePriority     | string  | `'1'`                  | (none)                                                   | Priority used for In-App update feature                                                                                         |
+| inAppUpdatePriority     | string  | `'1'`                  | `'0'`                                                    | Priority of this release, used by the Google Play Core in-app update feature                                           |
 
 The `googlePlayCredentialsId` and `trackName` parameters are mandatory, plus either an application ID and version code(s), or AAB or APK file(s) to read this information from.
 
@@ -357,9 +356,10 @@ See [CHANGELOG.md][changelog].
 [gp-console-admin]:https://play.google.com/apps/publish/#AdminPlace
 [gp-docs-distribute]:https://developer.android.com/distribute/best-practices/launch
 [gp-docs-expansions]:https://developer.android.com/google/play/expansion-files.html
+[gp-docs-inappupdatepriority]:https://developer.android.com/guide/playcore/in-app-updates#check-priority
+[gp-docs-inappupdates]:https://developer.android.com/guide/playcore/in-app-updates
 [gp-docs-rollout]:https://support.google.com/googleplay/android-developer/answer/6346149
 [gp-support-form]:https://support.google.com/googleplay/android-developer/contact/publishing?extra.IssueType=submitting&hl=en&ec=publish&cfsi=publish_cf&cfnti=escalationflow.email&cft=3&rd=1
-[gp-docs-inappupdatepriority]:https://developer.android.com/guide/playcore/in-app-updates?authuser=2#check-priority
 [issues-existing]:https://issues.jenkins-ci.org/issues/?jql=project%20%3D%20JENKINS%20AND%20component%20%3D%20google-play-android-publisher-plugin%20AND%20status%20NOT%20IN(Closed%2C%20Resolved)%20ORDER%20BY%20updated%20DESC
 [issues-report]:http://jenkins.io/redirect/report-an-issue
 [jenkins-behind-proxy]:https://wiki.jenkins.io/display/JENKINS/JenkinsBehindProxy#JenkinsBehindProxy-HowJenkinshandlesProxyServers
