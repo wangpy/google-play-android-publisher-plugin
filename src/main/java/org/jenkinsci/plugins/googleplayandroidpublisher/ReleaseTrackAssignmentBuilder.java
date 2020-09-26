@@ -143,19 +143,12 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
             this.rolloutPercentage = percentage;
             return;
         }
-        this.rolloutPercentage = pct.intValue() == DescriptorImpl.defaultRolloutPercentage ? null : pctStr;
+        this.rolloutPercentage = pctStr;
     }
 
-    @Nonnull
+    @Nullable
     public String getRolloutPercentage() {
-        String pct = fixEmptyAndTrim(rolloutPercentage);
-        if (pct == null) {
-            pct = String.valueOf(ApkPublisher.DescriptorImpl.defaultRolloutPercentage);
-        }
-        if (!pct.endsWith("%") && !pct.matches(REGEX_VARIABLE)) {
-            pct += "%";
-        }
-        return pct;
+        return fixEmptyAndTrim(rolloutPercentage);
     }
 
     // Required for Pipeline builds using the deprecated `rolloutPercent` option
@@ -213,17 +206,19 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
         return expand(getTrackName());
     }
 
+    @Nullable
     private String getExpandedRolloutPercentageString() throws IOException, InterruptedException {
         return expand(getRolloutPercentage());
     }
 
+    @SuppressWarnings("ConstantConditions")
+    @SuppressFBWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     private double getExpandedRolloutPercentage() throws IOException, InterruptedException {
-        try {
-            String value = getExpandedRolloutPercentageString().replace("%", "").trim();
-            return Double.parseDouble(value);
-        } catch (NumberFormatException e) {
+        final String pctStr = getExpandedRolloutPercentageString();
+        if (pctStr == null) {
             return Double.NaN;
         }
+        return tryParseNumber(pctStr.replace("%", "").trim(), Double.NaN).doubleValue();
     }
 
     private String getExpandedInAppUpdatePriorityString() throws IOException, InterruptedException {
@@ -260,11 +255,16 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
         final String trackName = getCanonicalTrackName();
         if (trackName == null) {
             errors.add("Release track was not specified; this is now a mandatory parameter");
+        }
+
+        // Check for valid rollout percentage
+        final String pctStr = getExpandedRolloutPercentageString();
+        if (pctStr == null) {
+            errors.add("Rollout percentage was not specified; this is now a mandatory parameter");
         } else {
-            // Check for valid rollout percentage
             double pct = getExpandedRolloutPercentage();
             if (Double.isNaN(pct) || Double.compare(pct, 0) < 0 || Double.compare(pct, 100) > 0) {
-                errors.add(String.format("'%s' is not a valid rollout percentage", getExpandedRolloutPercentageString()));
+                errors.add(String.format("'%s' is not a valid rollout percentage", pctStr));
             }
         }
 
@@ -395,7 +395,6 @@ public class ReleaseTrackAssignmentBuilder extends GooglePlayBuilder {
     @Extension
     public static final class DescriptorImpl extends GooglePlayBuildStepDescriptor<Builder> {
         public static final String defaultFilesPattern = "**/build/outputs/**/*.aab, **/build/outputs/**/*.apk";
-        public static final int defaultRolloutPercentage = 100;
 
         public String getDisplayName() {
             return "Move Android apps to a different release track";

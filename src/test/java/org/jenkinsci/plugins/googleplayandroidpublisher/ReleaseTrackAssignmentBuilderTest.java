@@ -140,6 +140,62 @@ public class ReleaseTrackAssignmentBuilderTest {
     }
 
     @Test
+    public void movingApkTrackWithoutRolloutPercentageFails() throws Exception {
+        // Given a job where the rollout percentage is not provided
+        FreeStyleProject p = j.createFreeStyleProject();
+        ReleaseTrackAssignmentBuilder builder = new ReleaseTrackAssignmentBuilder();
+        setUpCredentials("test-credentials");
+        builder.setGoogleCredentialsId("test-credentials");
+        builder.setApplicationId("org.jenkins.appId");
+        builder.setVersionCodes("42");
+        builder.setTrackName("production");
+
+        p.getBuildersList().add(builder);
+
+        // And the prerequisites are in place
+        setUpCredentials("test-credentials");
+        setUpTransportForSuccess();
+
+        // When a build occurs
+        // Then it should fail as the rollout percentage has not been specified
+        assertResultWithLogLines(j, p, Result.FAILURE, "Rollout percentage was not specified");
+    }
+
+    @Test
+    public void movingApkTrackWithEmptyRolloutPercentageFails() throws Exception {
+        // Given a job where the percentage is empty (e.g. saved without entering a value, or an empty parameter value)
+        FreeStyleProject p = j.createFreeStyleProject();
+        ReleaseTrackAssignmentBuilder builder = createBuilder();
+        builder.setRolloutPercentage("");
+        p.getBuildersList().add(builder);
+
+        // And the prerequisites are in place
+        setUpCredentials("test-credentials");
+        setUpTransportForSuccess();
+
+        // When a build occurs
+        // Then it should fail as the rollout percentage has not been specified
+        assertResultWithLogLines(j, p, Result.FAILURE, "Rollout percentage was not specified");
+    }
+
+    @Test
+    public void movingApkTrackWithInvalidRolloutPercentageFails() throws Exception {
+        // Given a job where the rollout percentage can't be parsed
+        FreeStyleProject p = j.createFreeStyleProject();
+        ReleaseTrackAssignmentBuilder builder = createBuilder();
+        builder.setRolloutPercentage("everyone");
+        p.getBuildersList().add(builder);
+
+        // And the prerequisites are in place
+        setUpCredentials("test-credentials");
+        setUpTransportForSuccess();
+
+        // When a build occurs
+        // Then it should fail as the rollout percentage is not valid
+        assertResultWithLogLines(j, p, Result.FAILURE, "'everyone' is not a valid rollout percentage");
+    }
+
+    @Test
     public void moveApkTrack_whenVersionCodeDoesNotExist_buildFails() throws Exception {
         transport
                 .withResponse("/edits",
@@ -324,7 +380,8 @@ public class ReleaseTrackAssignmentBuilderTest {
     public void movingApkTrackWithPipelineWithInvalidInAppUpdatePriorityFails() throws Exception {
         // Given a Pipeline where the inAppUpdatePriority is not provided
         String stepDefinition = "androidApkMove googleCredentialsId: 'test-credentials',\n" +
-                "inAppUpdatePriority: 'fake'";
+                "  rolloutPercentage: '100',\n"+
+                "  inAppUpdatePriority: 'fake'";
 
         // When a build occurs
         // Then it should fail as inAppUpdatePriority is invalid
@@ -332,7 +389,8 @@ public class ReleaseTrackAssignmentBuilderTest {
     }
 
     @Test
-    public void moveApkTrackWithPipeline_succeeds() throws Exception {
+    public void movingApkTrackWithPipelineWithoutRolloutPercentageFails() throws Exception {
+        // Given a Pipeline where the rollout percentage is not provided
         String stepDefinition =
             "  androidApkMove googleCredentialsId: 'test-credentials',\n" +
             "    trackName: 'production',\n" +
@@ -340,24 +398,25 @@ public class ReleaseTrackAssignmentBuilderTest {
             "    applicationId: 'org.jenkins.appId',\n" +
             "    versionCodes: '42'";
 
-        moveApkTrackWithPipelineAndAssertSuccess(
-            stepDefinition, "Setting rollout to target 100% of 'production' track users"
-        );
+        // When a build occurs
+        // Then it should fail as the track name has not been specified
+        moveApkTrackWithPipelineAndAssertFailure(stepDefinition, "Rollout percentage was not specified");
     }
 
     @Test
-    public void moveApkTrackWithPipeline_succeeds_without_inAppUpdatePriority() throws Exception {
+    public void movingApkTrackWithPipelineWithEmptyRolloutPercentageFails() throws Exception {
+        // Given a Pipeline where the rollout percentage is empty
         String stepDefinition =
             "  androidApkMove googleCredentialsId: 'test-credentials',\n" +
             "    trackName: 'production',\n" +
             "    fromVersionCode: true,\n" +
             "    applicationId: 'org.jenkins.appId',\n" +
-            "    versionCodes: '42'";
+            "    versionCodes: '42',\n" +
+            "    rolloutPercentage: ''";
 
-        moveApkTrackWithPipelineAndAssertSuccess(
-            stepDefinition,
-                "Setting rollout to target 100% of 'production' track users"
-        );
+        // When a build occurs
+        // Then it should fail as the track name has not been specified
+        moveApkTrackWithPipelineAndAssertFailure(stepDefinition, "Rollout percentage was not specified");
     }
 
     @Test
@@ -368,6 +427,7 @@ public class ReleaseTrackAssignmentBuilderTest {
             "    fromVersionCode: true,\n" +
             "    applicationId: 'org.jenkins.appId',\n" +
             "    versionCodes: '42',\n" +
+            "    rolloutPercentage: '100',\n"+
             "    inAppUpdatePriority: '2'\n";
 
         moveApkTrackWithPipelineAndAssertSuccess(
@@ -378,19 +438,17 @@ public class ReleaseTrackAssignmentBuilderTest {
     }
 
     @Test
-    public void moveApkTrackWithPipeline_withRolloutPercentage() throws Exception {
-        // Given a step with a `rolloutPercentage` value
+    public void moveApkTrackWithPipeline_succeeds() throws Exception {
         String stepDefinition =
-            "androidApkMove googleCredentialsId: 'test-credentials',\n" +
-            "  trackName: 'production',\n" +
-            "  fromVersionCode: true,\n" +
-            "  applicationId: 'org.jenkins.appId',\n" +
-            "  versionCodes: '42',\n" +
-            "  rolloutPercentage: '56.789'";
+            "  androidApkMove googleCredentialsId: 'test-credentials',\n" +
+            "    trackName: 'production',\n" +
+            "    fromVersionCode: true,\n" +
+            "    applicationId: 'org.jenkins.appId',\n" +
+            "    versionCodes: '42',\n" +
+            "    rolloutPercentage: '100'";
 
-        // When a build occurs, it should roll out to that percentage
         moveApkTrackWithPipelineAndAssertSuccess(
-            stepDefinition, "Setting rollout to target 56.789% of 'production' track users"
+            stepDefinition, "Setting rollout to target 100% of 'production' track users"
         );
     }
 
