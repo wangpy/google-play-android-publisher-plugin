@@ -319,6 +319,18 @@ public class ReleaseTrackAssignmentBuilderTest {
         moveApkTrackWithPipelineAndAssertFailure(stepDefinition, "Release track was not specified");
     }
 
+
+    @Test
+    public void movingApkTrackWithPipelineWithInvalidInAppUpdatePriorityFails() throws Exception {
+        // Given a Pipeline where the inAppUpdatePriority is not provided
+        String stepDefinition = "androidApkMove googleCredentialsId: 'test-credentials',\n" +
+                "inAppUpdatePriority: 'fake'";
+
+        // When a build occurs
+        // Then it should fail as inAppUpdatePriority is invalid
+        moveApkTrackWithPipelineAndAssertFailure(stepDefinition, "'fake' is not a valid update priority");
+    }
+
     @Test
     public void moveApkTrackWithPipeline_succeeds() throws Exception {
         String stepDefinition =
@@ -330,6 +342,38 @@ public class ReleaseTrackAssignmentBuilderTest {
 
         moveApkTrackWithPipelineAndAssertSuccess(
             stepDefinition, "Setting rollout to target 100% of 'production' track users"
+        );
+    }
+
+    @Test
+    public void moveApkTrackWithPipeline_succeeds_without_inAppUpdatePriority() throws Exception {
+        String stepDefinition =
+            "  androidApkMove googleCredentialsId: 'test-credentials',\n" +
+            "    trackName: 'production',\n" +
+            "    fromVersionCode: true,\n" +
+            "    applicationId: 'org.jenkins.appId',\n" +
+            "    versionCodes: '42'";
+
+        moveApkTrackWithPipelineAndAssertSuccess(
+            stepDefinition,
+                "Setting rollout to target 100% of 'production' track users"
+        );
+    }
+
+    @Test
+    public void moveApkTrackWithPipeline_succeeds_with_inAppUpdatePriority() throws Exception {
+        String stepDefinition =
+            "  androidApkMove googleCredentialsId: 'test-credentials',\n" +
+            "    trackName: 'production',\n" +
+            "    fromVersionCode: true,\n" +
+            "    applicationId: 'org.jenkins.appId',\n" +
+            "    versionCodes: '42',\n" +
+            "    inAppUpdatePriority: '2'\n";
+
+        moveApkTrackWithPipelineAndAssertSuccess(
+            stepDefinition,
+                "Setting rollout to target 100% of 'production' track users",
+                "Setting in-app update priority to 2"
         );
     }
 

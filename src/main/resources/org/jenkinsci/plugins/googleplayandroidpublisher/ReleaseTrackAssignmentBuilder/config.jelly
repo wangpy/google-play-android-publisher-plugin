@@ -38,4 +38,9 @@
     <f:textbox style="width:15em" default="${descriptor.defaultRolloutPercentage}%" />
   </f:entry>
 
+  <f:entry title="${%In-app update priority}" field="inAppUpdatePriority"
+      description="${%Optional; defaults to 0 if not set}">
+    <f:textbox style="width:15em" />
+  </f:entry>
+
 </j:jelly>

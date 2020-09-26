@@ -60,6 +60,7 @@ public class ApkPublisher extends GooglePlayPublisher {
     private String trackName;
     private String rolloutPercentage;
     private RecentChanges[] recentChangeList;
+    private String inAppUpdatePriority;
 
     // This field was used before AAB support was introduced; it will be migrated to `filesPattern` for Freestyle jobs
     @Deprecated private transient String apkFilesPattern;
@@ -219,6 +220,16 @@ public class ApkPublisher extends GooglePlayPublisher {
         return recentChangeList;
     }
 
+    @DataBoundSetter
+    public void setInAppUpdatePriority(@Nullable String priorityStr) {
+        this.inAppUpdatePriority = priorityStr;
+    }
+
+    @Nullable
+    public String getInAppUpdatePriority() {
+        return fixEmptyAndTrim(inAppUpdatePriority);
+    }
+
     private String getExpandedFilesPattern() throws IOException, InterruptedException {
         return expand(getFilesPattern());
     }
@@ -260,6 +271,21 @@ public class ApkPublisher extends GooglePlayPublisher {
         return expanded;
     }
 
+    private String getExpandedInAppUpdatePriorityString() throws IOException, InterruptedException {
+        return expand(getInAppUpdatePriority());
+    }
+
+    @SuppressWarnings("ConstantConditions")
+    @SuppressFBWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
+    private Integer getExpandedInAppUpdatePriority() throws IOException, InterruptedException {
+        String prioStr = getExpandedInAppUpdatePriorityString();
+        int priority = tryParseNumber(prioStr, Integer.MIN_VALUE).intValue();
+        if (priority == Integer.MIN_VALUE) {
+            return null;
+        }
+        return priority;
+    }
+
     private boolean isConfigValid(PrintStream logger) throws IOException, InterruptedException {
         final List<String> errors = new ArrayList<>();
 
@@ -278,6 +304,11 @@ public class ApkPublisher extends GooglePlayPublisher {
             if (Double.isNaN(pct) || Double.compare(pct, 0) < 0 || Double.compare(pct, 100) > 0) {
                 errors.add(String.format("'%s' is not a valid rollout percentage", getExpandedRolloutPercentageString()));
             }
+        }
+
+        // Check whether in-app priority could be parsed to a number
+        if (getExpandedInAppUpdatePriorityString() != null && getExpandedInAppUpdatePriority() == null) {
+            errors.add(String.format("'%s' is not a valid update priority", getExpandedInAppUpdatePriorityString()));
         }
 
         // Print accumulated errors
@@ -497,7 +528,7 @@ public class ApkPublisher extends GooglePlayPublisher {
             GoogleRobotCredentials credentials = getCredentialsHandler().getServiceAccountCredentials(run.getParent());
             return workspace.act(new ApkUploadTask(listener, credentials, applicationId, workspace, validFiles,
                     expansionFiles, usePreviousExpansionFilesIfMissing, getCanonicalTrackName(),
-                    getExpandedRolloutPercentage(), getExpandedRecentChangesList()));
+                    getExpandedRolloutPercentage(), getExpandedRecentChangesList(), getExpandedInAppUpdatePriority()));
         } catch (UploadException e) {
             logger.println(String.format("Upload failed: %s", getPublisherErrorMessage(e)));
             logger.println("No changes have been applied to the Google Play account");
