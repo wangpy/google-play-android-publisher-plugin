@@ -136,9 +136,11 @@ The following job setup process is demonstrated in this video:
    - This can be a glob pattern, e.g. `'build/**/*-release.apk'`, or a filename, both relative to the root of the workspace
    - Multiple patterns or filenames can be entered, if separated by commas
    - If nothing is entered, the default is `'**/build/outputs/**/*.aab, **/build/outputs/**/*.apk'`
-6. Choose the track to which the files should be deployed
-7. Specify a [rollout percentage][gp-docs-rollout]
-   - If 100% is entered, the app will be immediately rolled out to all users
+6. Enter the release track to which the files should be assigned
+   - This can be a built-in track like `'production'`, a testing track like `'beta'`, or a custom track name
+   - Note that custom track names are case-sensitive (though the plugin will attempt to determine the correct track)
+7. Specify a [rollout percentage][gp-docs-rollout] between 0 and 100%
+   - If 100% is entered, the app will be immediately rolled out to all users on the chosen release track
    - If 0% is entered, the given file(s) will be uploaded as a draft release, leaving any existing rollout unaffected
 8. Optionally specify an [in-app update priority][gp-docs-inappupdatepriority]
    - If nothing is entered, the default value (0, lowest priority) will be set by Google Play
@@ -169,7 +171,7 @@ As of version 1.5, this plugin supports the [Pipeline Plugin][plugin-pipeline] s
 
 You can generate the required Pipeline syntax via the [Snippet Generator][snippets-blog], but some examples follow.
 
-Note that you should avoid using these steps in a `parallel` block, as the Google Play API only allows one concurrent "edit session" to be open at a time.
+Note that you should avoid using multiple instances of these steps in a `parallel` block, as the Google Play API only allows one concurrent "edit session" to be open at a time.
 
 ##### Uploading app bundles or APKs
 The `androidApkUpload` build step lets you upload Android App Bundle (AAB) or APK files.
