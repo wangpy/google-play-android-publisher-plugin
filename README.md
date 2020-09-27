@@ -33,34 +33,30 @@ For the initial setup only, you must have access to the Google account which own
 
 This is required to enable API access from Jenkins to your Google Play account.
 
-Note that having admin access is not enough; you need the account owner.  
-You can see who the account owner is under [Settings → User accounts & rights][gp-console-admin] in the Google Play developer console.
+Note that having admin access to the Google Play Console is not enough; you need the account owner.  
+You can see who the account owner is under [Settings → Developer account → Account details][gp-console-account-details] in the Google Play Console.
 
 ### Please note
 - The app being uploaded must already exist in Google Play; you cannot use the API to upload brand new apps
 
 #### Bundle size warnings
-If you try to upload an AAB file to Google Play (including manually via the Google Play Developer Console), and its size is perhaps 100MB+, it may give you a warning:
+If you try to upload an AAB file to Google Play (including manually via the Google Play Console), and its size is perhaps 100MB+, it [may][gp-apidocs-upload-params] give you a warning:
 > The installation of the app bundle may be too large and trigger user warning on some devices […] this needs to be explicitly acknowledged
 
-Unfortunately, this "user warning" that may be shown, presumably when a user installs your app from Google Play, does not appear to be documented.  
-This plugin automatically "acknowledges" that warning on Google Play on your behalf when uploading any AAB files, regardless of their size, so you should not see any errors.
+Unfortunately, this "user warning" that may be shown, presumably when a user installs your app from Google Play, does not appear to be documented. Therefore this plugin automatically "acknowledges" that warning on Google Play on your behalf when uploading any AAB files, regardless of their size, so you should not see any errors.
 
 If you _do_ see see any unexpected behaviour related to uploading bundles, or warnings appearing for end users, please [let us know](#feedback).
 
 ## Setup
 ### One-time: Set up Google Play credentials
-The following initial setup process is demonstrated in this video: [https://www.youtube.com/watch?v=txdPSJF94RM][demo-video-creds] (note that Google has changed the Google API Console (at least twice) since this video was recorded; steps 3–13 in the "Create Google service account" section below have the updated info)
-
-#### Install plugin
-Install this plugin via the Jenkins plugin manager.  
-Or if installing the plugin via other means, ensure that the prerequisite [Google OAuth Credentials Plugin][plugin-google-oauth], [Token Macro Plugin][plugin-token-macro] and their dependencies are also installed.
+Once you have this plugin installed, the following initial setup process is demonstrated in this video: [https://www.youtube.com/watch?v=txdPSJF94RM][demo-video-creds] (note that Google has changed the Google API Console (at least twice) since this video was recorded; steps 3–13 in the "Create Google service account" section below have the updated info).
 
 #### Create Google service account
 To enable automated access to your Google Play account, you must create a service account:
 
-1.  Sign in to the [Google Play developer console][gp-console] as the account owner
-2.  Select Settings → Developer account → API access
+1.  Sign in to the [Google Play Console][gp-console] as the developer account owner
+    - You can determine the account owner on the [Account details][gp-console-account-details] page
+2.  Select [Settings → Developer account → API access][gp-console-api-access]
 3.  Under Service Accounts, click "Create Service Account"
 4.  Follow the link to the Google API Console
 5.  Click the "Create service account" button
@@ -75,7 +71,7 @@ To enable automated access to your Google Play account, you must create a servic
 14. You can now close the page
 
 #### Assign permissions to the service account
-1. Return to the Google Play developer console page
+1. Return to the Google Play Console page
 2. Click "Done" on the dialog
 3. Note that the service account has been associated with the Google Play publisher account  
    If it hasn't, follow these additional steps before continuing:
@@ -87,7 +83,7 @@ To enable automated access to your Google Play account, you must create a servic
 5.  Ensure that at least the following permissions are enabled:
     - **View app information** — this is required for the plugin to function
     - **Manage production releases** — optional, if you want to upload APKs to production
-    - **Manage testing track releases** — if you want to upload APKs to alpha, beta, internal, or custom test tracks
+    - **Manage testing track releases** — optional, if you want to upload APKs to alpha, beta, internal, or custom test tracks
 6.  Click "Add user" (or "Send invitation", as appropriate)
 7.  You can now log out of the Google Play publisher account
 
@@ -103,7 +99,7 @@ To enable automated access to your Google Play account, you must create a servic
 8. Click "OK" to create the credential
 
 ##### Using Configuration as Code
-If you're using the [Configuration as Code plugin][plugin-jcasc] to set up your credentials automatically, you can do something like this, e.g.:
+If you're using the [Configuration as Code plugin][plugin-jcasc] to set up your credentials automatically, you can do something like this:
 ```yaml
 credentials:
   system:
@@ -127,7 +123,7 @@ Once you've set up a job (see the next section) and confirmed that uploading wor
 
 ### Per-job configuration
 #### Freestyle job configuration
-##### Uploading an APK
+##### Uploading app bundles or APKs
 The following job setup process is demonstrated in this video:
 [https://www.youtube.com/watch?v=iu-bLY9-jkc][demo-video-job]
 
@@ -140,15 +136,14 @@ The following job setup process is demonstrated in this video:
    - This can be a glob pattern, e.g. `'build/**/*-release.apk'`, or a filename, both relative to the root of the workspace
    - Multiple patterns or filenames can be entered, if separated by commas
    - If nothing is entered, the default is `'**/build/outputs/**/*.aab, **/build/outputs/**/*.apk'`
-6. Choose the track to which the APKs should be deployed
-   - If nothing is entered, the default is `'production'`
-7. Optionally specify a [rollout percentage][gp-docs-rollout]
-   - If nothing is entered, the default is to roll out to 100% of users
+6. Choose the track to which the files should be deployed
+7. Specify a [rollout percentage][gp-docs-rollout]
+   - If 100% is entered, the app will be immediately rolled out to all users
    - If 0% is entered, the given file(s) will be uploaded as a draft release, leaving any existing rollout unaffected
-8. Optionally choose "Add language" to associate release notes with the uploaded APK(s)
-   - You add entries for as many or as few of your supported language as you wish, but each language must already have been added to your app, under the "Store Listing" section in the Google Play Developer Console.
-9. Optionally specify an [in-app update priority][gp-docs-inappupdatepriority]
+8. Optionally specify an [in-app update priority][gp-docs-inappupdatepriority]
    - If nothing is entered, the default value (0, lowest priority) will be set by Google Play
+9. Optionally choose "Add language" to associate release notes with the uploaded file(s)
+   - You add entries for as many or as few of your supported language as you wish, but each language must already have been added to your app, under the "Store Listing" section in the Google Play Console.
 
 ###### APK expansion files
 You can optionally add up to two [expansion files][gp-docs-expansions] (main + patch) for each APK being uploaded.
@@ -176,12 +171,12 @@ You can generate the required Pipeline syntax via the [Snippet Generator][snippe
 
 Note that you should avoid using these steps in a `parallel` block, as the Google Play API only allows one concurrent "edit session" to be open at a time.
 
-##### Uploading an AAB or APK
+##### Uploading app bundles or APKs
 The `androidApkUpload` build step lets you upload Android App Bundle (AAB) or APK files.
 
 | Parameter                          | Type    | Example                | Default                                                  | Description                                                                                                            |
 |------------------------------------|---------|------------------------|----------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
-| googlePlayCredentialsId            | string  | My Google Play account | (none)                                                   | Name of the Google Service Account credential created in Jenkins                                                       |
+| googlePlayCredentialsId            | string  | `'Google Play creds'`  | (none)                                                   | Name of the Google Service Account credential created in Jenkins                                                       |
 | filesPattern                       | string  | `'release/my-app.aab'` | `'**/build/outputs/**/*.aab, **/build/outputs/**/*.apk'` | Comma-separated glob patterns or filenames pointing to the app files to upload, relative to the root of the workspace  |
 | trackName                          | string  | `'internal'`           | (none)                                                   | Google Play track to which the app files should be published                                                           |
 | rolloutPercentage                  | string  | `'1.5'`                | (none)                                                   | The rollout percentage to set on the track; use 0% to create a draft release                                           |
@@ -208,11 +203,11 @@ androidApkUpload googleCredentialsId: 'My Google Play account',
                  trackName: 'dogfood',
                  rolloutPercentage: '25',
                  deobfuscationFilesPattern: '**/build/outputs/**/mapping.txt',
+                 inAppUpdatePriority: '2',
                  recentChangeList: [
                    [language: 'en-GB', text: "Please test the changes from Jenkins build ${env.BUILD_NUMBER}."],
                    [language: 'de-DE', text: "Bitte die Änderungen vom Jenkins Build ${env.BUILD_NUMBER} testen."]
-                 ],
-                 inAppUpdatePriority: '2'
+                 ]
 ```
 
 To upload APKs and their expansion files, reusing those from the previous upload where possible:
@@ -228,7 +223,7 @@ The `androidApkMove` build step lets you move existing Android app versions (whe
 
 | Parameter               | Type    | Example                | Default                                                  | Description                                                                                                                     |
 |-------------------------|---------|------------------------|----------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------|
-| googlePlayCredentialsId | string  | My Google Play account | (none)                                                   | Name of the Google Service Account credential created in Jenkins                                                                |
+| googlePlayCredentialsId | string  | `'Google Play creds'`  | (none)                                                   | Name of the Google Service Account credential created in Jenkins                                                                |
 | trackName               | string  | `'internal'`           | (none)                                                   | Google Play release track to update with the given app versions                                                                 |
 | rolloutPercentage       | string  | `'1.5'`                | (none)                                                   | The rollout percentage to set on the given release track; use 0% to create a draft release                                      |
 | ~rolloutPercent~<br>(deprecated) | number  | `1.5`         | (none)                                                   | (deprecated, but still supported; prefer `rolloutPercentage` instead — it takes priority if both are defined)                   |
@@ -255,7 +250,7 @@ androidApkMove googleCredentialsId: 'My Google Play account',
                trackName: 'beta',
                rolloutPercentage: '50',
                fromVersionCode: false,
-               apkFilesPattern: '**/*.apk'
+               filesPattern: '**/*.apk'
 ```
 
 Or, say the current production release is rolled out to 10% of users, and we want to expand the rollout to 25% of users:
@@ -281,13 +276,13 @@ In order to avoid unintentionally publishing to Production — if you forget to 
 
 If you have jobs configured without a track name, or without a `trackName` for Pipeline, you now need to set the track name to `'production'` to restore the previous behaviour.
 
-For similar reasons, the rollout percentage must be explicitly specified — it no longer defaults to 100%.
+For similar reasons, the rollout percentage, or `rolloutPercentage` for Pipeline, must be explicitly specified — it no longer defaults to 100%.
 
 Sorry for any inconvenience caused by this breaking change.
 
 ## Troubleshooting
 Error messages from the plugin (many of which come directly from the Google Play API) should generally be self-explanatory.  
-If you're having trouble getting a certain config to work, try uploading the same APKs manually to Google Play. There you'll likely see the reason for failure, e.g. a version code conflict or similar.
+If you're consistently having trouble getting a certain config to work, try uploading the same files manually to Google Play. There you'll likely see the reason for failure, e.g. a version code conflict or similar.
 
 Otherwise, please check the [existing bug reports][issues-existing], and [file a new bug report][issues-report] with details, including the build console log output, if necessary.
 
@@ -296,7 +291,7 @@ Some known error messages and their solutions are shown below:
 ### GoogleJsonResponseException: 401 Unauthorized
 This means that the Google service account does not have permission to make the changes that you requested.
 
-Make sure that you followed the setup instructions above, and confirm that the service account you are using in this Jenkins job has the appropriate permissions for the app that you are trying to change.
+Make sure that you followed the setup instructions above, and confirm that the service account you are using in this Jenkins job has the appropriate permissions in the Google Play Console for the app that you are trying to update.
 
 ### GoogleJsonResponseException: 500 Internal Server Error
 Unfortunately, the Google Play API sometimes is not particularly reliable, and will throw generic server errors for no apparent reason.
@@ -372,8 +367,10 @@ See [CHANGELOG.md][changelog].
 [changelog]:https://github.com/jenkinsci/google-play-android-publisher-plugin/blob/master/CHANGELOG.md
 [demo-video-creds]:https://www.youtube.com/watch?v=txdPSJF94RM&list=PLhF0STyfNdUk1R3taEmgFR30yzp41yuRK&index=1
 [demo-video-job]:https://www.youtube.com/watch?v=iu-bLY9-jkc&list=PLhF0STyfNdUk1R3taEmgFR30yzp41yuRK&index=2
-[gp-console]:https://play.google.com/apps/publish/
-[gp-console-admin]:https://play.google.com/apps/publish/#AdminPlace
+[gp-apidocs-upload-params]:https://developers.google.com/android-publisher/api-ref/rest/v3/edits.bundles/upload#query-parameters
+[gp-console]:https://play.google.com/console
+[gp-console-account-details]:https://play.google.com/console/developers/contact-details
+[gp-console-api-access]:https://play.google.com/console/developers/api-access
 [gp-docs-distribute]:https://developer.android.com/distribute/best-practices/launch
 [gp-docs-expansions]:https://developer.android.com/google/play/expansion-files.html
 [gp-docs-inappupdatepriority]:https://developer.android.com/guide/playcore/in-app-updates#check-priority
@@ -381,7 +378,7 @@ See [CHANGELOG.md][changelog].
 [gp-docs-rollout]:https://support.google.com/googleplay/android-developer/answer/6346149
 [gp-support-form]:https://support.google.com/googleplay/android-developer/contact/publishing?extra.IssueType=submitting&hl=en&ec=publish&cfsi=publish_cf&cfnti=escalationflow.email&cft=3&rd=1
 [issues-existing]:https://issues.jenkins-ci.org/issues/?jql=project%20%3D%20JENKINS%20AND%20component%20%3D%20google-play-android-publisher-plugin%20AND%20status%20NOT%20IN(Closed%2C%20Resolved)%20ORDER%20BY%20updated%20DESC
-[issues-report]:http://jenkins.io/redirect/report-an-issue
+[issues-report]:https://jenkins.io/redirect/report-an-issue
 [jenkins-behind-proxy]:https://wiki.jenkins.io/display/JENKINS/JenkinsBehindProxy#JenkinsBehindProxy-HowJenkinshandlesProxyServers
 [lts-changelog]:https://jenkins.io/changelog-stable#v2.164.3
 [plugin-google-oauth]:https://plugins.jenkins.io/google-oauth-plugin
