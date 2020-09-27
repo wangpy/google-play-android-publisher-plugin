@@ -17,7 +17,8 @@ For a minimally configured Pipeline job, these changes would look something like
 +                   trackName: 'production',
 +                   rolloutPercentage: '100'
 ```
-### Bug fixes 🐛
+
+### Bug fixes 🐛
 - Fixed inability to use Google Play credentials defined in a Folder ([JENKINS-56508](https://issues.jenkins-ci.org/browse/JENKINS-56508), [#27](https://github.com/jenkinsci/google-play-android-publisher-plugin/pull/27))
 - Fixed variables in rollout percentage configuration being ignored at build time ([JENKINS-62320](https://issues.jenkins-ci.org/browse/JENKINS-62320), [#28](https://github.com/jenkinsci/google-play-android-publisher-plugin/pull/28))
 - Fixed handling of certain AAB files to be more robust, e.g. those with a manifest obfuscated by tools like DexGuard ([JENKINS-63063](https://issues.jenkins-ci.org/browse/JENKINS-63063); thanks to [Silvan Fischer](https://github.com/silvanfischer))
