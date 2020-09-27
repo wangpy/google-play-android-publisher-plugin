@@ -1,5 +1,39 @@
 # Version history
 
+## 4.0
+September 27, 2020
+
+### Breaking changes ⚠️
+- Release track name is now mandatory in job configuration ([JENKINS-62398](https://issues.jenkins-ci.org/browse/JENKINS-62398), [#33](https://github.com/jenkinsci/google-play-android-publisher-plugin/pull/33))
+  - For jobs configured without a track name, or without a `trackName` for Pipeline, you must now set its value to `production` if you wish to retain the previous behaviour
+- Rollout percentage is now mandatory in job configuration ([JENKINS-62516](https://issues.jenkins-ci.org/browse/JENKINS-62516), [#36](https://github.com/jenkinsci/google-play-android-publisher-plugin/pull/36))
+  - For jobs configured without a rollout percentage, or without a `rolloutPercentage` for Pipeline, you must now set its value to `100` if you wish to retain the previous behaviour
+
+For a minimally configured Pipeline job, these changes would look something like this:
+```diff
+   // Upload and release immediately to 100% of users in Production
+-  androidApkUpload googlePlayCredentialsId: 'gp'
++  androidApkUpload googlePlayCredentialsId: 'gp',
++                   trackName: 'production',
++                   rolloutPercentage: '100'
+```
+### Bug fixes 🐛
+- Fixed inability to use Google Play credentials defined in a Folder ([JENKINS-56508](https://issues.jenkins-ci.org/browse/JENKINS-56508), [#27](https://github.com/jenkinsci/google-play-android-publisher-plugin/pull/27))
+- Fixed variables in rollout percentage configuration being ignored at build time ([JENKINS-62320](https://issues.jenkins-ci.org/browse/JENKINS-62320), [#28](https://github.com/jenkinsci/google-play-android-publisher-plugin/pull/28))
+- Fixed handling of certain AAB files to be more robust, e.g. those with a manifest obfuscated by tools like DexGuard ([JENKINS-63063](https://issues.jenkins-ci.org/browse/JENKINS-63063); thanks to [Silvan Fischer](https://github.com/silvanfischer))
+- Fixed incorrect error message details shown when desired ProGuard mapping files could not be found
+
+### New features ✨
+- Added the ability to use custom release tracks ([JENKINS-62404](https://issues.jenkins-ci.org/browse/JENKINS-62404), [#34](https://github.com/jenkinsci/google-play-android-publisher-plugin/pull/34))
+- Added the ability to prepare draft releases, by setting the rollout percentage to 0% ([JENKINS-40506](https://issues.jenkins-ci.org/browse/JENKINS-40506), [#30](https://github.com/jenkinsci/google-play-android-publisher-plugin/pull/30))
+- Ensured that release notes are now retained when assigning files to a new release track ([JENKINS-54479](https://issues.jenkins-ci.org/browse/JENKINS-54479), [#32](https://github.com/jenkinsci/google-play-android-publisher-plugin/pull/32))
+- Added the ability to optionally set the priority value for Google Play in-app updates ([#37](https://github.com/jenkinsci/google-play-android-publisher-plugin/pull/37); thanks to [Timothy](https://github.com/TimoPtr))
+- Added automated acknowledgement of the "bundle installation warning" when uploading large AAB files ([JENKINS-62389](https://issues.jenkins-ci.org/browse/JENKINS-62389), [#31](https://github.com/jenkinsci/google-play-android-publisher-plugin/pull/31); thanks to [Victor Antonovich](https://github.com/3cky))
+
+### Miscellaneous 🦆
+- Increased the minimum Jenkins version to 2.164.3
+- Added documentation for configuring Google Play credentials via [JCasC](https://plugins.jenkins.io/configuration-as-code/) ([JENKINS-61809](https://issues.jenkins-ci.org/browse/JENKINS-61809), [#29](https://github.com/jenkinsci/google-play-android-publisher-plugin/pull/29))
+
 ## 3.0
 December 2, 2019
 
