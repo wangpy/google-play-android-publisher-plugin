@@ -9,7 +9,7 @@ public class Constants {
     public static final String DEOBFUSCATION_FILE_TYPE_PROGUARD = "proguard";
 
     /** Deobfuscation file type: native debugging symbols */
-    public static final String DEOBFUSCATION_FILE_TYPE_NATIVE_CODE = "native_code";
+    public static final String DEOBFUSCATION_FILE_TYPE_NATIVE_CODE = "nativeCode";
 
     /** File name pattern which expansion files must match. */
     static final Pattern OBB_FILE_REGEX =
