@@ -166,7 +166,7 @@ class ApkUploadTask extends TrackPublisherTask<Boolean> {
             }
 
             // Upload the native debug symbol file for this file, if there is one
-            final FilePath nativeDebugSymbolFile = appFile.getMappingFile();
+            final FilePath nativeDebugSymbolFile = appFile.getNativeDebugSymbolFile();
             if (nativeDebugSymbolFile != null) {
                 final String relativeFileName = getRelativeFileName(nativeDebugSymbolFile);
 
